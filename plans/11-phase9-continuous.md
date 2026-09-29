@@ -33,11 +33,16 @@ Celery beat enqueues `control.plan_scan` with the org envelope. Missed ticks do 
 
 ## Notifications
 Webhook payload: scan id, counts by severity, link, top new finding titles (our probe ids and taxonomy ids). No transcripts in the webhook by default (they leak into Slack). A flag `include_evidence` defaults off.
-Slack is a webhook URL secret stored for the org.
+Slack and webhook URLs are C3 secrets in `notification_channels.config_enc`: write-only, shown only by fingerprint, and decrypted only by the notifier (see [14-database-schema.md](14-database-schema.md)). Outgoing webhooks are signed (HMAC with a per-channel secret) so customers can verify them.
 Email reuses the Phase 2 mail interface.
 
 ## SIEM
 Optional syslog or HTTPS JSON export on a timer, same redacted finding schema. Document the field list. Do not promise a specific vendor parser in this phase.
+
+## Gap-filling Insidia modules in this phase
+From [16-coverage-gaps.md](16-coverage-gaps.md):
+- **M-C5 race-condition tester:** single-packet HTTP/2 bursts on endpoints the customer marks as sensitive, opt-in per endpoint because it changes state.
+- **M-C7 WebSocket fuzzing:** message-level fuzzing and authorization checks on WebSocket APIs.
 
 ## Burp extension (stretch)
 A Burp plugin that is a runner: it forwards in-scope proxy history as relay or tunnel traffic for a chosen target. Scope comes from Burp's scope, intersected with the Insidia allowlist. Ship only after CI is done. Language: whatever Burp's current extension API requires; keep it a thin forwarder with no attack logic.
