@@ -38,8 +38,18 @@ The SDK bridge is a localhost port on the customer machine opened by the runner.
 
 OpenTelemetry GenAI spans (model name, tool name, token counts; not full prompts unless the customer opts in) travel through the runner to the scan's object prefix. Tool spans feed the `tool_trace` oracle.
 
+## Gap-filling Insidia modules in this phase
+From [16-coverage-gaps.md](16-coverage-gaps.md):
+- **M-A12 white-box AI analysis:** prompt and tool-graph analysis, over-privileged tools, embedding and vector-store exposure (closes spec 3.2 embedding inversion).
+- **M-C9 Insidia SAST, remaining languages:** Go, Java, C#, PHP, and Ruby taint rules on top of the Phase 4B engine, plus AI-specific sinks. Legal decides before this phase whether opengrep (LGPL-2.1, unmodified, separate process) may be used as the matching engine.
+- **M-C10 secret liveness verifier:** opt-in, read-only provider checks that report live or dead for a leaked key, storing only the flag and fingerprint.
+- **Adopt OpenSSF model-signing** for model signature and provenance checks (M-A13 static half).
+
+## Storage
+Extracted bundles are C2: encrypted with the org data key before upload to object storage, secret-redacted, and deleted on the org's retention schedule. Secret findings store `{path, line, rule_id, fingerprint}`, never the value (see [14-database-schema.md](14-database-schema.md#secrets-found-in-evidence)).
+
 ## Planner hook
-`read_context()` from Phase 5 and the Phase 6 planner gain a `whitebox` block: tools, sinks, prompts. A rule adds probes such as "call tool `search_orders` with a quote in the id argument" when that tool exists. Test uses the fixture repo and expects that probe id in the plan.
+`read_context()` from Phase 5 and the Phase 4 gray-box planner gain a `whitebox` block: tools, sinks, prompts. A rule adds probes such as "call tool `search_orders` with a quote in the id argument" when that tool exists. Test uses the fixture repo and expects that probe id in the plan.
 
 ## Tests
 - Extract fixture: secret value absent from the bundle; sink edge present.
