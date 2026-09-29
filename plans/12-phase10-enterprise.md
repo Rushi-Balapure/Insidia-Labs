@@ -10,7 +10,9 @@ A company can use Insidia under their identity provider, with roles, an audit lo
 - SSO login via OIDC works for a test IdP. SAML works for one test IdP or is explicitly deferred with OIDC covering the pilot.
 - Roles beyond Phase 2: `owner`, `admin`, `member`, `viewer`, plus a custom role that is a set of permissions (`scan:launch`, `finding:read_raw`, `report:export`, `runner:enroll`, `baseline:write`, `audit:read`).
 - Audit log is append-only for those actions and is exportable by an admin of that org.
-- Helm chart installs API, workers, hub, Redis, and configures an external Postgres. A smoke scan runs against the fixture inside the cluster.
+- Helm chart installs API, workers, hub, egress proxy, RabbitMQ, Valkey, and the key service, and configures an external Postgres and the customer's KMS or HSM (Vault Transit or a cloud KMS). A smoke scan runs against the fixture inside the cluster.
+- Customers can bring their own master key (BYOK) in the shared cloud, and revoking it crypto-shreds their data (see [14-database-schema.md](14-database-schema.md)).
+- Staff access grants are fully self-service for customer admins: approve, revoke, and see every staff decryption in their audit log.
 - On-prem install guide includes `THIRD_PARTY_NOTICES.md` generation for images that are actually shipped. Legal review is a checklist item before the first on-prem customer, not a code task.
 - Air-gapped profile: attacker and judge models point at an in-cluster vLLM; no calls to our SaaS control plane; image pulls from their registry.
 
@@ -21,7 +23,7 @@ A company can use Insidia under their identity provider, with roles, an audit lo
 - Session and API key behavior from Phase 2 stays. SSO users can still create API keys if their role allows.
 
 ## Audit
-Table `audit_events (org_id, actor, action, target_id, at, metadata)` inserted by the API, not by workers guessing. Workers emit scan lifecycle events the API records.
+Table `audit_events` as defined in [14-database-schema.md](14-database-schema.md): hash-chained, metadata and IPs encrypted with the org key, inserted only through the `app_audit` role by the API, not by workers guessing. Workers emit scan lifecycle events the API records. Phase 10 adds admin export (decrypted for the requesting org only), SIEM streaming, and the chain-verification report.
 No updates or deletes. Retention is a per-org setting (default 365 days) enforced by a scheduled job that deletes only past the retention window. Export to object storage before delete if the org enables archive.
 
 ## Deployment units
@@ -29,11 +31,12 @@ No updates or deletes. Retention is a per-org setting (default 365 days) enforce
 - **Private tenant:** same Helm values, dedicated cluster, dedicated Postgres. Org id still on every row so the code path does not fork.
 - **On-prem:** customer runs Helm. We do not receive heartbeats unless they enable a phone-home flag, default off. License key (signed token) gates features if we need a contract check; the key does not contain customer scan data.
 
-Images: api, worker-ai, worker-classic, worker-static, worker-agent, hub, dashboard, model (optional). Tags are digests. Cosign signatures verified in the chart notes.
+Images: api, worker-ai, worker-classic, worker-static, worker-agent, worker-insidia (our gap-filling modules), hub, egress, key-service, dashboard, docs, model (optional). Tags are digests. Cosign signatures verified in the chart notes.
 
 ## Air gap
 - No telemetry.
-- Promptfoo-style env disables are already in worker images; recheck every image for outbound calls in a CI test that uses a deny-all network except Postgres, Redis, hub, and the model.
+- Remote-generation, telemetry, and sharing disables are already in worker images; recheck every image for outbound calls in a CI test that uses a deny-all network except Postgres, RabbitMQ, Valkey, the hub, the key service, and the model.
+- On-prem customer docs (install, upgrade, backup, air-gapped models) ship versioned with the release, per [15-customer-docs.md](15-customer-docs.md).
 - Taxonomy data is baked into the image so the install does not fetch OWASP or MITRE at runtime.
 - Interactsh runs inside their cluster for blind bugs, bound to their scan network, not to our cloud.
 
@@ -41,7 +44,7 @@ Images: api, worker-ai, worker-classic, worker-static, worker-agent, hub, dashbo
 On-prem **is** distribution. The chart build writes `THIRD_PARTY_NOTICES.md` into each image from the lockfiles. It is not shown in the product UI. Marketing pages still do not name the engines. Counsel reviews the notice file before shipment. Attribution-forced dependencies stay excluded (AI-Infra-Guard).
 
 ## SOC 2 readiness (Insidia the company)
-Not a feature. A checklist next to this phase: access reviews, audit log, encryption at rest (Postgres and object storage), TLS everywhere, backup restore drill, vulnerability process for our own images. Implementation work that is purely policy stays out of the repo except docs in `docs/security/`.
+Not a feature. A checklist next to this phase: access reviews, audit log, encryption at rest (Postgres and object storage), TLS everywhere, backup restore drill, vulnerability process for our own images. Implementation work that is purely policy stays out of the repo except internal docs in `internal/security/`. The customer-facing security and trust pages live in `docs/`.
 
 ## Tests
 - OIDC login against a local test IdP (for example Keycloak in compose).
