@@ -45,8 +45,20 @@ Framework adapters, in order: raw MCP over the honeypot, OpenAI Agents SDK fixtu
 - ASI09 approval skip: fixture has an approval flag; oracle fires if the tool runs while the flag is false.
 - ASI10 rogue behavior: bounded check only (agent continues after a kill instruction in the test harness). No self-replication experiments.
 
+## Gap-filling Insidia modules in this phase
+From [16-coverage-gaps.md](16-coverage-gaps.md):
+- **M-A4 tool-trace oracle, full version:** traces from the honeypot, the SDK, and OpenTelemetry GenAI spans, checked against a per-target tool policy (allowed tools, arguments, and forbidden chains).
+- **M-A7 multi-agent and A2A harness:** spoofed agent cards and messages (ASI07), supervisor injection through worker output, secondary injection, and cascade blast radius (ASI08).
+- **M-A8 sandbox sensor kit:** canary files, a fake metadata endpoint, out-of-band callbacks, and process and file-write sensors, so ASI05 findings are proven.
+- **M-A9 approval-bypass suite:** actions without approval, and approval requests whose summary differs from the executed action (ASI09).
+- **M-A13 AI supply-chain checks:** MCP tool-hash drift, GGUF template diffing, adapter behavioral goldens, and model-hub namespace checks (ASI04).
+- **M-A1 honeypot hosting:** the Phase 4 content forge gets its scan-scoped honeypot domains and MCP server here.
+
+## Storage
+Honeypot traces, tool arguments, and agent graphs are C2 evidence: encrypted with the org data key, secret-redacted before storage, and stored as `evidence_objects` with `kind='tool_trace'` (see [14-database-schema.md](14-database-schema.md)). Tool-hash pins are stored as hashes plus the encrypted schema.
+
 ## UI
-Graph component: nodes for agent, tools, memory, external content. Edge highlighted when an oracle passes. Data comes from honeypot traces stored under the org prefix.
+Graph component, following the apple-design skill (the graph pans and zooms with direct manipulation and springs): nodes for agent, tools, memory, external content. Edge highlighted when an oracle passes. Data comes from honeypot traces stored under the org prefix.
 
 ## Tests
 - Discover fixture directory, no real home directory.
