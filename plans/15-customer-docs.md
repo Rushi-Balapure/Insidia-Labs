@@ -119,7 +119,7 @@ A phase is not done until its docs are published. This table is the minimum.
 - Docs analytics are privacy-preserving and self-hosted: page views, searches with no results, and "was this helpful" votes. Searches with no results become the backlog.
 
 ## CI checks on `docs/`
-- Upstream-name denylist (same list as the product).
+- Upstream-name denylist (same list as the product, including model and model-runtime names from [19-model-hosting.md](19-model-hosting.md)).
 - Broken internal and external links.
 - Every quickstart and API sample executed against staging.
 - Generated references are up to date with the OpenAPI schema and runner CLI.
