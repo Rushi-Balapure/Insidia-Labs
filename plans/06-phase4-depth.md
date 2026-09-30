@@ -45,8 +45,10 @@ Calibration set: 50+ labeled cases (true leak, true refusal, benign lookalike). 
 - DeepTeam worker image: `model_callback` awaits the hub. Use it for vulnerability classes we do not already cover via garak/promptfoo. Skip duplicates in the profile so we do not pay twice.
 
 ### Model service (`engine/models`)
-- vLLM endpoint inside the cluster for attack generation (open-weight model; pick at implementation time and pin the digest).
-- Judge endpoint may be a second model, commercial or self-hosted. Keys are ours, in the cluster secret store, never in the runner.
+Full design in [19-model-hosting.md](19-model-hosting.md).
+- Move the model service from Stage 0 (llama.cpp + GGUF on one 20 GB GPU) to Stage 1: vLLM serving an AWQ build of the pinned uncensored model on a 48 GB GPU, so iterative attacks get batched throughput. Build the AWQ weights and verify them against the GGUF build before the switch.
+- Callers request a role (`attacker`, `judge`), never a model name. The endpoint is OpenAI-compatible in both stages, so the switch is config.
+- Decide from the calibration benchmark whether `judge` stays on the attacker model or moves to its own model and card. No commercial judge for attack transcripts; they refuse.
 - Per-scan token meter writes `usage_events`. Budget pause from Phase 1 applies.
 - Cache identical generation requests per profile version to cut cost. Do not cache target responses across orgs.
 
@@ -67,7 +69,7 @@ Sink simulators run in our cloud, not on the customer host: HTML renderer that f
 Probes with a hard cap: max turns, max tool loops, max tokens. The oracle fires if the target keeps calling tools or inflating tokens past the declared budget. The scan's own budget still wins, so we cannot DoS ourselves.
 
 ### Transports to finish
-Anthropic, Azure OpenAI, and Bedrock request templates if design partners need them. Ollama is not a customer BYOK feature; it is only a dev judge if vLLM is down.
+Anthropic, Azure OpenAI, and Bedrock request templates if design partners need them. These are target transports only. Customers never bring their own attacker or judge model; the Stage 0 llama.cpp server doubles as the dev and CI model.
 
 ## Track 4B — classic depth
 
@@ -104,5 +106,6 @@ From [16-coverage-gaps.md](16-coverage-gaps.md). Each lives in `engine/workers/i
 
 ## Risks
 - Hosted poisoned pages can be fetched by systems outside the test if the URL leaks. URLs are unguessable, single-scan, and expire.
-- vLLM GPU cost. Cap concurrency on `ai.heavy` and record cost per scan before turning profiles on by default.
+- GPU cost. Cap concurrency on `ai.heavy` and record cost per scan before turning profiles on by default.
+- No BF16 weights published for the chosen model blocks the AWQ build. Fallback: reproduce abliteration on the base model (see [19-model-hosting.md](19-model-hosting.md#building-vllm-weights)); until then Stage 0 keeps serving.
 - Uploading repos fights the "thin runner" story. Keep upload optional and redacted; Phase 8 replaces bulk upload with artifact extraction.
