@@ -56,6 +56,7 @@ Plans are stored in both `/home/rushi/Desktop/Rushi/Insidia-Labs/plans/` and thi
 
 ## Phase plans
 - [02-phase0-foundations.md](02-phase0-foundations.md)
+- [17-test-suite.md](17-test-suite.md) (Phase T: test harness first, cross-cutting gate)
 - [03-phase1-vertical-slices.md](03-phase1-vertical-slices.md) (tracks 1A and 1B)
 - [04-phase2-dashboard.md](04-phase2-dashboard.md)
 - [05-phase3-taxonomy-compliance.md](05-phase3-taxonomy-compliance.md)
@@ -70,6 +71,7 @@ Plans are stored in both `/home/rushi/Desktop/Rushi/Insidia-Labs/plans/` and thi
 - [14-database-schema.md](14-database-schema.md) (security-first database design, cross-cutting)
 - [15-customer-docs.md](15-customer-docs.md) (customer documentation, cross-cutting)
 - [16-coverage-gaps.md](16-coverage-gaps.md) (internal: engine coverage gaps and the Insidia modules that fill them)
+- [17-test-suite.md](17-test-suite.md) (Phase T: test-first permutation suite, cross-cutting gate)
 
 ## Scope
 Insidia is an **AI-native application security platform**. It covers two tracks, built in parallel:
@@ -91,6 +93,7 @@ The differentiator is the seam between them: an AI pentest agent that chains an 
   - **No customer value is stored in plaintext.** Names, URLs, hosts, emails, IPs, evidence, and audit metadata are encrypted with per-org keys held in KMS. Only Insidia-generated ids, enums, timestamps, and hashes are plaintext, enforced by a schema CI test.
   - **Customer secrets are kept by the customer where possible** (runner, or their cloud secret manager), otherwise stored write-only and shown only as a fingerprint. Secrets found in scan evidence are redacted to a masked token before storage. Tokens we issue are stored only as HMACs.
 - **Gaps are filled with Insidia-built modules.** The OSS engines do not cover everything, especially with promptfoo's remote generation off and GPL tools excluded. [16-coverage-gaps.md](16-coverage-gaps.md) lists every gap and the module or permissively licensed tool that fills it. Modules register like engines and appear as Insidia Engine modules.
+- **Test-first.** Every valid permutation of connector, box mode (black/gray/white), attack type, and connection mode has a sandboxed ground-truth test with a pass threshold **before** the feature is built. OSS vulnerable apps (Juice Shop, crAPI, VAmPI, DVGA, AgentDojo) and our own fixtures run local-only with no internet egress. This is Phase T ([17-test-suite.md](17-test-suite.md)) and a hard exit-gate on every later phase; it is the single source of truth the Phase 6 benchmark reuses.
 - **Dashboard design follows the apple-design skill** (`.agents/skills/apple-design/`), translated into concrete rules in [04-phase2-dashboard.md](04-phase2-dashboard.md#design-system-apple-design-skill).
 - **Customer documentation is part of every phase's exit.** Docs-as-code in `docs/`, generated references, samples tested in CI, no engine names. See [15-customer-docs.md](15-customer-docs.md).
 - **No free/local/BYOK mode.** We pay for and operate the attacker and judge models.
@@ -324,6 +327,7 @@ Insidia-Labs/
     proto/                relay + control protocol (used by runner, hub, engine)
     sdk/python, sdk/js    in-process handler + OTel instrumentation
   deploy/                 helm/, terraform/, docker-compose (dev)
+  tests/                  Phase T: permutation matrix, sandboxed targets, ground truth, harness (see 17-test-suite.md)
   docs/                   customer documentation site (Starlight); never names engines
   internal/               ADRs, threat model, security policies (not published)
   schema/                 plaintext allowlist and schema CI rules
@@ -381,8 +385,13 @@ We do not want to disclose that garak, promptfoo, ZAP, Nuclei, Strix, etc. run i
 
 ## Phases (AI track = A, classic track = B, run in parallel)
 
+Every build phase (1 onward) has an implicit exit gate on top of the criteria listed: the permutation-matrix cells it owns ([17-test-suite.md](17-test-suite.md)) must be green. The per-phase ownership map lives in that file.
+
 ### Phase 0 - Foundations
 Monorepo scaffold with the three top-level components (`runner/` Go, `engine/` Python 3.14 + `engine/hub/` Go, `dashboard/` React), ADRs (direct vs runner connection, relay + tunnel protocols, Celery on RabbitMQ, Valkey not Redis, multi-tenancy model, use-as-is plus masking, license policy and attribution register, database security), the security-first database foundation from [14-database-schema.md](14-database-schema.md) (roles, RLS, envelope encryption, audit), self threat model (runner compromise, tunnel abuse, direct-mode SSRF, tenant isolation, cross-org leakage, database breach, target ownership verification), CI, dev docker-compose (Postgres + RabbitMQ + Valkey + a worker). Exit: services build, CI green, a demo Celery task runs with a tenant envelope and writes an encrypted row another org cannot read.
+
+### Phase T - Test harness first
+Right after the Phase 0 scaffold and before building scanners: the permutation matrix (connector x box mode x attack type x connection mode, with a validity function marking impossible cells N/A), the sandboxed local-only targets (Juice Shop, crAPI, VAmPI, DVGA, AgentDojo, plus our own chatbot/RAG/agent/A2A/API/code fixtures, all on an internal network with no egress), ground-truth manifests with per-cell recall/precision thresholds, and the pytest harness. Every valid cell has a test written red (xfail). Full spec in [17-test-suite.md](17-test-suite.md). This is the single source of truth the Phase 6 benchmark reuses, and it gates every later phase: a phase exits only when the matrix cells it owns are green. Exit: the harness runs, the matrix is provably complete (valid + N/A = full cross-product), the egress-deny guard passes, and all cells are present as xfail.
 
 ### Phase 1 - Vertical slices for both tracks
 - **1A (AI):** relay protocol, Go runner relay mode, hub relay broker, control plane (tenancy/targets/scans) with Celery orchestration and the tenant task envelope, garak + promptfoo workers with RelayTarget, findings normalizer. Exit: a runner scans a localhost chatbot, findings via API, with `org_id` isolation enforced.
