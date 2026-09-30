@@ -14,7 +14,7 @@ A company can use Insidia under their identity provider, with roles, an audit lo
 - Customers can bring their own master key (BYOK) in the shared cloud, and revoking it crypto-shreds their data (see [14-database-schema.md](14-database-schema.md)).
 - Staff access grants are fully self-service for customer admins: approve, revoke, and see every staff decryption in their audit log.
 - On-prem install guide includes `THIRD_PARTY_NOTICES.md` generation for images that are actually shipped. Legal review is a checklist item before the first on-prem customer, not a code task.
-- Air-gapped profile: attacker and judge models point at an in-cluster vLLM; no calls to our SaaS control plane; image pulls from their registry.
+- Air-gapped profile: attacker and judge models point at an in-cluster model service (vLLM + AWQ, Stage 1 spec from [19-model-hosting.md](19-model-hosting.md): at least one 48 GB GPU the customer provides, weights shipped with pinned SHA-256); no calls to our SaaS control plane; image pulls from their registry.
 
 ## Identity
 - OIDC authorization code flow on the dashboard. Map IdP groups to org roles.
