@@ -73,6 +73,7 @@ Plans are stored in both `/home/rushi/Desktop/Rushi/Insidia-Labs/plans/` and thi
 - [16-coverage-gaps.md](16-coverage-gaps.md) (internal: engine coverage gaps and the Insidia modules that fill them)
 - [17-test-suite.md](17-test-suite.md) (Phase T: test-first permutation suite, cross-cutting gate)
 - [18-validity-matrix.md](18-validity-matrix.md) (the validity function and the expanded permutation matrix)
+- [19-model-hosting.md](19-model-hosting.md) (internal: self-hosted uncensored attacker/judge models, GPU stages, runtimes)
 
 ## Scope
 Insidia is an **AI-native application security platform**. It covers two tracks, built in parallel:
@@ -98,6 +99,7 @@ The differentiator is the seam between them: an AI pentest agent that chains an 
 - **Dashboard design follows the apple-design skill** (`.agents/skills/apple-design/`), translated into concrete rules in [04-phase2-dashboard.md](04-phase2-dashboard.md#design-system-apple-design-skill).
 - **Customer documentation is part of every phase's exit.** Docs-as-code in `docs/`, generated references, samples tested in CI, no engine names. See [15-customer-docs.md](15-customer-docs.md).
 - **No free/local/BYOK mode.** We pay for and operate the attacker and judge models.
+- **Self-hosted uncensored models, staged hardware.** Commercial APIs refuse attack generation, so attacker and judge run on open-weight uncensored Qwen3.8-27B derivatives in our cluster. Stage 0 is one 20 GB GPU (RTX 4000 Ada) on llama.cpp with a GGUF build; Stage 1, from Phase 4A or when measured triggers fire, is 48 GB GPUs on vLLM with an AWQ build for batched throughput. Both expose one OpenAI-compatible endpoint, so the switch is config. See [19-model-hosting.md](19-model-hosting.md).
 - **Closed source, MIT/Apache OSS only** (plus MPL-2.0/BSD infrastructure after review). We use the OSS engines as they are. **No porting.** Instead, the dashboard and website never name them: every engine appears as the **Insidia Engine**. See "Confidentiality of the stack".
 - **Engine overlap is a product setting.** Several engines cover the same attack family (for example garak and promptfoo both do jailbreaks). A capability registry maps each attack family to the engines that cover it, and the user picks per scan whether to run one engine or all of them. See "Engine overlap and selection".
 - **Desktop app deferred.** The web dashboard is the primary UI.
@@ -123,7 +125,7 @@ flowchart LR
       DW[Dalfox]
       SW[SAST_SCA_secrets]
     end
-    Models[AttackerModels_vLLM_plus_JudgeModels]
+    Models[SelfHosted_Attacker_and_Judge_Models]
     Hub[TunnelHub_and_RelayBroker]
     Egress[DirectEgress_fixed_IPs]
     Registry[CapabilityRegistry_overlap_dedup]
@@ -285,7 +287,7 @@ Findings schema: `Finding{track, engine, probe, severity, confidence, attack, re
   - **Queues by engine type and priority:** e.g. `ai.fast`, `ai.heavy` (garak/PyRIT), `classic.dast` (ZAP/Nuclei), `static`, `agent`, `reports`. Dedicated worker pools per queue, autoscaled on queue depth.
   - **Engine execution:** one container image per engine (garak, a Node image for promptfoo, PyRIT/DeepTeam, ZAP, Nuclei/Dalfox, SAST/SCA), each on its own Python where needed. Celery workers run inside these images.
 - **Tunnel hub + relay broker:** Go service holding runner connections; routes by runner/target; backpressure, timeouts, retries; WireGuard termination. Celery tasks reach targets only through the hub.
-- **Models:** attacker models self-hosted on vLLM (commercial APIs refuse attack generation); judge models mixed commercial/self-hosted; per-scan cost tracking.
+- **Models:** attacker and judge models self-hosted and uncensored (commercial APIs refuse attack generation), behind one role-based OpenAI-compatible endpoint in `engine/models`. Stage 0: llama.cpp `llama-server` + GGUF on one 20 GB GPU, one model time-shared for both roles. Stage 1: vLLM + AWQ on 48 GB GPUs. In-cluster only, no egress, no prompt logging; per-scan token and GPU-second tracking. See [19-model-hosting.md](19-model-hosting.md).
 - **OOB server:** hosted interactsh for blind SQLi/SSRF/RCE callback confirmation.
 - **Direct egress proxy:** cloud-side service with fixed public IPs; enforces verified hosts per org, blocks private/link-local ranges, applies rate limits and the kill switch. Also acts as the direct-mode relay transport.
 - **Storage:** Postgres for metadata/findings, with field-level envelope encryption for vulnerability evidence; S3-compatible object store for transcripts/evidence, encrypted per tenant. Full design in [14-database-schema.md](14-database-schema.md).
@@ -321,7 +323,7 @@ Insidia-Labs/
     egress/               direct-mode egress proxy (fixed IPs, verified-host enforcement)
     agent/                AI pentest agent (Strix-based orchestrator)
     hub/                  Go tunnel hub + relay broker
-    models/               vLLM configs, judge prompts (proprietary)
+    models/               model manifest (pinned SHA-256), llama.cpp and vLLM configs, judge prompts (proprietary)
     taxonomy-data/        YAML framework mappings
   dashboard/              React (Vite) web app
   shared/
@@ -408,7 +410,7 @@ Org/project/user model, login, API keys; target wizard that starts with **"How d
 `taxonomy-data/` covering all frameworks above (seed from promptfoo MIT mappings and the LLM Top 10 2026 machine-readable mappings); framework-based profiles; control-coverage engine; reports (PDF/HTML), evidence packs, SARIF/JSON, ATLAS heatmap. Exit: one run produces OWASP LLM, OWASP Web, and EU AI Act reports.
 
 ### Phase 4 - Depth on both tracks
-- **4A (AI depth):** PyRIT/DeepTeam multi-turn; indirect-injection, RAG, and memory harnesses (surfaces B/D from the coverage spec); the oracle framework (canary, tool-trace, goal-diff, groundedness, resource, ACL, manifest-drift); self-hosted attacker models on vLLM; judge calibration.
+- **4A (AI depth):** PyRIT/DeepTeam multi-turn; indirect-injection, RAG, and memory harnesses (surfaces B/D from the coverage spec); the oracle framework (canary, tool-trace, goal-diff, groundedness, resource, ACL, manifest-drift); model service moves to Stage 1 (vLLM + AWQ on 48 GB GPUs, see [19-model-hosting.md](19-model-hosting.md)); judge calibration.
 - **4B (Classic depth):** API scanning (REST/GraphQL, BOLA/IDOR, auth/session, mass assignment); SAST + secrets + SCA (Trivy, osv-scanner, gitleaks, tree-sitter rules); infra/CVE (Nuclei network templates). Exit: gray-box AI and authenticated web/API scans beat black-box baselines.
 - **Gap modules:** most Insidia-built modules land here: M-A1, M-A2, M-A3, M-A5, M-A6, M-A10, M-A11, M-A14 (AI) and M-C1, M-C2, M-C3, M-C4, M-C7, M-C9 (classic). See [16-coverage-gaps.md](16-coverage-gaps.md).
 
@@ -428,7 +430,7 @@ Runner `extract` (tree-sitter extraction; secrets reported as findings, values n
 One-shot runner `scan` for CI; GitHub Action, GitLab template; baselines, regression diffs, severity-threshold gating; scheduled/continuous scans, alerts, Jira/Slack/SIEM; Burp extension as a runner; fleet (MDM) discovery. Exit: continuous scanning for a pilot customer.
 
 ### Phase 10 - Enterprise
-SSO (SAML/OIDC), RBAC, audit log, retention controls; regional instances, private single-tenant, on-prem Helm deployment of the full brain (air-gapped, local vLLM); SOC 2 readiness. Exit: first private/on-prem enterprise deployment.
+SSO (SAML/OIDC), RBAC, audit log, retention controls; regional instances, private single-tenant, on-prem Helm deployment of the full brain (air-gapped, in-cluster model service at Stage 1 spec on customer GPUs); SOC 2 readiness. Exit: first private/on-prem enterprise deployment.
 
 ### Phase 11 - Later
 Desktop app (runner GUI: tray app with enrollment, status, local audit view) + dashboard link; runtime guardrails/firewall reusing detectors as inline policies.
@@ -440,7 +442,8 @@ Desktop app (runner GUI: tray app with enrollment, status, local audit view) + d
 - **Database breach:** we hold customers' unfixed vulnerabilities, which makes us a high-value target. Envelope encryption per org, no evidence in logs or the broker, least-privilege DB roles, and retention limits (see [14-database-schema.md](14-database-schema.md)).
 - **Direct mode abuse:** scanning hosts the customer does not own, or SSRF into our cloud. Mandatory, expiring ownership verification and a private-range-blocking egress proxy.
 - **Thorough-mode cost:** running every overlapping engine multiplies model spend. Show the estimate before launch and count it against the org's budget.
-- **Model costs:** self-hosted attacker models, caching, per-scan budgets.
+- **Model costs and throughput:** start on one 20 GB GPU (low concurrency, accepted), move to 48 GB vLLM nodes on measured triggers; caching and per-scan budgets throughout.
+- **Uncensored model quality and supply:** abliteration can hurt reasoning, and the candidates publish GGUF only (vLLM needs BF16 to build AWQ). Pinned only after the Phase T benchmark; fallback is reproducing abliteration on the base model.
 - **Customer trust in cloud data:** runner-side redaction, regional/private tenants, on-prem.
 - **Coverage claims outrunning reality:** the engines leave real gaps (see [16-coverage-gaps.md](16-coverage-gaps.md)). Customer-facing coverage pages are generated from the registry and benchmark, not written by hand.
 - **Engines phoning home:** some OSS tools send telemetry or call their vendor's API. Engine containers get no internet egress except the target path and our model service, verified in CI.
