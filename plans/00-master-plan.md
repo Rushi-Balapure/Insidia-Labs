@@ -72,6 +72,7 @@ Plans are stored in both `/home/rushi/Desktop/Rushi/Insidia-Labs/plans/` and thi
 - [15-customer-docs.md](15-customer-docs.md) (customer documentation, cross-cutting)
 - [16-coverage-gaps.md](16-coverage-gaps.md) (internal: engine coverage gaps and the Insidia modules that fill them)
 - [17-test-suite.md](17-test-suite.md) (Phase T: test-first permutation suite, cross-cutting gate)
+- [18-validity-matrix.md](18-validity-matrix.md) (the validity function and the expanded permutation matrix)
 
 ## Scope
 Insidia is an **AI-native application security platform**. It covers two tracks, built in parallel:

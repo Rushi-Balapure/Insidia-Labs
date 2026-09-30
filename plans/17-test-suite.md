@@ -32,7 +32,7 @@ Encoded once in `tests/matrix/validity.py`:
 - Attack types are scoped to compatible connectors: XSS and client-side to web; BOLA/BFLA/mass assignment to api and web; RAG poisoning to rag; tool misuse, sandbox escape, and approval bypass to agent; A2A spoof and cascade to multi-agent; SAST/secrets/SCA to code-bearing (white box) cells.
 - Runner-only capabilities (localhost targets, `extract`, `discover`, SDK) are N/A for the direct connection mode, matching the feature table in [00-master-plan.md](00-master-plan.md).
 
-Every valid cell gets exactly one ground-truth test. Every N/A cell is recorded with its reason. A completeness test asserts the union of valid and N/A equals the full cross-product, so no permutation is silently missing.
+Every valid cell gets exactly one ground-truth test. Every N/A cell is recorded with its reason. A completeness test asserts the union of valid and N/A equals the full cross-product, so no permutation is silently missing. The full function and the matrix rendered as projection tables (attack x connector, connector x connection mode, box-mode support, and a worked `web` example) are in [18-validity-matrix.md](18-validity-matrix.md).
 
 ## Sandboxed, local-only targets (`tests/targets/`)
 OSS vulnerable apps, self-hosted and pinned by image digest:
