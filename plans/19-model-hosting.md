@@ -1,0 +1,104 @@
+# Model hosting: attacker and judge models
+
+Internal plan. Names models and runtimes; never copy model names onto customer surfaces (they are part of "Confidentiality of the stack" in the master plan).
+
+## Why we self-host uncensored models
+- Commercial model APIs refuse attack generation and often refuse to grade harmful transcripts. Iterative attacks (TAP, PAIR, Crescendo, the M-A11 attack generator) and the Phase 5 pentest agent need a model that does not refuse.
+- We run open-weight, uncensored (abliterated) models in our own cluster. No customer data leaves our cloud to a model vendor.
+- Customers never bring their own model (see "No free/local/BYOK mode" in the master plan).
+
+## Roles
+| Role | Used by | Needs uncensored? |
+|---|---|---|
+| `attacker` | PyRIT/DeepTeam attacker targets, M-A11 generator, M-A2 converters that paraphrase, Phase 5 agent | Yes |
+| `judge` | `policy_judge` oracle only | Preferred. Deterministic oracles (canary, tool-trace, ACL, goal-diff) run first and carry most verdicts, so judge load is small |
+
+Callers ask `engine/models` for a role, never for a model name. The role-to-model mapping is config.
+
+## Candidate models
+All three are Qwen3.8-27B derivatives, Apache-2.0 (passes our license gate), GGUF-only as published.
+
+| Model | Notes |
+|---|---|
+| `JonathanColetti/Qwen3.8-27B-Uncensored-GGUF` | Abliteration merged at BF16; quants IQ2_M to Q8_0 (IQ4_XS 15.3 GB, Q4_K_M 16.8 GB); embedded MTP; vision projector |
+| `HauhauCS/Qwen3.8-27B-Uncensored-HauhauCS-Aggressive-MTP-GGUF` | "Aggressive" variant, the card itself says less reliable for long-context agentic work; IQ4_XS 15.7 GB; optional FastMTP needs a patched llama.cpp |
+| `orcarouter/OrcaSAQ-2-Cyber-27B-Uncensored-GGUF` | Cyber-tuned; 15.7 GB mixed-precision; text-only; gated (accept conditions on Hugging Face) |
+
+Selection is decided by the Phase T benchmark, not by the model cards:
+- Attack success rate on the sandboxed AI fixtures ([17-test-suite.md](17-test-suite.md)), per attack family.
+- Judge precision and recall on the calibration set (Phase 4 nightly test).
+- Refusal rate on our attack-prompt set (target: near zero).
+- Measured tokens per second on the actual stage hardware.
+
+Every candidate passes the internal model review before use: license, provenance (pin SHA-256 of each file), known issues on the card, and the benchmark above. Record the decision as an ADR in `internal/adr/`.
+
+## One interface, two runtimes
+`engine/models` exposes a single internal OpenAI-compatible endpoint per role. Both runtimes we use speak that API, so moving between stages is a config change, not a code change.
+
+- **llama.cpp `llama-server`** (MIT) serves GGUF. Good single-stream speed, fits small GPUs, weak batched throughput.
+- **vLLM** (Apache-2.0) serves AWQ/GPTQ/FP16 weights. Continuous batching and PagedAttention give far higher throughput under concurrency, but only with enough free VRAM for the KV-cache pool. We do not serve GGUF on vLLM: its GGUF path is experimental and loses the throughput advantage.
+- SGLang (Apache-2.0) is an acceptable drop-in for vLLM if benchmarks favor it.
+
+## Stages
+Hardware follows scan volume. We move up a stage when a measured trigger fires, not on a date.
+
+### Stage 0: cheapest (Phase 0 to Phase 3, dev and first design partners)
+- **GPU:** 1x NVIDIA RTX 4000 Ada (20 GB), bought or rented; or rent one 24 GB L4 or A10 to avoid buying before the benchmark is done.
+- **Host:** 8+ CPU cores, 64 GB RAM, 1 TB NVMe, Ubuntu 24.04, current NVIDIA driver and CUDA 12.x.
+- **Runtime:** `llama-server`, stock upstream build (no FastMTP patch), full GPU offload, `--no-mmap`, flash attention on, embedded MTP (`--spec-type draft-mtp`), `--parallel 2` to `4`.
+- **Model:** one 27B at IQ4_XS (~15.5 GB) with 16K to 32K context. It fits because only 16 of the 64 layers use full attention, so the KV cache is small.
+- **Roles:** the same model serves `attacker` and `judge`, time-shared. Judge prompts use a separate system prompt and temperature 0.
+- **Expect:** roughly 20 to 35 tokens per second single-stream (estimate from the cards' RTX 6000 Ada numbers scaled by memory bandwidth; measure on arrival). Low concurrency. Fine for development, Phase T, and a few design partners; not for many parallel scans.
+- **Two models do not fit on 20 GB.** If we must split attacker and judge in this stage, add a second 20 GB card rather than squeezing.
+
+### Stage 1: production throughput (from Phase 4A)
+- **GPU:** 1x 48 GB card per node (RTX 6000 Ada, L40S, or A6000).
+- **Runtime:** vLLM with an AWQ or GPTQ 4-bit build of the chosen model (see "Building vLLM weights").
+- **Layout:** attacker 27B (~16 GB weights) plus ~25 to 30 GB of KV pool on one card. Judge is either the same model or a separate 8B-class model on its own card, decided by the calibration benchmark.
+- **Expect:** dozens of concurrent generations per card. This is where vLLM's throughput advantage over llama.cpp appears.
+- **Stage 0 stays** as the dev and CI model server.
+
+### Stage 2: scale (Phase 9 onward)
+- Multiple Stage 1 nodes behind the role endpoint, autoscaled on `ai.heavy` queue depth.
+- Per-org fairness and token budgets from the master plan apply to model calls too.
+- H100-class GPUs only if benchmarks show the cost per scan is lower.
+
+### Triggers to move from Stage 0 to Stage 1
+Any one of these, measured for a week:
+- p95 wait for a model call on `ai.heavy` above 30 seconds.
+- A design partner's Standard scan exceeds its wall-clock budget because of model time.
+- Phase 4A iterative attacks enabled in a default profile.
+
+## Building vLLM weights
+The candidates publish GGUF only. For Stage 1 we need safetensors:
+1. Use the author's merged BF16 weights if published (the JonathanColetti card says abliteration is merged at BF16).
+2. Otherwise reproduce abliteration ourselves on the base Qwen3.8-27B, with the method and script recorded in `internal/`.
+3. Quantize to AWQ or W4A16 with llm-compressor (Apache-2.0).
+4. Verify against the GGUF build: refusal rate, perplexity, and the Phase T attack-success benchmark must be no worse beyond tolerance.
+5. Pin the output by SHA-256 in `engine/models/manifest.yaml`.
+
+## Security and isolation
+- Model servers run in-cluster only. No internet egress, no ingress from outside the cluster. Only engine workers and the Phase 5 agent can call them (network policy).
+- Weights are pulled once into our registry or bucket and verified by SHA-256; pods never download from Hugging Face at runtime.
+- Prompts can contain customer context (gray-box system prompts, tool schemas). Model servers do not log prompts or completions; request logging is off and verified by a test.
+- Uncensored output is treated as attack payload: it is only sent to the verified target through the relay, tunnel, or egress proxy, and stored only as encrypted evidence.
+- Model and runtime names never appear on customer surfaces; the denylist CI in [15-customer-docs.md](15-customer-docs.md) includes them.
+
+## Cost tracking
+- Each model call records tokens and GPU-seconds against the scan in `usage_events` ([14-database-schema.md](14-database-schema.md)).
+- The Thorough-mode estimate and per-scan budgets use these numbers.
+- Report cost per scan per stage monthly; this is the input to the stage triggers.
+
+## Tests
+- Contract test: the same request returns the same response shape from `llama-server` and vLLM.
+- Benchmark job: attack success, judge precision/recall, and refusal rate for the pinned model, run nightly against the Phase T sandbox.
+- Load test per stage: tokens per second and max concurrency before p95 latency degrades, recorded in the ADR.
+- No-logging test: a canary in a prompt never appears in model-server logs.
+- Egress test: a model pod cannot reach the internet.
+
+## Risks
+- **BF16 weights unavailable** for the chosen model, blocking Stage 1. Mitigation: reproduce abliteration on the base model, or pick the candidate that publishes BF16.
+- **Self-grading bias** when one model attacks and judges in Stage 0. Mitigation: deterministic oracles first, the calibration set, and a separate judge in Stage 1.
+- **Abliterated model quality**: uncensoring can hurt reasoning and instruction following. The benchmark catches this before a model is pinned.
+- **Patched runtimes** (FastMTP) mean maintaining a llama.cpp fork. Not used in production.
+- **20 GB card concurrency** is low. Accepted for Stage 0; the triggers above move us off it.
