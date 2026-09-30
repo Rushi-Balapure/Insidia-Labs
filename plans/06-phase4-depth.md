@@ -47,6 +47,7 @@ Calibration set: 50+ labeled cases (true leak, true refusal, benign lookalike). 
 ### Model service (`engine/models`)
 Full design in [19-model-hosting.md](19-model-hosting.md).
 - Move the model service from Stage 0 (llama.cpp + GGUF on one 20 GB GPU) to Stage 1: vLLM serving an AWQ build of the pinned uncensored model on a 48 GB GPU, so iterative attacks get batched throughput. Build the AWQ weights and verify them against the GGUF build before the switch.
+- Build the model harness ([19-model-hosting.md](19-model-hosting.md#model-harness-enginemodelsharness)) before M-A11: role client with structured output, iterative loop runner, metering, transcripts. M-A11 is built on it; PyRIT and the Phase 5 agent use its role client.
 - Callers request a role (`attacker`, `judge`), never a model name. The endpoint is OpenAI-compatible in both stages, so the switch is config.
 - Decide from the calibration benchmark whether `judge` stays on the attacker model or moves to its own model and card. No commercial judge for attack transcripts; they refuse.
 - Per-scan token meter writes `usage_events`. Budget pause from Phase 1 applies.
