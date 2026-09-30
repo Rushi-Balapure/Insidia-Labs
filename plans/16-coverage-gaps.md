@@ -19,7 +19,7 @@ Ratings come from each tool's documentation and our knowledge of it. They are hy
   Plugins that still work locally include `prompt-extraction`, `excessive-agency`, `pii`, `rbac`, `debug-access`, `shell-injection`, `sql-injection`, `hallucination`, `overreliance`, `imitation`, `contracts`, `policy`, `intent`, and the RAG, memory, and MCP plugins that use our configured provider. promptfoo also warns that local-generation quality depends heavily on the model, so our attacker models matter.
 - **Disabling remote generation is not network isolation.** promptfoo says it does not turn off telemetry, license checks, or sharing. We set `PROMPTFOO_DISABLE_TELEMETRY=1` and `PROMPTFOO_DISABLE_SHARING=1` as well, and engine containers get **no internet egress** except to the target path (relay, tunnel, or direct egress proxy) and our model service. A CI test runs each engine image with a sniffing proxy and fails on any other outbound connection.
 - **Licenses exclude the usual classic tools:** sqlmap (GPLv2), commix, tplmap, Nikto, Wapiti, testssl.sh (GPL), nmap (NPSL), Semgrep registry rules, CodeQL (not licensed for commercial scanning of third-party code), trufflehog (AGPL). Each leaves a hole.
-- **Commercial model APIs refuse attack generation.** Iterative attacks (TAP, PAIR, Crescendo, GOAT-style) need our self-hosted attacker models on vLLM.
+- **Commercial model APIs refuse attack generation.** Iterative attacks (TAP, PAIR, Crescendo, GOAT-style) need our self-hosted uncensored attacker models ([19-model-hosting.md](19-model-hosting.md)).
 - **Direct mode reaches only public endpoints.** Anything needing the customer's internal network, tool traces, or code needs the runner or the SDK.
 
 ## AI and agent coverage (spec section 3)
