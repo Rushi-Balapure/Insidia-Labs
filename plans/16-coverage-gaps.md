@@ -189,8 +189,8 @@ The order follows the spec's minimum capability layers (section 5) and what cust
 - **Phase 11** ([13-phase11-later.md](13-phase11-later.md)): M-A15 (adopt ART and TextAttack), M-C6, M-C8.
 
 ## Validating this analysis
-The ratings above are hypotheses. The Phase 6 benchmark turns them into measurements.
-- **Benchmark targets** (permissively licensed, self-hosted): OWASP Juice Shop (MIT), crAPI (Apache-2.0), VAmPI (MIT), Damn Vulnerable GraphQL Application (MIT), AgentDojo tasks (MIT), and our own fixtures: a vulnerable chatbot, a RAG app with a plantable corpus, an MCP agent with dangerous tools, and a two-agent A2A system. Each fixture has a ground-truth list of planted vulnerabilities.
+The ratings above are hypotheses. The Phase T permutation suite ([17-test-suite.md](17-test-suite.md)) and the Phase 6 benchmark turn them into measurements. Both read the same targets and ground truth from `tests/`, so there is one source of truth.
+- **Benchmark targets** (permissively licensed, self-hosted, sandboxed with no egress; defined in [17-test-suite.md](17-test-suite.md)): OWASP Juice Shop (MIT), crAPI (Apache-2.0), VAmPI (MIT), Damn Vulnerable GraphQL Application (MIT), AgentDojo tasks (MIT), and our own fixtures: a vulnerable chatbot, a RAG app with a plantable corpus, an MCP agent with dangerous tools, and a two-agent A2A system. Each has a `ground_truth.yaml` list of planted vulnerabilities.
 - **Per engine and per module**, we measure recall against ground truth, precision (confirmed findings over all findings), cost per attempt, and runtime. These numbers fill `capability_map.precision_measured` and drive Standard-mode priorities.
 - A row moves from Partial to Covered only when the benchmark shows at least 80% recall on that row's planted vulnerabilities with at least 90% precision.
 - The benchmark runs weekly in CI and on every engine version bump, so a regression in an upstream engine shows up as a coverage drop before a customer sees it.

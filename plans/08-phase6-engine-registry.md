@@ -29,7 +29,7 @@ Phase 1 shipped a minimal registry. Phase 6 grows it to every engine and module:
 - The registry is edited only by migrations and the staff console, with every change audited. Changes take effect for new scans only, so a running scan never switches engines mid-way.
 
 ## Benchmark suite
-- Targets: OWASP Juice Shop, crAPI, VAmPI, Damn Vulnerable GraphQL Application, AgentDojo tasks, and our fixtures (vulnerable chatbot, RAG app, MCP agent, two-agent A2A system), each with ground-truth planted vulnerabilities. See [16-coverage-gaps.md](16-coverage-gaps.md#validating-this-analysis).
+- Targets and ground truth are the shared Phase T permutation suite ([17-test-suite.md](17-test-suite.md)), not a separate set: OWASP Juice Shop, crAPI, VAmPI, Damn Vulnerable GraphQL Application, AgentDojo tasks, and our fixtures (vulnerable chatbot, RAG app, MCP agent, two-agent A2A system), each sandboxed with no egress and carrying a `ground_truth.yaml`. See [16-coverage-gaps.md](16-coverage-gaps.md#validating-this-analysis).
 - For each (engine or module, attack family): recall, precision, cost per attempt, runtime, and false-positive causes.
 - Runs weekly and on every engine version bump. A regression larger than 5 points in recall or precision blocks the version bump.
 - Results are written to `capability_map` by a reviewed migration, not automatically, so a bad run cannot silently reroute production.
