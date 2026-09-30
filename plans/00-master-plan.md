@@ -323,7 +323,7 @@ Insidia-Labs/
     egress/               direct-mode egress proxy (fixed IPs, verified-host enforcement)
     agent/                AI pentest agent (Strix-based orchestrator)
     hub/                  Go tunnel hub + relay broker
-    models/               model manifest (pinned SHA-256), llama.cpp and vLLM configs, judge prompts (proprietary)
+    models/               model manifest (pinned SHA-256), llama.cpp and vLLM configs, judge prompts, model harness (proprietary)
     taxonomy-data/        YAML framework mappings
   dashboard/              React (Vite) web app
   shared/
