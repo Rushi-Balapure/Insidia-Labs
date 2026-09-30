@@ -159,4 +159,4 @@ Engine containers get no internet egress except the hub, the egress proxy, and o
 ## Risks
 - WG-in-userspace plus CONNECT proxy is the riskiest new code. Build the CONNECT proxy and allowlist first; add WireGuard once relay mode is green. Do not ship a raw L3 route into the customer LAN.
 - Long probes will blow the 10-minute task limit. Split by probe in the planner; do not raise the limit to "however long garak takes".
-- Commercial judge APIs may refuse attack prompts. Phase 1 can use a deterministic canary detector for the fixture, and Phase 4 brings self-hosted attacker models. Do not block 1A on vLLM.
+- Commercial judge APIs refuse attack prompts. Phase 1 uses a deterministic canary detector for the fixture. Stand up the Stage 0 model service ([19-model-hosting.md](19-model-hosting.md): one 20 GB GPU, llama.cpp + GGUF) in this phase for garak/promptfoo generators that need a model, but do not block 1A on it; Phase 4A moves to Stage 1.
