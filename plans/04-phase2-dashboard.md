@@ -18,6 +18,12 @@ A customer can sign up, create an org, enroll a runner, define a target, launch 
 ## Out of scope
 SSO/SAML (Phase 10), compliance PDFs (Phase 3), agent graphs (Phase 7), billing charges (metering only).
 
+## Admin console, first version
+Ships in this phase, before the first design partner, as a separate internal app (`admin/` + `engine/admin_api/`). Full plan: [20-admin-console.md](20-admin-console.md#delivery-by-phase).
+- Customers list and org detail, plan-and-limits settings and feature flags, scan debugger, runner fleet, platform health with kill switches, staff audit.
+- The customer side of staff access: a dashboard banner where an owner or admin approves or revokes a staff grant request, and staff decryptions in the org's activity log.
+- Customer settings pages read their bounds from the same settings registry, so a customer can change only what their plan allows.
+
 ## Identity and tenancy
 - Org, project, membership (`owner`, `member`, `viewer`).
 - Email + password to start, plus one OAuth provider (Google) if it stays small. Session cookies are httpOnly, Secure, SameSite=Lax.
