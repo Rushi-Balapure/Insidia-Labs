@@ -352,7 +352,7 @@ Note: `engine/hub/` is Go while the rest of `engine/` is Python; it is grouped u
 
 ## OSS reuse (MIT/Apache only)
 - **AI engines (used as-is, wrapped via their plugin interfaces, not ported):** garak (Apache), promptfoo (MIT), PyRIT (MIT), DeepTeam (Apache), Cisco mcp-scanner (Apache), NVIDIA SkillSpector (Apache), ModelScan (Apache).
-- **Infrastructure:** RabbitMQ (MPL-2.0, attribution required), Valkey (BSD-3), PostgreSQL (PostgreSQL License), Celery (BSD-3), WireGuard-go (MIT).
+- **Infrastructure:** RabbitMQ (MPL-2.0, attribution required), Valkey (BSD-3), PostgreSQL (PostgreSQL License), Celery (BSD-3), WireGuard-go (MIT), Pomerium identity-aware proxy for the admin console (Apache-2.0, internal only, not distributed).
 - **Classic engines:** ZAP (Apache), Nuclei + templates (MIT), Dalfox (MIT), katana/httpx/subfinder/ffuf (MIT), interactsh (MIT), Trivy (Apache), osv-scanner (Apache), gitleaks (MIT), Bandit (Apache), gosec (Apache).
 - **Adopted to fill gaps** (see [16-coverage-gaps.md](16-coverage-gaps.md)): naabu (MIT, ports), tlsx (MIT, TLS), Adversarial Robustness Toolbox and TextAttack (MIT, predictive ML), OpenSSF model-signing (Apache, model provenance), Playwright (Apache, login recorder and sink rendering). opengrep (LGPL-2.1) is pending legal review for SAST.
 - **Docs and UI:** Starlight and Pagefind (MIT) for the docs site; Motion (MIT) for dashboard animation.
@@ -434,7 +434,7 @@ Runner `extract` (tree-sitter extraction; secrets reported as findings, values n
 One-shot runner `scan` for CI; GitHub Action, GitLab template; baselines, regression diffs, severity-threshold gating; scheduled/continuous scans, alerts, Jira/Slack/SIEM; Burp extension as a runner; fleet (MDM) discovery. Exit: continuous scanning for a pilot customer.
 
 ### Phase 10 - Enterprise
-SSO (SAML/OIDC), RBAC, audit log, retention controls; admin console two-person rule on every guarded action, SOC 2 access-review export, and a reduced operator console for on-prem; regional instances, private single-tenant, on-prem Helm deployment of the full brain (air-gapped, in-cluster model service at Stage 1 spec on customer GPUs); SOC 2 readiness. Exit: first private/on-prem enterprise deployment.
+SSO (SAML/OIDC), RBAC, audit log, retention controls; admin console SOC 2 access-review export, and a reduced operator console for on-prem; regional instances, private single-tenant, on-prem Helm deployment of the full brain (air-gapped, in-cluster model service at Stage 1 spec on customer GPUs); SOC 2 readiness. Exit: first private/on-prem enterprise deployment.
 
 ### Phase 11 - Later
 Runtime guardrails/firewall reusing detectors as inline policies; late gap modules (M-A15, M-C6, M-C8). No desktop app.
@@ -449,7 +449,7 @@ Runtime guardrails/firewall reusing detectors as inline policies; late gap modul
 - **Model costs and throughput:** start on one 20 GB GPU (low concurrency, accepted), move to 48 GB vLLM nodes on measured triggers; caching and per-scan budgets throughout.
 - **Uncensored model quality and supply:** abliteration can hurt reasoning, and the candidates publish GGUF only (vLLM needs BF16 to build AWQ). Pinned only after the Phase T benchmark; fallback is reproducing abliteration on the base model.
 - **Customer trust in cloud data:** runner-side redaction, regional/private tenants, on-prem.
-- **Admin console as a target:** it sees every org. Separate network path, authenticator-app MFA, least-privilege staff roles, customer-approved grants for content, two-person rule, audited decryptions (see [20-admin-console.md](20-admin-console.md)).
+- **Admin console as a target:** it sees every org. Layered hardening from Phase 2: identity-aware proxy with managed-device certificates (compensates for phishable TOTP), short device-bound sessions, just-in-time roles, two-person rule, text-only rendering of hostile scan content with a sandboxed evidence origin, key-service-enforced decryption budgets, real-time alerts, and a canary org (see [20-admin-console.md](20-admin-console.md#security-hardening)).
 - **Coverage claims outrunning reality:** the engines leave real gaps (see [16-coverage-gaps.md](16-coverage-gaps.md)). Customer-facing coverage pages are generated from the registry and benchmark, not written by hand.
 - **Engines phoning home:** some OSS tools send telemetry or call their vendor's API. Engine containers get no internet egress except the target path and our model service, verified in CI.
 - **Legal/misuse:** target ownership verification, allowlists, ToS, safety-content gating; GPL tools kept out of on-prem distribution.
