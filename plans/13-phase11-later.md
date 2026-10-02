@@ -1,18 +1,11 @@
-# Phase 11 — Later (desktop and runtime)
+# Phase 11 — Later (runtime guardrails)
 
 Depends on: a shipped runner (Phase 1+) and a dashboard (Phase 2+). Runtime guardrails depend on the Phase 4 oracles and the Phase 6 registry.
 Parent: [00-master-plan.md](00-master-plan.md).
 This phase is not on the critical path. Do not start it before a design partner is using Phases 1–3.
 
 ## Goal
-Two optional products on the same brain: a desktop tray that makes the runner visible to a non-CLI user, and a runtime guardrail that reuses detectors on live traffic. Neither changes the "cloud brain, thin edge" decision.
-
-## Desktop app
-- Not the place scans are planned. It enrolls and supervises the Go runner, shows connection status, last heartbeat, local audit of requests the runner sent, and a link to the web dashboard.
-- Shell: Tauri. UI can reuse dashboard components only if that stays a thin status view. Do not duplicate findings triage.
-- The runner remains a separate Go process the shell starts. No attack logic in the shell.
-- Updates: signed runner binary. The shell does not embed engine images.
-- Exit when started: a user can enroll, see "connected", and open the scan they launched on the web.
+An optional runtime guardrail on the same brain that reuses the scan-time detectors on live traffic. It does not change the "cloud brain, thin edge" decision. (The runner stays command-line and dashboard-managed; there is no desktop app.)
 
 ## Runtime guardrails
 A proxy the customer places in front of their model or agent. It is a forwarder with policies, not a second scanner brain.
@@ -29,8 +22,8 @@ From [16-coverage-gaps.md](16-coverage-gaps.md):
 - **M-C8 client-side pack:** prototype pollution, postMessage handlers, CSP and clickjacking weaknesses.
 
 ## Out of scope until a customer asks
-Offline desktop scanning, a local brain, marketplace of third-party policies, blocking production traffic by default.
+A local brain, a marketplace of third-party policies, blocking production traffic by default, and any desktop or tray app (dropped: the runner stays CLI/dashboard-managed).
 
 ## Risks
 - Runtime inline latency. Measure p95 before calling it a product.
-- Desktop scope creep back into a local engine. If a feature needs attack generation, it belongs in the cloud brain.
+- Guardrail scope creep back into a local engine. If a feature needs attack generation, it belongs in the cloud brain.
