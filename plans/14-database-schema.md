@@ -119,7 +119,8 @@ No application role owns tables, has `BYPASSRLS`, or is a superuser.
 | `app_reports` | Report generation | Read-only on `v_findings_public` and taxonomy. Cannot see internal engine columns. |
 | `app_audit` | API audit writer | `INSERT` only on `audit_events`. No `UPDATE`, `DELETE`, or `TRUNCATE`. |
 | `app_keys` | Key service | Read/insert `org_keys`. Nothing else. |
-| `app_staff_console` | Staff-only admin console | Read engine registry and aggregate stats. Evidence only through an active `staff_access_grants` row. |
+| `app_admin_read` | Admin console API ([20-admin-console.md](20-admin-console.md)) | Read C0 columns across orgs only through `v_admin_*` views, plus the engine registry and aggregate stats. No base-table access. C1/C2 only via the key service with a staff role and, where required, an active `staff_access_grants` row. |
+| `app_admin_write` | Admin console API | Insert/update `org_settings`, `org_feature_flags`, `feature_flags`, `staff_*`, and scan control commands. Nothing else. |
 | `app_readonly_ops` | On-call dashboards | Metadata views (counts, queue health). No C1 values, no C2/C3. |
 
 ## Row-level security
@@ -320,7 +321,7 @@ CREATE TABLE target_contexts (                      -- gray-box inputs (Phase 4)
 - The egress proxy checks each outgoing request's host against the decrypted `hosts_enc` list and the `host_bidx` verifications, so direct-mode scope checks work even though hostnames are encrypted at rest.
 
 ### Engine registry and taxonomy (global reference data, Phase 1 and 3)
-No `org_id`, no tenant RLS. Writable only by migrations and the staff console. These tables hold real engine names and must never be exposed through a customer-facing API or view.
+No `org_id`, no tenant RLS. Writable only by migrations (proposed from the admin console). These tables hold real engine names and must never be exposed through a customer-facing API or view.
 ```sql
 CREATE TABLE engines (                              -- INTERNAL: real upstream names
   id          text PRIMARY KEY,                      -- 'garak', 'promptfoo', 'zap', ...
@@ -376,7 +377,7 @@ CREATE TABLE probe_taxonomy (
   PRIMARY KEY (probe_id, taxonomy_id)
 );
 ```
-`app_api` and `app_worker` can read `attack_families`, `probes`, `taxonomy_refs`, `probe_taxonomy`, and `capability_map.module_label` through a view. Only `app_worker` (normalizer) and `app_staff_console` can read `engines` and `probe_upstream_map`.
+`app_api` and `app_worker` can read `attack_families`, `probes`, `taxonomy_refs`, `probe_taxonomy`, and `capability_map.module_label` through a view. Only `app_worker` (normalizer) and `app_admin_read` can read `engines` and `probe_upstream_map`.
 
 ### Scans (Phase 1; schedules Phase 9)
 ```sql
@@ -409,7 +410,9 @@ CREATE TABLE scans (
   estimated_cost numeric,                            -- shown before launch
   started_at    timestamptz,
   finished_at   timestamptz,
-  kill_switch   boolean NOT NULL DEFAULT false
+  kill_switch   boolean NOT NULL DEFAULT false,
+  config_snapshot jsonb NOT NULL,                    -- C0: effective settings resolved at launch (registry-typed values only)
+  config_hash   bytea NOT NULL                       -- SHA-256 of the canonical snapshot
 );
 
 CREATE TABLE scan_family_coverage (                 -- per-family choice when coverage_mode='custom'
@@ -573,7 +576,7 @@ CREATE TABLE audit_events (
 
 CREATE TABLE staff_access_grants (                  -- no standing staff access to evidence
   org_id        uuid NOT NULL REFERENCES orgs(id),
-  staff_user_id uuid NOT NULL,
+  staff_user_id uuid NOT NULL REFERENCES staff_users(id),
   approved_by   uuid NOT NULL REFERENCES users(id), -- a customer owner/admin
   reason_enc    bytea NOT NULL,                     -- C1: support tickets often quote the customer's issue
   scope         text NOT NULL CHECK (scope IN ('metadata','evidence')),
@@ -587,6 +590,84 @@ CREATE TABLE staff_access_grants (                  -- no standing staff access 
 - The audit writer passes metadata through the same secret redactor as evidence, so an audit row for "credential replaced" records the fingerprint, never the value.
 - The hash chain makes silent edits or deletions detectable: a nightly job re-computes the chain per org and alerts on a break. The latest `row_hash` per org is also copied to write-once object storage daily, so an attacker with DB access cannot rewrite the whole chain undetected.
 - Staff evidence decryption goes through the key service, which checks for an active grant, and every decryption writes an `audit_events` row with `actor_type='staff'` that the customer can see.
+
+### Admin console tables
+Used by the internal admin console ([20-admin-console.md](20-admin-console.md)). Staff identity is separate from customer `users`.
+```sql
+CREATE TABLE staff_users (                          -- global, no org_id
+  id            uuid PRIMARY KEY DEFAULT uuidv7(),
+  sso_subject_bidx bytea NOT NULL UNIQUE,           -- HMAC of the staff IdP subject
+  email_enc     bytea NOT NULL,                     -- C1, platform data key
+  webauthn_required boolean NOT NULL DEFAULT true,
+  disabled_at   timestamptz,
+  created_at    timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE staff_role_assignments (
+  staff_user_id uuid NOT NULL REFERENCES staff_users(id),
+  role          text NOT NULL CHECK (role IN ('support','ops','engineer','admin','security')),
+  granted_by    uuid NOT NULL REFERENCES staff_users(id),
+  approval_id   uuid NOT NULL,                      -- staff_approvals row (two-person rule)
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  revoked_at    timestamptz,
+  PRIMARY KEY (staff_user_id, role, created_at)
+);
+
+CREATE TABLE feature_flags (                        -- global flag definitions
+  key           text PRIMARY KEY,                   -- C0, our flag names
+  default_on    boolean NOT NULL DEFAULT false,
+  description   text NOT NULL                       -- C0, our wording
+);
+
+CREATE TABLE org_feature_flags (                    -- per-org overrides
+  org_id        uuid NOT NULL REFERENCES orgs(id),
+  flag_key      text NOT NULL REFERENCES feature_flags(key),
+  enabled       boolean NOT NULL,
+  set_by        uuid NOT NULL REFERENCES staff_users(id),
+  updated_at    timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (org_id, flag_key)
+);
+
+CREATE TABLE org_settings (                         -- per-org overrides of registry-typed settings
+  org_id        uuid NOT NULL REFERENCES orgs(id),
+  setting_key   text NOT NULL,                      -- C0, must exist in settings_registry.py (CI-checked)
+  value         jsonb,                              -- C0: number, boolean, or enum from the registry; NULL when value_enc is used
+  value_enc     bytea,                              -- C1 for customer-supplied values (report branding)
+  set_by_type   text NOT NULL CHECK (set_by_type IN ('staff','user')),
+  set_by        uuid NOT NULL,
+  updated_at    timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (org_id, setting_key),
+  CHECK ((value IS NULL) <> (value_enc IS NULL))
+);
+
+CREATE TABLE staff_approvals (                      -- two-person rule
+  id            uuid PRIMARY KEY DEFAULT uuidv7(),
+  action        text NOT NULL,                      -- C0, enum of guarded actions
+  org_id        uuid REFERENCES orgs(id),
+  payload_enc   bytea NOT NULL,                     -- C1: the proposed change, platform data key
+  proposed_by   uuid NOT NULL REFERENCES staff_users(id),
+  approved_by   uuid REFERENCES staff_users(id),
+  expires_at    timestamptz NOT NULL,               -- 24 hours after proposal
+  decided_at    timestamptz,
+  CHECK (approved_by IS NULL OR approved_by <> proposed_by)
+);
+
+CREATE TABLE staff_audit_events (                   -- internal; same hash chain as audit_events
+  seq          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  staff_user_id uuid NOT NULL REFERENCES staff_users(id),
+  action       text NOT NULL,                       -- 'org.view', 'setting.change', 'decrypt.contact', 'scan.cancel', ...
+  org_id       uuid,
+  target_type  text,
+  target_id    uuid,
+  metadata_enc bytea,                               -- C1, platform data key; before/after, reason; never C2/C3
+  prev_hash    bytea NOT NULL,
+  row_hash     bytea NOT NULL,
+  created_at   timestamptz NOT NULL DEFAULT now()
+) PARTITION BY RANGE (created_at);
+```
+- `org_settings.value` is plaintext JSON only because every key and allowed value comes from our typed registry (numbers, booleans, enums). A CI test fails if a registry entry accepts free text without `value_enc`.
+- `v_admin_*` views expose C0 columns across orgs for `app_admin_read` (for example `v_admin_orgs`, `v_admin_scans`, `v_admin_scan_tasks`, `v_admin_runners`). They never include `_enc` columns; decryption is a separate key-service call.
+- `staff_audit_events` follows the same append-only rules as `audit_events`. Customer-affecting staff actions also write a customer-visible `audit_events` row.
 
 ## Customer-facing views
 The API and report roles read findings only through views that cannot leak engine identity:
@@ -647,6 +728,7 @@ Backups are encrypted with a backup key separate from the org keys, kept 35 days
 - Audit table rejects `UPDATE` and `DELETE`; the chain verifier detects a manually edited row.
 - Crypto-shred: after destroying an org's keys, its findings cannot be decrypted from a restored backup.
 - Denylist: no upstream engine name appears in any row returned by a customer-facing view.
+- `app_admin_read` cannot select any base table; `v_admin_*` views return no `_enc` columns; a staff decryption of C1 or C2 without the required grant fails.
 
 ## Open decisions
 - KMS product per environment (cloud KMS in our SaaS; Vault Transit vs customer HSM for on-prem) is chosen at Phase 10, but the key-service interface is fixed in Phase 0 so the choice does not change application code.
