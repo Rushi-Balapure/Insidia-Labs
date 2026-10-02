@@ -15,7 +15,7 @@ No porting: the OSS engines stay as they are. This phase turns the engines and I
 - Thorough mode finds strictly more confirmed issues than Standard on the benchmark suite, and the dashboard's cost and time estimates are within 25% of actuals.
 - Cross-engine dedup merges duplicate findings with under 2% false merges on the labeled benchmark set.
 - The denylist test is green on every customer-facing surface listed below.
-- The staff-only engine console is live, and customer accounts cannot reach it (tested).
+- The Engines section of the admin console is live, and customer accounts cannot reach it (tested).
 - Every Partial or Gap row in [16-coverage-gaps.md](16-coverage-gaps.md) scheduled for Phases 1 to 4 has a benchmark result.
 
 ## Out of scope
@@ -26,7 +26,7 @@ Phase 1 shipped a minimal registry. Phase 6 grows it to every engine and module:
 - `engines` holds each upstream engine **and** each Insidia module (`engine_id = 'insidia.m_c3'`, for example), with its pinned image digest and license.
 - `capability_map` holds, per (engine, attack family): priority, `module_label`, measured precision and recall, cost per attempt, and median runtime.
 - `probe_upstream_map` maps every upstream probe or plugin we use to an Insidia probe id. An unmapped upstream probe cannot run; the normalizer rejects its output.
-- The registry is edited only by migrations and the staff console, with every change audited. Changes take effect for new scans only, so a running scan never switches engines mid-way.
+- The registry is edited only by migrations, proposed from the admin console, with every change audited. Changes take effect for new scans only, so a running scan never switches engines mid-way.
 
 ## Benchmark suite
 - Targets and ground truth are the shared Phase T permutation suite ([17-test-suite.md](17-test-suite.md)), not a separate set: OWASP Juice Shop, crAPI, VAmPI, Damn Vulnerable GraphQL Application, AgentDojo tasks, and our fixtures (vulnerable chatbot, RAG app, MCP agent, two-agent A2A system), each sandboxed with no egress and carrying a `ground_truth.yaml`. See [16-coverage-gaps.md](16-coverage-gaps.md#validating-this-analysis).
@@ -64,11 +64,11 @@ Also:
 - Upstream payload text that names its own tool (some probes include the tool's name in the prompt) is rewritten or dropped by the normalizer.
 - The customer "how it works" diagram shows a single Insidia Engine box, and module labels are numbered or named by capability ("Jailbreak module"), never by source.
 
-## Staff-only engine console
-- A separate internal app on a separate hostname, behind staff SSO and a VPN. No route from the customer API.
+## Engines section of the admin console
+The admin console ([20-admin-console.md](20-admin-console.md)) ships in Phase 2; this phase adds its Engines and modules section.
 - Shows real engine names, per-engine benchmark results, production precision from customer triage (aggregated, never raw evidence), error rates, and version pins.
 - Lets staff propose registry changes, which go out as reviewed migrations.
-- Uses the `app_staff_console` database role. Evidence is visible only through an active, customer-approved `staff_access_grants` row.
+- Uses the admin console's access model: separate internal hostname, staff SSO with hardware keys, the `app_admin_read` and `app_admin_write` roles. Evidence is visible only through an active, customer-approved `staff_access_grants` row.
 
 ## Insidia modules in the registry
 The gap-filling modules from [16-coverage-gaps.md](16-coverage-gaps.md) register exactly like engines. They are benchmarked the same way and compete for Standard-mode priority on merit. Where a module beats an engine on a family, it becomes the Standard choice and the engine stays available in Thorough.
@@ -79,7 +79,7 @@ The gap-filling modules from [16-coverage-gaps.md](16-coverage-gaps.md) register
 - Dedup test on the labeled duplicate set (merge rate and false merges).
 - Estimate accuracy test on recorded benchmark runs.
 - Denylist tests on every surface above, including captured traffic.
-- Access test: a customer session, API key, or runner certificate cannot reach any staff console route.
+- Access test: a customer session, API key, or runner certificate cannot reach any admin console route.
 
 ## Risks
 - **Benchmark overfitting.** Engines tuned to a public benchmark can look better than they are. Keep a private held-out set of fixtures that no one tunes against.
