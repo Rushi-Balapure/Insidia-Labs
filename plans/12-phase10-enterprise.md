@@ -12,7 +12,8 @@ A company can use Insidia under their identity provider, with roles, an audit lo
 - Audit log is append-only for those actions and is exportable by an admin of that org.
 - Helm chart installs API, workers, hub, egress proxy, RabbitMQ, Valkey, and the key service, and configures an external Postgres and the customer's KMS or HSM (Vault Transit or a cloud KMS). A smoke scan runs against the fixture inside the cluster.
 - Customers can bring their own master key (BYOK) in the shared cloud, and revoking it crypto-shreds their data (see [14-database-schema.md](14-database-schema.md)).
-- Staff access grants are fully self-service for customer admins: approve, revoke, and see every staff decryption in their audit log.
+- Staff access grants are fully self-service for customer admins: approve, revoke, set standing grant policies, and see every staff decryption in their audit log.
+- Admin console ([20-admin-console.md](20-admin-console.md)): two-person rule on every guarded action, monthly SOC 2 staff access-review export, and a reduced operator console in the Helm chart for on-prem and private tenants (health, queues, runners, kill switches, settings; engines shown as Insidia Engine modules).
 - On-prem install guide includes `THIRD_PARTY_NOTICES.md` generation for images that are actually shipped. Legal review is a checklist item before the first on-prem customer, not a code task.
 - Air-gapped profile: attacker and judge models point at an in-cluster model service (vLLM + AWQ, Stage 1 spec from [19-model-hosting.md](19-model-hosting.md): at least one 48 GB GPU the customer provides, weights shipped with pinned SHA-256); no calls to our SaaS control plane; image pulls from their registry.
 
