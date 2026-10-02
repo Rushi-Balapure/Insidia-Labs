@@ -607,7 +607,7 @@ CREATE TABLE staff_users (                          -- global, no org_id
   created_at    timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE staff_role_assignments (
+CREATE TABLE staff_role_assignments (               -- standing for 'support'; eligibility for the rest
   staff_user_id uuid NOT NULL REFERENCES staff_users(id),
   role          text NOT NULL CHECK (role IN ('support','ops','engineer','admin','security')),
   granted_by    uuid NOT NULL REFERENCES staff_users(id),
@@ -616,6 +616,33 @@ CREATE TABLE staff_role_assignments (
   revoked_at    timestamptz,
   PRIMARY KEY (staff_user_id, role, created_at)
 );
+
+CREATE TABLE staff_role_elevations (                -- just-in-time use of an eligible role
+  id            uuid PRIMARY KEY DEFAULT uuidv7(),
+  staff_user_id uuid NOT NULL REFERENCES staff_users(id),
+  role          text NOT NULL CHECK (role IN ('ops','engineer','admin','security')),
+  reason_enc    bytea NOT NULL,                     -- C1, platform data key
+  ticket_ref_enc bytea NOT NULL,                    -- C1
+  approval_id   uuid,                               -- required for 'admin' and 'security'
+  starts_at     timestamptz NOT NULL DEFAULT now(),
+  ends_at       timestamptz NOT NULL,
+  revoked_at    timestamptz,
+  CHECK (ends_at - starts_at <= interval '4 hours'),
+  CHECK (role NOT IN ('admin','security') OR approval_id IS NOT NULL)
+);
+
+CREATE TABLE staff_sessions (                       -- server-side; the cookie holds only an opaque id
+  id_hmac       bytea PRIMARY KEY,                  -- HMAC(pepper, session id)
+  staff_user_id uuid NOT NULL REFERENCES staff_users(id),
+  device_cert_fp bytea NOT NULL,                    -- SHA-256 of the managed-device certificate
+  ip_enc        bytea NOT NULL,                     -- C1, platform data key
+  ip_bidx       bytea NOT NULL,                     -- equality check on every request
+  step_up_until timestamptz,                        -- last fresh TOTP + 10 minutes
+  last_seen_at  timestamptz NOT NULL,
+  expires_at    timestamptz NOT NULL,               -- created + 8 hours
+  revoked_at    timestamptz
+);
+CREATE UNIQUE INDEX one_active_staff_session ON staff_sessions (staff_user_id) WHERE revoked_at IS NULL;
 
 CREATE TABLE feature_flags (                        -- global flag definitions
   key           text PRIMARY KEY,                   -- C0, our flag names
@@ -672,6 +699,8 @@ CREATE TABLE staff_audit_events (                   -- internal; same hash chain
 - `org_settings.value` is plaintext JSON only because every key and allowed value comes from our typed registry (numbers, booleans, enums). A CI test fails if a registry entry accepts free text without `value_enc`.
 - `v_admin_*` views expose C0 columns across orgs for `app_admin_read` (for example `v_admin_orgs`, `v_admin_scans`, `v_admin_scan_tasks`, `v_admin_runners`). They never include `_enc` columns; decryption is a separate key-service call.
 - `staff_audit_events` follows the same append-only rules as `audit_events`. Customer-affecting staff actions also write a customer-visible `audit_events` row.
+- `one_active_staff_session` enforces one live session per staff user. Expired rows (`expires_at < now()`) are treated as revoked by the session check.
+- Per-staff decryption budgets are counted in the key service (Valkey counters), not in this database, so a compromised admin API cannot reset them.
 
 ## Customer-facing views
 The API and report roles read findings only through views that cannot leak engine identity:
