@@ -598,7 +598,11 @@ CREATE TABLE staff_users (                          -- global, no org_id
   id            uuid PRIMARY KEY DEFAULT uuidv7(),
   sso_subject_bidx bytea NOT NULL UNIQUE,           -- HMAC of the staff IdP subject
   email_enc     bytea NOT NULL,                     -- C1, platform data key
-  webauthn_required boolean NOT NULL DEFAULT true,
+  totp_secret_enc bytea,                            -- C3, platform secrets key; NULL until enrolled
+  totp_last_step bigint,                            -- last accepted TOTP time step (replay protection)
+  recovery_code_hmacs bytea[],                      -- HMAC(pepper, code); single-use, removed when used
+  failed_totp_count int NOT NULL DEFAULT 0,
+  locked_until  timestamptz,
   disabled_at   timestamptz,
   created_at    timestamptz NOT NULL DEFAULT now()
 );
