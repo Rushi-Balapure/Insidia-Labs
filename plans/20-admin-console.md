@@ -25,7 +25,7 @@ It replaces the "staff-only engine console" from the earlier plan; the engine re
   - Each code is accepted once (replay blocked), with a ±1 step clock window. Five wrong codes lock the account for 15 minutes and alert `security`.
   - Sessions last 8 hours. Every write and every decryption asks for a fresh code (step-up), valid for 10 minutes.
   - TOTP codes can be phished, so the internal-only network path (zero-trust proxy or VPN) is a required control, not an extra.
-- **Staff roles** (a staff user can hold several):
+- **Staff roles** (a staff user can hold several; only `support` is standing, the rest are elevated just in time, see "Security hardening"):
 
 | Role | Can |
 |---|---|
@@ -51,6 +51,70 @@ It replaces the "staff-only engine console" from the earlier plan; the engine re
 | C3 | Credentials, tokens, keys | Never, for anyone. Fingerprints only |
 
 Grants come from the customer: a customer owner or admin approves a staff request in the dashboard ("Insidia support requests evidence access for scan X, 24 hours"). Maximum 72 hours, revocable, and every staff decryption appears in the customer's audit log. Phase 2 ships the approve and revoke flow; Phase 10 adds self-service grant policies.
+
+## Security hardening
+The admin console sees every org, so it gets stronger controls than the customer dashboard. Each layer below assumes the one before it has failed. All of it ships in Phase 2, because the console holds real data from its first day.
+
+### 1. Network: only reachable from where it should be
+- **Identity-aware proxy in front of everything.** Staff reach the console only through a zero-trust proxy (Pomerium, Apache-2.0, self-hosted; or the cloud provider's identity-aware proxy) that checks SSO identity and device certificate before any packet reaches the admin app. A VPN alone is not enough.
+- **No public address.** The admin web app and API have no public IP, no public DNS record, and no route from the customer load balancer. The internal DNS name resolves only inside the proxy's network.
+- **Separate runtime.** Own Kubernetes namespace and node pool, with network policies: the admin API may reach Postgres (admin roles only), the key service, the RabbitMQ control exchange, Valkey (read-only), and the telemetry backend. No internet egress. Customer API and worker pods cannot open connections to it.
+- **mTLS** between the proxy and the admin API, and between the admin API and the key service. The admin API rejects any request that did not come through the proxy (signed proxy header plus the mTLS client cert).
+
+### 2. Devices: only managed staff laptops
+- Access needs a **device certificate** issued only to company-managed laptops (disk encryption, screen lock, automatic OS updates, endpoint protection). No personal devices, no phones.
+- The proxy checks the device certificate and posture on every request. A lost or stolen laptop is revoked centrally within minutes.
+- Without hardware security keys, the device certificate is our strongest "something you have": a phished SSO password plus a phished TOTP code still fails from an unmanaged machine.
+
+### 3. Accounts and sessions
+- **Sign-in:** staff SSO (OIDC) plus authenticator-app TOTP (above). The SSO tenant itself enforces MFA and blocks legacy protocols.
+- **Server-side sessions** in `staff_sessions`, bound to the staff user, device certificate fingerprint, and client IP. A change in device or IP ends the session.
+- **Short sessions:** 30-minute idle timeout, 8-hour absolute limit, one active session per staff user. A new login ends the old one.
+- **Cookies:** `__Host-` prefix, `Secure`, `HttpOnly`, `SameSite=Strict`; CSRF token on every write.
+- **Instant revoke:** `security` can end any session, or all staff sessions at once (the console's own kill switch), effective on the next request.
+- **Offboarding:** staff accounts are provisioned from the identity provider (SCIM). Disabling a person there removes console access within 15 minutes; a nightly job checks that every `staff_users` row matches an active IdP account.
+
+### 4. Authorization: least privilege, just in time
+- **Only `support` is standing.** `ops`, `engineer`, `admin`, and `security` are *eligible* roles. A staff user elevates for up to 4 hours with a reason and a ticket id; the elevation expires on its own. Elevating to `admin` or `security` needs a second staff approval (two-person rule).
+- **Deny by default.** Every admin API route declares its required role and whether it needs step-up; a CI test fails on any route without a declaration. The UI hides what a role cannot do, but the API enforces it.
+- **Two-person rule** applies from Phase 2 to every guarded action listed above, not only some.
+- **Break-glass account:** one offline emergency account whose credentials are split between two founders and stored sealed. Using it pages everyone in `security`, and it is reviewed after every use.
+
+### 5. Customer content is hostile
+Insidia stores attack transcripts, injected payloads, and responses from targets we were attacking. Anything customer-derived that reaches the console (org and target names, error text, transcripts) can contain a working XSS or prompt-injection payload aimed at staff.
+- **Text only.** The console renders customer-derived strings as plain text. No HTML, no Markdown, no rich previews, no auto-linked URLs.
+- **Transcripts and evidence** open in a sandboxed iframe on a separate origin (`sandbox` without `allow-scripts`, its own CSP), so even a perfect payload has no script context and no access to the console's cookies.
+- **Strict Content Security Policy:** nonce-based scripts only, no inline scripts, no `eval`, Trusted Types enforced, `frame-ancestors 'none'`, `connect-src` limited to the admin API. HSTS with preload, COOP/COEP, `Referrer-Policy: no-referrer`.
+- **No third-party code in the browser:** no analytics, no CDNs, no external fonts. Every asset is self-hosted with Subresource Integrity.
+- **No outbound fetches.** The console never fetches a URL from customer data (no link previews, no favicons), so it cannot be turned into an SSRF.
+- **Uploaded logos** (report branding) are decoded and re-encoded server-side to PNG, with size limits. SVG is rejected.
+- **Tested:** the Phase T XSS and prompt-injection payload corpus is planted into a fixture org's names, errors, and transcripts, and the console is checked for script execution.
+
+### 6. Limiting what one compromised account can take
+- **No bulk export of customer data.** Lists are paginated with caps. There is no "export all orgs" or "export all contacts"; SOC 2 exports contain staff activity, not customer data.
+- **Decryption budgets.** Each staff user has a per-hour limit on decryptions (contact fields and grant-based content), enforced in the key service. Hitting it blocks further decryption and alerts `security`.
+- **The key service does not trust the admin API.** It re-checks the staff session token (signed by the auth service), the role, the elevation, and the grant on every decryption call. A compromised admin API alone cannot decrypt anything.
+- **Watermarked views:** decrypted content shows the staff user's id and a timestamp as a visible overlay, to deter screenshots and trace leaks.
+- **No caching:** `Cache-Control: no-store` on every admin API response; the browser keeps nothing on disk.
+- **Short-lived database credentials** for the admin API, issued per pod by the secret store (dynamic credentials or cloud IAM database auth). No static passwords.
+
+### 7. Detection
+- Every `staff_audit_events` row streams to the SIEM in real time, and a daily hash of the chain goes to write-once storage, so a staff member with database access cannot erase their tracks.
+- **Alerts** to `security` on: login from a new device, after-hours elevation to `admin` or `security`, decryption volume above baseline, many orgs viewed in a short time, failed TOTP bursts, use of a recovery code, break-glass use, any change to staff roles.
+- **Canary org and honeytokens.** A fake customer org with realistic data exists in production. Any staff view or decryption of it is a high-severity alert, because no legitimate task touches it. Planted fake credentials in it alert if ever used anywhere.
+- Monthly review of every staff decryption, signed off by `security`.
+
+### 8. Supply chain and change control
+- `admin/` and `engine/admin_api/` are protected by code owners; a change needs two reviewers, one from `security`.
+- Minimal dependencies, pinned with lockfiles, scanned in CI (osv-scanner, Trivy). New dependencies need review.
+- Images are built in CI, signed (Sigstore cosign), and an admission controller runs only signed images in the admin namespace.
+- Deploys to the admin namespace need two approvals and run from CI only; no one has `kubectl exec` there in production.
+
+### 9. Testing the console itself
+- The console's threat model is a section of `internal/threat-model.md`, reviewed before each phase that changes it.
+- Insidia scans its own admin console in staging (web DAST, access control differ M-C3, XSS corpus) on every release.
+- An external penetration test before the first design partner and yearly after, scoped to the console, proxy, and key service.
+- Incident runbook: end all staff sessions, freeze elevations, rotate the admin API's credentials, preserve audit, notify affected customers per their contracts.
 
 ## Sections
 
@@ -124,16 +188,16 @@ Built in Phase 6 ([08-phase6-engine-registry.md](08-phase6-engine-registry.md)):
 - Monthly access review export for SOC 2.
 
 ## Data model
-New tables are in [14-database-schema.md](14-database-schema.md#admin-console-tables): `staff_users`, `staff_role_assignments`, `org_settings`, `feature_flags`, `org_feature_flags`, `staff_approvals`, `staff_audit_events`, and the `scans.config_snapshot` columns. `staff_access_grants.staff_user_id` now references `staff_users`.
+New tables are in [14-database-schema.md](14-database-schema.md#admin-console-tables): `staff_users`, `staff_role_assignments`, `staff_role_elevations`, `staff_sessions`, `org_settings`, `feature_flags`, `org_feature_flags`, `staff_approvals`, `staff_audit_events`, and the `scans.config_snapshot` columns. `staff_access_grants.staff_user_id` now references `staff_users`.
 
 ## Delivery by phase
 | Phase | Admin console scope |
 |---|---|
-| 2 | First version, needed before the first design partner: customers list and org detail, settings for plan and limits plus feature flags, scan debugger (timeline, states, errors, trace links), runner fleet, platform health with kill switches, grant request and approval flow, staff audit |
+| 2 | First version, needed before the first design partner: customers list and org detail, settings for plan and limits plus feature flags, scan debugger (timeline, states, errors, trace links), runner fleet, platform health with kill switches, grant request and approval flow, staff audit, and every control in "Security hardening" (proxy, device certs, sessions, just-in-time roles, two-person rule, hostile-content rendering, decryption budgets, alerts, canary org, signed images, external pentest) |
 | 4 | Models section; debug capture; coverage and model settings groups |
 | 6 | Engines and modules section; registry change proposals |
 | 9 | Scheduling settings group with dedicated pools; schedule and CI-scan views |
-| 10 | Two-person rule for every listed action (Phase 2 ships it for org deletion, crypto-shred, and staff roles); SOC 2 access review export; on-prem operator console |
+| 10 | SOC 2 access review export; on-prem operator console |
 
 **On-prem and private tenants:** the customer's operators get a reduced operator console (platform health, queues, runners, kill switches, settings) with engines shown as Insidia Engine modules. The full admin console stays in our SaaS.
 
@@ -147,9 +211,17 @@ New tables are in [14-database-schema.md](14-database-schema.md#admin-console-ta
 - Audit: every write and every decryption produces a `staff_audit_events` row; customer-affecting changes also produce a customer-visible `audit_events` row.
 - Kill switch: dispatch stops and in-flight tasks cancel within 10 seconds.
 - Redaction: a forced engine error that includes a planted secret and payload stores neither in the error detail.
+- Network: a request to the admin API that skips the proxy (no signed header or no mTLS cert) is rejected; an admin pod cannot reach the internet; a customer API pod cannot connect to the admin API.
+- Device and session: a valid SSO login plus TOTP from a device without a staff certificate is refused; a session reused from another device or IP is ended; idle and absolute timeouts fire; "end all staff sessions" takes effect on the next request.
+- Just-in-time roles: an expired elevation loses its permissions immediately; elevation to `admin` or `security` without a second approver fails; every route has a declared role (CI).
+- Hostile content: the XSS and prompt-injection corpus planted in a fixture org executes nothing in the console; transcripts render only in the sandboxed origin; the CSP report endpoint receives no violations during the test run.
+- Blast radius: the per-hour decryption budget blocks and alerts; the key service refuses a decryption call that has a valid admin API identity but no valid staff session token.
+- Detection: viewing the canary org raises a high-severity alert; a break-glass login pages `security`.
 
 ## Risks
-- **The admin console is the most valuable target we run.** It sees every org. Mitigations: separate network path, authenticator-app MFA with step-up on every write, least-privilege roles, no content without customer grants, two-person rule, audit with alerts on unusual decryption volume.
+- **The admin console is the most valuable target we run.** It sees every org. Mitigations are layered in "Security hardening": identity-aware proxy, managed-device certificates, short device-bound sessions, just-in-time roles, two-person rule, hostile-content rendering, decryption budgets enforced by the key service, real-time alerts and a canary org.
+- **TOTP is phishable.** Without hardware keys, the device certificate at the proxy is what stops a phished password plus code. If device certificates slip (for example, contractors on unmanaged machines), this risk reopens; do not make exceptions.
+- **Stored XSS from scan data.** We hold attack payloads by design. Text-only rendering and the sandboxed evidence origin are mandatory, and the corpus test blocks release.
 - **Insider misuse.** Grants are customer-approved and visible to the customer; staff decryptions are reviewed monthly.
 - **Settings sprawl.** Every setting must be in the typed registry with bounds and a default; no free-form per-org JSON.
 - **Debugging pressure to log payloads.** The scan debugger works from ids, codes, and traces. When that is not enough, debug capture asks for a grant; it never turns on plaintext logging.
