@@ -15,7 +15,7 @@ todos:
     content: "Phase 1B (Classic track): runner tunnel mode (WireGuard) + tunnel hub + ZAP/Nuclei/Dalfox workers + hosted interactsh OOB"
     status: pending
   - id: phase2
-    content: "Phase 2: web dashboard, multi-tenant auth, projects/targets/scans UI, runner enrollment, unified findings view"
+    content: "Phase 2: web dashboard, multi-tenant auth, projects/targets/scans UI, runner enrollment, unified findings view, internal admin console v1"
     status: pending
   - id: phase3
     content: "Phase 3: unified taxonomy + compliance (OWASP LLM 2026/ASI/web/API, ATLAS, ATT&CK, CWE, CVSS/AIVSS, NIST, EU AI Act, PCI), reports, SARIF"
@@ -30,7 +30,7 @@ todos:
     content: "Phase 5: AI pentest agent (Strix-based) that orchestrates relay + tunnel to find chained AI-to-classic exploits with PoC validation"
     status: pending
   - id: phase6
-    content: "Phase 6: engine registry, overlap tuning (Standard/Thorough), cross-engine dedup, Insidia Engine masking hardening, staff-only engine console"
+    content: "Phase 6: engine registry, overlap tuning (Standard/Thorough), cross-engine dedup, Insidia Engine masking hardening, admin console Engines section"
     status: pending
   - id: phase7
     content: "Phase 7: agent security - discovery, MCP/skill scans, hosted honeypot MCP + poisoned content, multi-agent/A2A, ASI01-10 suites"
@@ -45,7 +45,7 @@ todos:
     content: "Phase 10: enterprise - SSO/RBAC/audit, regional + private tenants, on-prem deployment of cloud brain"
     status: pending
   - id: phase11
-    content: "Phase 11 (later): desktop app as runner GUI, runtime guardrails"
+    content: "Phase 11 (later): runtime guardrails, late gap modules (no desktop app)"
     status: pending
 isProject: false
 ---
@@ -74,6 +74,7 @@ Plans are stored in both `/home/rushi/Desktop/Rushi/Insidia-Labs/plans/` and thi
 - [17-test-suite.md](17-test-suite.md) (Phase T: test-first permutation suite, cross-cutting gate)
 - [18-validity-matrix.md](18-validity-matrix.md) (the validity function and the expanded permutation matrix)
 - [19-model-hosting.md](19-model-hosting.md) (internal: self-hosted uncensored attacker/judge models, GPU stages, runtimes)
+- [20-admin-console.md](20-admin-console.md) (internal: staff admin console for managing, debugging, and per-customer settings)
 
 ## Scope
 Insidia is an **AI-native application security platform**. It covers two tracks, built in parallel:
@@ -102,7 +103,8 @@ The differentiator is the seam between them: an AI pentest agent that chains an 
 - **Self-hosted uncensored models, staged hardware.** Commercial APIs refuse attack generation, so attacker and judge run on open-weight uncensored Qwen3.8-27B derivatives in our cluster. Stage 0 is one 20 GB GPU (RTX 4000 Ada) on llama.cpp with a GGUF build; Stage 1, from Phase 4A or when measured triggers fire, is 48 GB GPUs on vLLM with an AWQ build for batched throughput. Both expose one OpenAI-compatible endpoint, so the switch is config. See [19-model-hosting.md](19-model-hosting.md).
 - **Closed source, MIT/Apache OSS only** (plus MPL-2.0/BSD infrastructure after review). We use the OSS engines as they are. **No porting.** Instead, the dashboard and website never name them: every engine appears as the **Insidia Engine**. See "Confidentiality of the stack".
 - **Engine overlap is a product setting.** Several engines cover the same attack family (for example garak and promptfoo both do jailbreaks). A capability registry maps each attack family to the engines that cover it, and the user picks per scan whether to run one engine or all of them. See "Engine overlap and selection".
-- **Desktop app deferred.** The web dashboard is the primary UI.
+- **No desktop app.** The web dashboard is the only customer UI; the runner stays a CLI managed from the dashboard.
+- **Internal admin console from Phase 2.** A separate staff-only app on an internal hostname (staff SSO, hardware-key MFA, no route from the customer API) to see platform and customer state, debug scans, runners, engines, and models, and set per-customer settings (limits, feature flags, coverage, safety, models, retention) within typed bounds. No impersonation; customer content needs a customer-approved grant. See [20-admin-console.md](20-admin-console.md).
 - **Enterprise data concerns** handled with regional instances, private single-tenant deployments, and an on-prem deployment of the cloud brain, so the brain is containerized from day one.
 
 ## Architecture
@@ -227,7 +229,7 @@ The dashboard labels engines as numbered Insidia Engine modules only where a dis
 
 **Deduplication across engines:** the normalizer maps each engine's result to an Insidia probe id and attack family, then merges findings with the same `(org, target, attack_family, normalized_evidence_hash)`. The merged finding keeps every contributing result internally for audit.
 
-**Staff-only view:** an internal admin console, never reachable by customer accounts, shows real engine names and per-engine stats for tuning priorities.
+**Staff-only view:** the Engines section of the internal admin console ([20-admin-console.md](20-admin-console.md)), never reachable by customer accounts, shows real engine names and per-engine stats for tuning priorities.
 
 ### How OSS engines plug in (no forks)
 - **garak:** custom generator (`insidia.RelayGenerator`); raise `parallel_requests` to hide relay latency.
@@ -321,11 +323,13 @@ Insidia-Labs/
       common/             task envelope, tenant context, fairness/dispatch, capability registry, dedup, progress events
     api/crypto/           key service client, envelope encryption, blind indexes, secret redactor
     egress/               direct-mode egress proxy (fixed IPs, verified-host enforcement)
+    admin_api/            internal admin console API (separate deployment, internal hostname only)
     agent/                AI pentest agent (Strix-based orchestrator)
     hub/                  Go tunnel hub + relay broker
     models/               model manifest (pinned SHA-256), llama.cpp and vLLM configs, judge prompts, model harness (proprietary)
     taxonomy-data/        YAML framework mappings
   dashboard/              React (Vite) web app
+  admin/                  internal staff admin console (React); API in engine/admin_api/, deployed separately
   shared/
     proto/                relay + control protocol (used by runner, hub, engine)
     sdk/python, sdk/js    in-process handler + OTel instrumentation
@@ -404,7 +408,7 @@ Right after the Phase 0 scaffold and before building scanners: the permutation m
 - **Fairness baseline:** per-org concurrency caps and the round-robin dispatcher land here so multi-tenant behavior is correct from the first scan.
 
 ### Phase 2 - Web dashboard and tenancy
-Org/project/user model, login, API keys; target wizard that starts with **"How do we reach your target?"** (Direct: hosted, no install; or Runner: local setup, recommended) and shows the feature availability table; ownership verification flow for direct targets; runner enrollment/health; scan launcher with **engine coverage** (Standard, Thorough, Custom per attack family, with live time and cost estimate, engines shown only as Insidia Engine modules); live progress; unified AI + classic findings triage with a "cross-validated" badge; transcript/request viewer; usage metering; "how it works" view that shows a single Insidia Engine. Exit: a customer signs up and runs scans both ways: a direct scan of a hosted target, and a runner scan of a localhost target.
+Org/project/user model, login, API keys; target wizard that starts with **"How do we reach your target?"** (Direct: hosted, no install; or Runner: local setup, recommended) and shows the feature availability table; ownership verification flow for direct targets; runner enrollment/health; scan launcher with **engine coverage** (Standard, Thorough, Custom per attack family, with live time and cost estimate, engines shown only as Insidia Engine modules); live progress; unified AI + classic findings triage with a "cross-validated" badge; transcript/request viewer; usage metering; "how it works" view that shows a single Insidia Engine; internal admin console v1 (customers, per-customer limits and feature flags, scan debugger, runner fleet, platform health and kill switches, staff grants and audit; see [20-admin-console.md](20-admin-console.md)). Exit: a customer signs up and runs scans both ways: a direct scan of a hosted target, and a runner scan of a localhost target.
 
 ### Phase 3 - Unified taxonomy and compliance
 `taxonomy-data/` covering all frameworks above (seed from promptfoo MIT mappings and the LLM Top 10 2026 machine-readable mappings); framework-based profiles; control-coverage engine; reports (PDF/HTML), evidence packs, SARIF/JSON, ATLAS heatmap. Exit: one run produces OWASP LLM, OWASP Web, and EU AI Act reports.
@@ -418,7 +422,7 @@ Org/project/user model, login, API keys; target wizard that starts with **"How d
 Adapt `usestrix/strix` into `engine/agent/`: an LLM-driven orchestrator with access to both relay and tunnel tools, a browser, and the OOB server. It plans chained attacks (prompt injection -> tool call -> SQLi/SSRF in the backend), validates with proof-of-concept, and emits findings with repro steps. Exit: the agent demonstrates one AI-to-classic chained exploit on a benchmark app.
 
 ### Phase 6 - Engine registry, overlap tuning, and Insidia Engine presentation
-No porting. The engines stay as they are. This phase matures what Phase 1 started: the capability registry grows to every engine and attack family; per-engine precision and cost are measured on the benchmark suite and used to set Standard-mode priorities; cross-engine dedup and the "cross-validated" confidence boost are tuned; the masking layer is hardened (denylist CI over API, reports, SARIF, dashboard bundle, emails, webhooks); the staff-only engine console ships; optional Insidia-authored attack packs fill gaps no engine covers. Exit: every attack family in the default profiles has a measured Standard engine, Thorough mode finds strictly more confirmed issues on the suite, and the denylist test is green across every customer-facing surface.
+No porting. The engines stay as they are. This phase matures what Phase 1 started: the capability registry grows to every engine and attack family; per-engine precision and cost are measured on the benchmark suite and used to set Standard-mode priorities; cross-engine dedup and the "cross-validated" confidence boost are tuned; the masking layer is hardened (denylist CI over API, reports, SARIF, dashboard bundle, emails, webhooks); the admin console's Engines section ships; optional Insidia-authored attack packs fill gaps no engine covers. Exit: every attack family in the default profiles has a measured Standard engine, Thorough mode finds strictly more confirmed issues on the suite, and the denylist test is green across every customer-facing surface.
 
 ### Phase 7 - Agent security
 Runner `discover` (MCP configs, skills, A2A cards, frameworks); MCP/skill static scans (mcp-scanner, SkillSpector; independently reimplemented rules inspired by public research) + tool-hash pinning for rug-pull; cloud-hosted honeypot MCP, poisoned web/docs/email, canary tokens; harnesses for LangGraph, CrewAI, OpenAI Agents SDK, AutoGen, raw MCP, and multi-agent/A2A; trace-based policy judge; ASI01-ASI10 suites; attack-path graph. Exit: agent scan reports ASI-mapped findings with tool-call evidence.
@@ -430,10 +434,10 @@ Runner `extract` (tree-sitter extraction; secrets reported as findings, values n
 One-shot runner `scan` for CI; GitHub Action, GitLab template; baselines, regression diffs, severity-threshold gating; scheduled/continuous scans, alerts, Jira/Slack/SIEM; Burp extension as a runner; fleet (MDM) discovery. Exit: continuous scanning for a pilot customer.
 
 ### Phase 10 - Enterprise
-SSO (SAML/OIDC), RBAC, audit log, retention controls; regional instances, private single-tenant, on-prem Helm deployment of the full brain (air-gapped, in-cluster model service at Stage 1 spec on customer GPUs); SOC 2 readiness. Exit: first private/on-prem enterprise deployment.
+SSO (SAML/OIDC), RBAC, audit log, retention controls; admin console two-person rule on every guarded action, SOC 2 access-review export, and a reduced operator console for on-prem; regional instances, private single-tenant, on-prem Helm deployment of the full brain (air-gapped, in-cluster model service at Stage 1 spec on customer GPUs); SOC 2 readiness. Exit: first private/on-prem enterprise deployment.
 
 ### Phase 11 - Later
-Desktop app (runner GUI: tray app with enrollment, status, local audit view) + dashboard link; runtime guardrails/firewall reusing detectors as inline policies.
+Runtime guardrails/firewall reusing detectors as inline policies; late gap modules (M-A15, M-C6, M-C8). No desktop app.
 
 ## Key risks
 - **Relay latency/throughput:** batch attempts, raise concurrency, sticky sessions.
@@ -445,6 +449,7 @@ Desktop app (runner GUI: tray app with enrollment, status, local audit view) + d
 - **Model costs and throughput:** start on one 20 GB GPU (low concurrency, accepted), move to 48 GB vLLM nodes on measured triggers; caching and per-scan budgets throughout.
 - **Uncensored model quality and supply:** abliteration can hurt reasoning, and the candidates publish GGUF only (vLLM needs BF16 to build AWQ). Pinned only after the Phase T benchmark; fallback is reproducing abliteration on the base model.
 - **Customer trust in cloud data:** runner-side redaction, regional/private tenants, on-prem.
+- **Admin console as a target:** it sees every org. Separate network path, hardware-key MFA, least-privilege staff roles, customer-approved grants for content, two-person rule, audited decryptions (see [20-admin-console.md](20-admin-console.md)).
 - **Coverage claims outrunning reality:** the engines leave real gaps (see [16-coverage-gaps.md](16-coverage-gaps.md)). Customer-facing coverage pages are generated from the registry and benchmark, not written by hand.
 - **Engines phoning home:** some OSS tools send telemetry or call their vendor's API. Engine containers get no internet egress except the target path and our model service, verified in CI.
 - **Legal/misuse:** target ownership verification, allowlists, ToS, safety-content gating; GPL tools kept out of on-prem distribution.
