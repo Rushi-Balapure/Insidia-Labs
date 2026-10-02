@@ -19,7 +19,12 @@ It replaces the "staff-only engine console" from the earlier plan; the engine re
 ## Access and isolation
 - **Separate app and service.** Web app in `admin/` (React, Vite, TypeScript; same component library and apple-design rules as the dashboard, tuned for density). API in `engine/admin_api/`, a separate FastAPI deployment. The customer API has no admin routes, and the admin API is not on the customer ingress.
 - **Separate network path.** Hostname on our internal domain, reachable only through the zero-trust proxy or VPN. Not on the public load balancer.
-- **Separate identity.** Staff accounts live in `staff_users`, not `users`. Login is our staff SSO (OIDC) with a phishing-resistant second factor (WebAuthn hardware key). Sessions last 8 hours; every write needs a fresh step-up.
+- **Separate identity.** Staff accounts live in `staff_users`, not `users`. Login is our staff SSO (OIDC), then a 6-digit code from an authenticator app (TOTP, RFC 6238: Google Authenticator, Microsoft Authenticator, 1Password, Authy, or similar).
+  - Enrollment: a QR code shown once at first login, confirmed by entering a valid code. The TOTP secret is stored encrypted as C3 with the platform secrets key and is never shown again.
+  - Ten single-use recovery codes, stored only as HMACs. Reset after losing a phone needs a second staff `admin` (two-person rule).
+  - Each code is accepted once (replay blocked), with a ±1 step clock window. Five wrong codes lock the account for 15 minutes and alert `security`.
+  - Sessions last 8 hours. Every write and every decryption asks for a fresh code (step-up), valid for 10 minutes.
+  - TOTP codes can be phished, so the internal-only network path (zero-trust proxy or VPN) is a required control, not an extra.
 - **Staff roles** (a staff user can hold several):
 
 | Role | Can |
@@ -138,12 +143,13 @@ New tables are in [14-database-schema.md](14-database-schema.md#admin-console-ta
 - Data rules: `app_admin_read` cannot select base tables; C1 and C2 decryption fails without the matching grant; C3 is never returned by any admin route (planted-canary contract test).
 - Settings: an out-of-bounds value is rejected; effective config is resolved at launch and stored on the scan; changing a setting mid-scan does not change the running scan.
 - Two-person rule: the same staff user cannot approve their own proposal; an unapproved proposal expires.
+- TOTP: a reused code is rejected; a write without a fresh step-up code is rejected; five wrong codes lock the account; the TOTP secret is absent from API responses, logs, and a database dump in plaintext.
 - Audit: every write and every decryption produces a `staff_audit_events` row; customer-affecting changes also produce a customer-visible `audit_events` row.
 - Kill switch: dispatch stops and in-flight tasks cancel within 10 seconds.
 - Redaction: a forced engine error that includes a planted secret and payload stores neither in the error detail.
 
 ## Risks
-- **The admin console is the most valuable target we run.** It sees every org. Mitigations: separate network path, hardware-key MFA, least-privilege roles, no content without customer grants, two-person rule, audit with alerts on unusual decryption volume.
+- **The admin console is the most valuable target we run.** It sees every org. Mitigations: separate network path, authenticator-app MFA with step-up on every write, least-privilege roles, no content without customer grants, two-person rule, audit with alerts on unusual decryption volume.
 - **Insider misuse.** Grants are customer-approved and visible to the customer; staff decryptions are reviewed monthly.
 - **Settings sprawl.** Every setting must be in the typed registry with bounds and a default; no free-form per-org JSON.
 - **Debugging pressure to log payloads.** The scan debugger works from ids, codes, and traces. When that is not enough, debug capture asks for a grant; it never turns on plaintext logging.
