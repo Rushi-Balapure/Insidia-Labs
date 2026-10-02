@@ -68,7 +68,7 @@ Also:
 The admin console ([20-admin-console.md](20-admin-console.md)) ships in Phase 2; this phase adds its Engines and modules section.
 - Shows real engine names, per-engine benchmark results, production precision from customer triage (aggregated, never raw evidence), error rates, and version pins.
 - Lets staff propose registry changes, which go out as reviewed migrations.
-- Uses the admin console's access model: separate internal hostname, staff SSO with hardware keys, the `app_admin_read` and `app_admin_write` roles. Evidence is visible only through an active, customer-approved `staff_access_grants` row.
+- Uses the admin console's access model: separate internal hostname, staff SSO with authenticator-app MFA, the `app_admin_read` and `app_admin_write` roles. Evidence is visible only through an active, customer-approved `staff_access_grants` row.
 
 ## Insidia modules in the registry
 The gap-filling modules from [16-coverage-gaps.md](16-coverage-gaps.md) register exactly like engines. They are benchmarked the same way and compete for Standard-mode priority on merit. Where a module beats an engine on a family, it becomes the Standard choice and the engine stays available in Thorough.
