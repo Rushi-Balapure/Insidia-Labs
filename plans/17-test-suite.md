@@ -60,7 +60,7 @@ Our own fixtures for cells the OSS apps do not cover (`tests/targets/insidia/`):
 - Fixtures are reset to a known state before each cell so stateful attacks (race, mass assignment) are deterministic.
 
 ## Ground truth and thresholds
-- Each target ships `ground_truth.yaml`: every planted vulnerability, its location, the mapped Insidia probe id and taxonomy id, and severity.
+- Each target ships `ground_truth.yaml`: every planted vulnerability, its location, the mapped Insidia Labs probe id and taxonomy id, and severity.
 - Each cell asserts **detection thresholds** against that ground truth:
   - recall: the cell must catch its planted vulnerabilities (default floor 80%, and 100% for the single planted issue in a focused cell)
   - precision: bounded false positives (default floor 90%)

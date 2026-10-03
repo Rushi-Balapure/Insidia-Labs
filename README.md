@@ -1,4 +1,4 @@
-# Insidia-Labs
+# Insidia Labs
 
 Phase 0 is the foundation: API, worker, hub, runner, dashboard shell, and docs. No scans yet.
 

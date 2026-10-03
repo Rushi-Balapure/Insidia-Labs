@@ -1,7 +1,7 @@
 [project]
 name = "insidia-engine"
 version = "0.1.0"
-description = "Insidia cloud brain: API, workers, and encryption."
+description = "Insidia Labs cloud brain: API, workers, and encryption."
 requires-python = ">=3.14"
 dependencies = [
   "alembic>=1.16",

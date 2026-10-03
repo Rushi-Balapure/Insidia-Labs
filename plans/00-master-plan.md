@@ -1,6 +1,6 @@
 ---
-name: Insidia AI Security Platform
-overview: Master plan for Insidia, a closed-source AI-native application security platform built as a multi-tenant cloud brain (attack generation, engines, judging, compliance, dashboard) on Celery and RabbitMQ. Targets connect either directly from the dashboard (hosted sites and agents, after ownership verification) or through an optional thin Go runner (local and internal targets; relay and WireGuard tunnel modes). Two tracks run in parallel - AI/agent security (garak, promptfoo, PyRIT, DeepTeam) and classic AppSec (ZAP, Nuclei, Dalfox, Trivy, SAST) - unified by an AI pentest agent. OSS engines are used as-is and presented only as the Insidia Engine; overlapping engines are a per-scan coverage choice. The database is designed security-first because it stores customer vulnerabilities. No free/local mode; new orgs get a limited, model-free trial, then upgrade.
+name: Insidia Labs AI Security Platform
+overview: Master plan for Insidia Labs, a closed-source AI-native application security platform built as a multi-tenant cloud brain (attack generation, engines, judging, compliance, dashboard) on Celery and RabbitMQ. Targets connect either directly from the dashboard (hosted sites and agents, after ownership verification) or through an optional thin Go runner (local and internal targets; relay and WireGuard tunnel modes). Two tracks run in parallel - AI/agent security (garak, promptfoo, PyRIT, DeepTeam) and classic AppSec (ZAP, Nuclei, Dalfox, Trivy, SAST) - unified by an AI pentest agent. OSS engines are used as-is and presented only as the Insidia Labs Engine; overlapping engines are a per-scan coverage choice. The database is designed security-first because it stores customer vulnerabilities. No free/local mode; new orgs get a limited, model-free trial, then upgrade.
 todos:
   - id: save-plan
     content: Save this master plan to /home/rushi/Desktop/Rushi/Insidia-Labs/plans/00-master-plan.md
@@ -30,7 +30,7 @@ todos:
     content: "Phase 5: AI pentest agent (Strix-based) that orchestrates relay + tunnel to find chained AI-to-classic exploits with PoC validation"
     status: pending
   - id: phase6
-    content: "Phase 6: engine registry, overlap tuning (Standard/Thorough), cross-engine dedup, Insidia Engine masking hardening, admin console Engines section"
+    content: "Phase 6: engine registry, overlap tuning (Standard/Thorough), cross-engine dedup, Insidia Labs Engine masking hardening, admin console Engines section"
     status: pending
   - id: phase7
     content: "Phase 7: agent security - discovery, MCP/skill scans, hosted honeypot MCP + poisoned content, multi-agent/A2A, ASI01-10 suites"
@@ -50,7 +50,7 @@ todos:
 isProject: false
 ---
 
-# Insidia AI Security Platform - Master Plan (v5: multi-tenant cloud brain, direct or runner connection)
+# Insidia Labs AI Security Platform - Master Plan (v5: multi-tenant cloud brain, direct or runner connection)
 
 Plans are stored in both `/home/rushi/Desktop/Rushi/Insidia-Labs/plans/` and this repo's `plans/`. This file is `00-master-plan.md`. The AI attack coverage requirements live in `01-ai-redteam-coverage-spec.md`.
 
@@ -70,14 +70,14 @@ Plans are stored in both `/home/rushi/Desktop/Rushi/Insidia-Labs/plans/` and thi
 - [13-phase11-later.md](13-phase11-later.md)
 - [14-database-schema.md](14-database-schema.md) (security-first database design, cross-cutting)
 - [15-customer-docs.md](15-customer-docs.md) (customer documentation, cross-cutting)
-- [16-coverage-gaps.md](16-coverage-gaps.md) (internal: engine coverage gaps and the Insidia modules that fill them)
+- [16-coverage-gaps.md](16-coverage-gaps.md) (internal: engine coverage gaps and the Insidia Labs modules that fill them)
 - [17-test-suite.md](17-test-suite.md) (Phase T: test-first permutation suite, cross-cutting gate)
 - [18-validity-matrix.md](18-validity-matrix.md) (the validity function and the expanded permutation matrix)
 - [19-model-hosting.md](19-model-hosting.md) (internal: self-hosted uncensored attacker/judge models, GPU stages, runtimes)
 - [20-admin-console.md](20-admin-console.md) (internal: staff admin console for managing, debugging, and per-customer settings)
 
 ## Scope
-Insidia is an **AI-native application security platform**. It covers two tracks, built in parallel:
+Insidia Labs is an **AI-native application security platform**. It covers two tracks, built in parallel:
 - **AI/agent security:** prompt injection, jailbreaks, agent tool misuse, RAG and memory poisoning, supply chain, unbounded consumption, multi-agent abuse. Full requirements in `01-ai-redteam-coverage-spec.md`.
 - **Classic AppSec:** web DAST (SQLi, XSS, SSRF), API security (BOLA/IDOR, auth), SAST, secrets, dependency/SCA, and infra/CVE scanning.
 
@@ -93,15 +93,15 @@ The differentiator is the seam between them: an AI pentest agent that chains an 
 - **Multi-tenant, one brain, many runners.** A single shared cloud brain serves all customers. Each customer has many runners; the brain scans them all. Tenant isolation, fair scheduling, and per-tenant quotas are built in from Phase 1, not retrofitted.
 - **Orchestration:** Celery with **RabbitMQ** as the broker. Valkey (BSD-3, Redis-compatible) for fairness leases, cache, and progress pub/sub. Not Redis 8+: it is licensed AGPLv3/SSPLv1/RSALv2, which fails our license gate for on-prem. RabbitMQ is MPL-2.0 and **requires attribution**; see "Attribution register".
 - **Database is security-critical.** We store customers' actual, often unfixed vulnerabilities. Schema, encryption, and access rules are specified in [14-database-schema.md](14-database-schema.md) and treated as a Phase 0/1 deliverable, not an afterthought.
-  - **No customer value is stored in plaintext.** Names, URLs, hosts, emails, IPs, evidence, and audit metadata are encrypted with per-org keys held in KMS. Only Insidia-generated ids, enums, timestamps, and hashes are plaintext, enforced by a schema CI test.
+  - **No customer value is stored in plaintext.** Names, URLs, hosts, emails, IPs, evidence, and audit metadata are encrypted with per-org keys held in KMS. Only Insidia Labs-generated ids, enums, timestamps, and hashes are plaintext, enforced by a schema CI test.
   - **Customer secrets are kept by the customer where possible** (runner, or their cloud secret manager), otherwise stored write-only and shown only as a fingerprint. Secrets found in scan evidence are redacted to a masked token before storage. Tokens we issue are stored only as HMACs.
-- **Gaps are filled with Insidia-built modules.** The OSS engines do not cover everything, especially with promptfoo's remote generation off and GPL tools excluded. [16-coverage-gaps.md](16-coverage-gaps.md) lists every gap and the module or permissively licensed tool that fills it. Modules register like engines and appear as Insidia Engine modules.
+- **Gaps are filled with Insidia Labs-built modules.** The OSS engines do not cover everything, especially with promptfoo's remote generation off and GPL tools excluded. [16-coverage-gaps.md](16-coverage-gaps.md) lists every gap and the module or permissively licensed tool that fills it. Modules register like engines and appear as Insidia Labs Engine modules.
 - **Test-first.** Every valid permutation of connector, box mode (black/gray/white), attack type, and connection mode has a sandboxed ground-truth test with a pass threshold **before** the feature is built. OSS vulnerable apps (Juice Shop, crAPI, VAmPI, DVGA, AgentDojo) and our own fixtures run local-only with no internet egress. This is Phase T ([17-test-suite.md](17-test-suite.md)) and a hard exit-gate on every later phase; it is the single source of truth the Phase 6 benchmark reuses.
 - **Dashboard design follows the apple-design skill** (`.agents/skills/apple-design/`), translated into concrete rules in [04-phase2-dashboard.md](04-phase2-dashboard.md#design-system-apple-design-skill).
 - **Customer documentation is part of every phase's exit.** Docs-as-code in `docs/`, generated references, samples tested in CI, no engine names. See [15-customer-docs.md](15-customer-docs.md).
 - **No free/local/BYOK mode.** We pay for and operate the attacker and judge models. The only unpaid tier is a **trial**: every new org starts on `plan='trial'` with up to 3 basic black-box, Standard-coverage scans that run **no attacker or judge model** (only `requires_attacker_model=false` probes), then must upgrade. Entitlements are enforced server-side at scan launch; the dashboard shows locked features with an upgrade call to action. See [04-phase2-dashboard.md](04-phase2-dashboard.md#trial-mode).
 - **Self-hosted uncensored models, staged hardware.** Commercial APIs refuse attack generation, so attacker and judge run on open-weight uncensored Qwen3.8-27B derivatives in our cluster. Stage 0 is one 20 GB GPU (RTX 4000 Ada) on llama.cpp with a GGUF build; Stage 1, from Phase 4A or when measured triggers fire, is 48 GB GPUs on vLLM with an AWQ build for batched throughput. Both expose one OpenAI-compatible endpoint, so the switch is config. See [19-model-hosting.md](19-model-hosting.md).
-- **Closed source, MIT/Apache OSS only** (plus MPL-2.0/BSD infrastructure after review). We use the OSS engines as they are. **No porting.** Instead, the dashboard and website never name them: every engine appears as the **Insidia Engine**. See "Confidentiality of the stack".
+- **Closed source, MIT/Apache OSS only** (plus MPL-2.0/BSD infrastructure after review). We use the OSS engines as they are. **No porting.** Instead, the dashboard and website never name them: every engine appears as the **Insidia Labs Engine**. See "Confidentiality of the stack".
 - **Engine overlap is a product setting.** Several engines cover the same attack family (for example garak and promptfoo both do jailbreaks). A capability registry maps each attack family to the engines that cover it, and the user picks per scan whether to run one engine or all of them. See "Engine overlap and selection".
 - **No desktop app.** The web dashboard is the only customer UI; the runner stays a CLI managed from the dashboard.
 - **Internal admin console from Phase 2.** A separate staff-only app on an internal hostname (staff SSO, authenticator-app MFA with step-up on writes, no route from the customer API) to see platform and customer state, debug scans, runners, engines, and models, and set per-customer settings (limits, feature flags, coverage, safety, models, retention) within typed bounds. No impersonation; customer content needs a customer-approved grant. See [20-admin-console.md](20-admin-console.md).
@@ -111,7 +111,7 @@ The differentiator is the seam between them: an AI pentest agent that chains an 
 
 ```mermaid
 flowchart LR
-  subgraph cloud [Insidia Cloud Brain]
+  subgraph cloud [Insidia Labs Cloud Brain]
     Dash[WebDashboard]
     API[API_Auth_Tenancy]
     Orch[ScanOrchestrator]
@@ -174,7 +174,7 @@ flowchart LR
   Tax --> Store
 ```
 
-This diagram is **internal**. The customer-facing version (dashboard "how it works" view, website) collapses every engine box into a single **Insidia Engine** node. See "Confidentiality of the stack".
+This diagram is **internal**. The customer-facing version (dashboard "how it works" view, website) collapses every engine box into a single **Insidia Labs Engine** node. See "Confidentiality of the stack".
 
 ### Scan flow
 1. A user creates a scan: target, connection mode (direct or runner), test mode (black/gray/white box), profile (e.g. "OWASP LLM Top 10 2026"), and engine coverage (single or all overlapping engines).
@@ -225,9 +225,9 @@ Several engines cover the same attack family. Examples: jailbreaks (garak, promp
 - **Thorough:** every engine that covers the family runs. Findings are merged and marked "cross-validated" when two or more engine modules confirm them, which raises confidence.
 - **Custom (advanced):** per attack family, a toggle between Standard and Thorough.
 
-The dashboard labels engines as numbered Insidia Engine modules only where a distinction is unavoidable (for example "Jailbreak coverage: 3 modules available"). Estimated time and cost update live as the user toggles, because Thorough can multiply runtime and model spend.
+The dashboard labels engines as numbered Insidia Labs Engine modules only where a distinction is unavoidable (for example "Jailbreak coverage: 3 modules available"). Estimated time and cost update live as the user toggles, because Thorough can multiply runtime and model spend.
 
-**Deduplication across engines:** the normalizer maps each engine's result to an Insidia probe id and attack family, then merges findings with the same `(org, target, attack_family, normalized_evidence_hash)`. The merged finding keeps every contributing result internally for audit.
+**Deduplication across engines:** the normalizer maps each engine's result to an Insidia Labs probe id and attack family, then merges findings with the same `(org, target, attack_family, normalized_evidence_hash)`. The merged finding keeps every contributing result internally for audit.
 
 **Staff-only view:** the Engines section of the internal admin console ([20-admin-console.md](20-admin-console.md)), never reachable by customer accounts, shows real engine names and per-engine stats for tuning priorities.
 
@@ -319,7 +319,7 @@ Insidia-Labs/
       ai/                 garak, promptfoo, pyrit, deepteam (used as-is, not ported)
       classic/            zap, nuclei, dalfox, sast, sca
       static/             mcp/skill/model/deps scanners
-      insidia/            Insidia-built gap-filling modules (M-A*, M-C*; see 16-coverage-gaps.md)
+      insidia/            Insidia Labs-built gap-filling modules (M-A*, M-C*; see 16-coverage-gaps.md)
       common/             task envelope, tenant context, fairness/dispatch, capability registry, dedup, progress events
     api/crypto/           key service client, envelope encryption, blind indexes, secret redactor
     egress/               direct-mode egress proxy (fixed IPs, verified-host enforcement)
@@ -379,14 +379,14 @@ The CI license gate (Phase 0) fails the build when a new dependency's license is
 
 ## Confidentiality of the stack
 We do not want to disclose that garak, promptfoo, ZAP, Nuclei, Strix, etc. run in our backend. We use them as-is; we do **not** port them. Confidentiality comes from presentation, not rewriting. This is legally workable, but only under these conditions:
-- **Everything customer-facing says "Insidia Engine".** Dashboard, website, reports, SARIF `tool.driver.name`, API responses, emails, and webhooks. Any diagram of how scanning works (dashboard "how it works" view, website architecture graphic, sales decks) shows a single **Insidia Engine** box between the customer's target and the findings. Where modules must be distinguished (engine overlap selection), they are "Insidia Engine modules", numbered or named by capability ("Jailbreak module"), never by upstream project.
-- **A masking layer, not a port.** The normalizer maps upstream probe names to Insidia probe ids, and the API response models omit the internal `engine` field. A CI denylist test fails if any upstream product name appears in API samples, rendered reports, SARIF, or dashboard builds.
+- **Everything customer-facing says "Insidia Labs Engine".** Dashboard, website, reports, SARIF `tool.driver.name`, API responses, emails, and webhooks. Any diagram of how scanning works (dashboard "how it works" view, website architecture graphic, sales decks) shows a single **Insidia Labs Engine** box between the customer's target and the findings. Where modules must be distinguished (engine overlap selection), they are "Insidia Labs Engine modules", numbered or named by capability ("Jailbreak module"), never by upstream project.
+- **A masking layer, not a port.** The normalizer maps upstream probe names to Insidia Labs probe ids, and the API response models omit the internal `engine` field. A CI denylist test fails if any upstream product name appears in API samples, rendered reports, SARIF, or dashboard builds.
 - **SaaS use is not "distribution".** MIT and Apache 2.0 attach their notice obligations to *distributing copies* of the software. Running these tools server-side in our cloud is not distribution, so no public disclosure is required. We still keep the LICENSE/NOTICE files in our private source tree.
 - **Apache 2.0 patent/NOTICE terms** only require propagating NOTICE content when we distribute. Cloud-only engines never trigger this.
 - **The runner is distributed**, so anything we bundle into the Go runner must carry notices. Keep the runner free of recognizable OSS by doing scanning in the cloud, not in the runner. The runner stays a thin relay/tunnel.
 - **On-prem (Phase 10) is distribution.** An air-gapped enterprise install ships our container images to the customer. Included MIT/Apache components must then carry a `THIRD_PARTY_NOTICES.md` inside the image. This is a bundled licenses file, not marketing, and it can be argued as required only for the components actually shipped. Legal review before the first on-prem deal.
 - **Drop attribution-required deps:** AI-Infra-Guard (above). Verify no other dep adds an attribution or "powered by" clause.
-- **Traffic fingerprints:** the egress proxy and the tunnel hub rewrite User-Agent and scanner headers to `InsidiaScanner` so the target's logs do not name the tools. Payloads themselves may still resemble public attack corpora; that is acceptable and not something we try to hide.
+- **Traffic fingerprints:** the egress proxy and the tunnel hub rewrite User-Agent and scanner headers to `Insidia LabsLabs` so the target's logs do not name the tools. Payloads themselves may still resemble public attack corpora; that is acceptable and not something we try to hide.
 - **Honest limit:** a determined researcher can sometimes infer a tool from payload patterns. The goal is no disclosure by us, not guaranteed undetectability.
 - This is a business/marketing stance, not a way to remove license obligations. The attribution register above is honored in full.
 
@@ -408,7 +408,7 @@ Right after the Phase 0 scaffold and before building scanners: the permutation m
 - **Fairness baseline:** per-org concurrency caps and the round-robin dispatcher land here so multi-tenant behavior is correct from the first scan.
 
 ### Phase 2 - Web dashboard and tenancy
-Org/project/user model, login, API keys; target wizard that starts with **"How do we reach your target?"** (Direct: hosted, no install; or Runner: local setup, recommended) and shows the feature availability table; ownership verification flow for direct targets; runner enrollment/health; scan launcher with **engine coverage** (Standard, Thorough, Custom per attack family, with live time and cost estimate, engines shown only as Insidia Engine modules); live progress; unified AI + classic findings triage with a "cross-validated" badge; transcript/request viewer; usage metering; **trial mode** (new orgs get up to 3 basic, model-free scans with locked features shown behind an upgrade call to action); "how it works" view that shows a single Insidia Engine; internal admin console v1 (customers, per-customer limits and feature flags, scan debugger, runner fleet, platform health and kill switches, staff grants and audit; see [20-admin-console.md](20-admin-console.md)). Exit: a customer signs up and runs scans both ways: a direct scan of a hosted target, and a runner scan of a localhost target.
+Org/project/user model, login, API keys; target wizard that starts with **"How do we reach your target?"** (Direct: hosted, no install; or Runner: local setup, recommended) and shows the feature availability table; ownership verification flow for direct targets; runner enrollment/health; scan launcher with **engine coverage** (Standard, Thorough, Custom per attack family, with live time and cost estimate, engines shown only as Insidia Labs Engine modules); live progress; unified AI + classic findings triage with a "cross-validated" badge; transcript/request viewer; usage metering; **trial mode** (new orgs get up to 3 basic, model-free scans with locked features shown behind an upgrade call to action); "how it works" view that shows a single Insidia Labs Engine; internal admin console v1 (customers, per-customer limits and feature flags, scan debugger, runner fleet, platform health and kill switches, staff grants and audit; see [20-admin-console.md](20-admin-console.md)). Exit: a customer signs up and runs scans both ways: a direct scan of a hosted target, and a runner scan of a localhost target.
 
 ### Phase 3 - Unified taxonomy and compliance
 `taxonomy-data/` covering all frameworks above (seed from promptfoo MIT mappings and the LLM Top 10 2026 machine-readable mappings); framework-based profiles; control-coverage engine; reports (PDF/HTML), evidence packs, SARIF/JSON, ATLAS heatmap. Exit: one run produces OWASP LLM, OWASP Web, and EU AI Act reports.
@@ -416,13 +416,13 @@ Org/project/user model, login, API keys; target wizard that starts with **"How d
 ### Phase 4 - Depth on both tracks
 - **4A (AI depth):** PyRIT/DeepTeam multi-turn; indirect-injection, RAG, and memory harnesses (surfaces B/D from the coverage spec); the oracle framework (canary, tool-trace, goal-diff, groundedness, resource, ACL, manifest-drift); model service moves to Stage 1 (vLLM + AWQ on 48 GB GPUs, see [19-model-hosting.md](19-model-hosting.md)); judge calibration.
 - **4B (Classic depth):** API scanning (REST/GraphQL, BOLA/IDOR, auth/session, mass assignment); SAST + secrets + SCA (Trivy, osv-scanner, gitleaks, tree-sitter rules); infra/CVE (Nuclei network templates). Exit: gray-box AI and authenticated web/API scans beat black-box baselines.
-- **Gap modules:** most Insidia-built modules land here: M-A1, M-A2, M-A3, M-A5, M-A6, M-A10, M-A11, M-A14 (AI) and M-C1, M-C2, M-C3, M-C4, M-C7, M-C9 (classic). See [16-coverage-gaps.md](16-coverage-gaps.md).
+- **Gap modules:** most Insidia Labs-built modules land here: M-A1, M-A2, M-A3, M-A5, M-A6, M-A10, M-A11, M-A14 (AI) and M-C1, M-C2, M-C3, M-C4, M-C7, M-C9 (classic). See [16-coverage-gaps.md](16-coverage-gaps.md).
 
 ### Phase 5 - AI pentest agent (the differentiator)
 Adapt `usestrix/strix` into `engine/agent/`: an LLM-driven orchestrator with access to both relay and tunnel tools, a browser, and the OOB server. It plans chained attacks (prompt injection -> tool call -> SQLi/SSRF in the backend), validates with proof-of-concept, and emits findings with repro steps. Exit: the agent demonstrates one AI-to-classic chained exploit on a benchmark app.
 
-### Phase 6 - Engine registry, overlap tuning, and Insidia Engine presentation
-No porting. The engines stay as they are. This phase matures what Phase 1 started: the capability registry grows to every engine and attack family; per-engine precision and cost are measured on the benchmark suite and used to set Standard-mode priorities; cross-engine dedup and the "cross-validated" confidence boost are tuned; the masking layer is hardened (denylist CI over API, reports, SARIF, dashboard bundle, emails, webhooks); the admin console's Engines section ships; optional Insidia-authored attack packs fill gaps no engine covers. Exit: every attack family in the default profiles has a measured Standard engine, Thorough mode finds strictly more confirmed issues on the suite, and the denylist test is green across every customer-facing surface.
+### Phase 6 - Engine registry, overlap tuning, and Insidia Labs Engine presentation
+No porting. The engines stay as they are. This phase matures what Phase 1 started: the capability registry grows to every engine and attack family; per-engine precision and cost are measured on the benchmark suite and used to set Standard-mode priorities; cross-engine dedup and the "cross-validated" confidence boost are tuned; the masking layer is hardened (denylist CI over API, reports, SARIF, dashboard bundle, emails, webhooks); the admin console's Engines section ships; optional Insidia Labs-authored attack packs fill gaps no engine covers. Exit: every attack family in the default profiles has a measured Standard engine, Thorough mode finds strictly more confirmed issues on the suite, and the denylist test is green across every customer-facing surface.
 
 ### Phase 7 - Agent security
 Runner `discover` (MCP configs, skills, A2A cards, frameworks); MCP/skill static scans (mcp-scanner, SkillSpector; independently reimplemented rules inspired by public research) + tool-hash pinning for rug-pull; cloud-hosted honeypot MCP, poisoned web/docs/email, canary tokens; harnesses for LangGraph, CrewAI, OpenAI Agents SDK, AutoGen, raw MCP, and multi-agent/A2A; trace-based policy judge; ASI01-ASI10 suites; attack-path graph. Exit: agent scan reports ASI-mapped findings with tool-call evidence.

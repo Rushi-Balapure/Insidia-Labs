@@ -1,4 +1,4 @@
-"""Insidia API. Phase 0 serves health checks and a dev-only tenant ping."""
+"""Insidia Labs API. Phase 0 serves health checks and a dev-only tenant ping."""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     yield
 
 
-app = FastAPI(title="Insidia", lifespan=lifespan)
+app = FastAPI(title="Insidia Labs", lifespan=lifespan)
 
 
 @app.get("/healthz")

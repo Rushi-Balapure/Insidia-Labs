@@ -27,7 +27,7 @@ The database holds our customers' **actual, often unfixed vulnerabilities**: wor
 ## The plaintext rule
 **No value that a customer typed, uploaded, or that we captured from a customer's system is stored in plaintext.** That includes names, URLs, hostnames, emails, IP addresses, free-text notes and audit metadata, not just evidence and secrets.
 
-The only plaintext columns are values **Insidia itself generates** and that say nothing about the customer on their own:
+The only plaintext columns are values **Insidia Labs itself generates** and that say nothing about the customer on their own:
 - ids (UUIDv7) and foreign keys
 - timestamps, counters, budgets, and numeric scores
 - platform enums we define: severity, status, kind, track, mode, role, scope
@@ -67,14 +67,14 @@ Rules for every stored secret:
 - **Decrypted in one place.** Only the direct-mode egress proxy decrypts, only for a running scan, and it holds the value in memory for that scan only.
 - **Expiry nudges.** Secrets older than 90 days are flagged in the dashboard for rotation.
 
-Secrets that **Insidia issues** (API keys, session tokens, runner enrollment tokens) are never stored at all, not even encrypted:
+Secrets that **Insidia Labs issues** (API keys, session tokens, runner enrollment tokens) are never stored at all, not even encrypted:
 - Tokens have the form `ins_<purpose>_<public_id>_<secret>`. The public id identifies the row and is safe to display. The secret part is 256 bits of randomness.
 - We store only `HMAC-SHA256(server_pepper, secret)`. The pepper lives in KMS, so a database dump alone cannot be used to test guesses.
 - User passwords use argon2id (memory 64 MiB, 3 iterations), also with the pepper.
 
 ### Secrets found in evidence
 Targets often leak secrets in their responses: API keys in an error page, a connection string through a prompt injection. Storing that evidence as-is would make our database a copy of the customer's secrets. So before any evidence is persisted:
-1. A secret detector (Insidia's own rules plus entropy checks) runs over the payload, the response, and the tool traces.
+1. A secret detector (Insidia Labs's own rules plus entropy checks) runs over the payload, the response, and the tool traces.
 2. Each detected secret is replaced with a masked token: its type, length, and fingerprint, for example `[AWS_ACCESS_KEY len=20 fp=3f9a1c07]`. The raw value is dropped.
 3. The finding keeps the fact that "an AWS key was exposed", its location, and the fingerprint. The customer can match the fingerprint against their own key to confirm which one to rotate.
 4. `Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key`, and similar headers are removed from stored HTTP pairs, including the requests we sent.
@@ -345,14 +345,14 @@ CREATE TABLE capability_map (                       -- which engines cover which
   engine_id        text NOT NULL REFERENCES engines(id),
   attack_family_id text NOT NULL REFERENCES attack_families(id),
   priority         int  NOT NULL,                    -- 1 = used in Standard mode
-  module_label     text NOT NULL,                    -- 'Insidia Engine module 2': what customers see
+  module_label     text NOT NULL,                    -- 'Insidia Labs Engine module 2': what customers see
   est_cost_per_attempt numeric,
   median_runtime_s int,
   precision_measured numeric,                        -- from the Phase 6 benchmark
   PRIMARY KEY (engine_id, attack_family_id)
 );
 
-CREATE TABLE probes (                               -- Insidia probe ids (public)
+CREATE TABLE probes (                               -- Insidia Labs probe ids (public)
   id               text PRIMARY KEY,                 -- 'insidia.llm.jailbreak.roleplay'
   attack_family_id text NOT NULL REFERENCES attack_families(id),
   default_severity text NOT NULL,
@@ -361,7 +361,7 @@ CREATE TABLE probes (                               -- Insidia probe ids (public
   requires_attacker_model boolean NOT NULL DEFAULT false -- true = needs our attacker/judge model; excluded from trial scans
 );
 
-CREATE TABLE probe_upstream_map (                   -- INTERNAL: upstream probe name -> Insidia probe
+CREATE TABLE probe_upstream_map (                   -- INTERNAL: upstream probe name -> Insidia Labs probe
   engine_id      text NOT NULL REFERENCES engines(id),
   upstream_probe text NOT NULL,                      -- e.g. 'dan.Dan_11_0'
   probe_id       text NOT NULL REFERENCES probes(id),
@@ -459,7 +459,7 @@ CREATE TABLE findings (
   target_id       uuid NOT NULL REFERENCES targets(id),
   first_scan_id   uuid NOT NULL REFERENCES scans(id),
   last_scan_id    uuid NOT NULL REFERENCES scans(id),
-  probe_id        text NOT NULL REFERENCES probes(id),         -- C0, public Insidia id
+  probe_id        text NOT NULL REFERENCES probes(id),         -- C0, public Insidia Labs id
   attack_family_id text NOT NULL REFERENCES attack_families(id),
   track           text NOT NULL CHECK (track IN ('ai','classic')),
   severity        text NOT NULL CHECK (severity IN ('critical','high','medium','low','info')),

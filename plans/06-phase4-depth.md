@@ -41,7 +41,7 @@ Calibration set: 50+ labeled cases (true leak, true refusal, benign lookalike). 
 ## Track 4A — AI depth
 
 ### More engines, same relay
-- PyRIT worker image: `PromptChatTarget` subclass that calls the hub. Enable Crescendo, TAP, and PAIR as probe families with Insidia ids.
+- PyRIT worker image: `PromptChatTarget` subclass that calls the hub. Enable Crescendo, TAP, and PAIR as probe families with Insidia Labs ids.
 - DeepTeam worker image: `model_callback` awaits the hub. Use it for vulnerability classes we do not already cover via garak/promptfoo. Skip duplicates in the profile so we do not pay twice.
 
 ### Model service (`engine/models`)
@@ -77,7 +77,7 @@ Anthropic, Azure OpenAI, and Bedrock request templates if design partners need t
 ### API security
 - OpenAPI import (customer uploads a spec; we do not crawl their repo yet).
 - Auth: in runner mode, the runner holds the credential reference (header, cookie, or OAuth client credentials against a token URL) and the cloud stores only the reference, encrypted. In direct mode, credentials follow the [customer secrets](14-database-schema.md#customer-secrets) options and are decrypted only in the egress proxy.
-- Checks: BOLA/IDOR (two identities, swap ids), broken auth, mass assignment, GraphQL introspection and batching, REST method tampering. These are Insidia modules M-C3 and M-C4, because no engine we use does them.
+- Checks: BOLA/IDOR (two identities, swap ids), broken auth, mass assignment, GraphQL introspection and batching, REST method tampering. These are Insidia Labs modules M-C3 and M-C4, because no engine we use does them.
 - Identity B is a second credential on the target (`identity_b`), resolved on the runner or in the egress proxy.
 
 ### SAST, secrets, SCA
@@ -90,10 +90,10 @@ Runner does not scan. Customer uploads a source bundle or the runner `extract` p
 ### Infra CVEs
 Nuclei network templates against allowlisted hosts only, through the tunnel. No subnet sweep. The target allowlist is explicit IPs and hostnames.
 
-## Gap-filling Insidia modules in this phase
-From [16-coverage-gaps.md](16-coverage-gaps.md). Each lives in `engine/workers/insidia/<module>/`, registers in the capability registry, and appears to customers as an Insidia Engine module.
-- **4A:** M-A1 indirect content forge, M-A2 payload converters (documents, images, audio, Unicode smuggling), M-A3 full canary and instruction-hierarchy suite, M-A4 tool-trace oracle foundation, M-A5 RAG and memory harness, M-A6 two-identity access harness, M-A10 output-sink simulator, M-A11 Insidia attack generator (replaces the promptfoo plugins and strategies that need remote generation), M-A14 consumption oracle.
-- **4B:** M-C1 login recorder and API discovery, M-C2 injection depth engine (clean-room), M-C3 access-control differ, M-C4 token and session analyzer, M-C7 gRPC and rate-limit tests, M-C9 Insidia SAST for Python and JavaScript/TypeScript, M-A16 AI infrastructure exposure templates. Adopt naabu and tlsx for port and TLS checks.
+## Gap-filling Insidia Labs modules in this phase
+From [16-coverage-gaps.md](16-coverage-gaps.md). Each lives in `engine/workers/insidia/<module>/`, registers in the capability registry, and appears to customers as an Insidia Labs Engine module.
+- **4A:** M-A1 indirect content forge, M-A2 payload converters (documents, images, audio, Unicode smuggling), M-A3 full canary and instruction-hierarchy suite, M-A4 tool-trace oracle foundation, M-A5 RAG and memory harness, M-A6 two-identity access harness, M-A10 output-sink simulator, M-A11 Insidia Labs attack generator (replaces the promptfoo plugins and strategies that need remote generation), M-A14 consumption oracle.
+- **4B:** M-C1 login recorder and API discovery, M-C2 injection depth engine (clean-room), M-C3 access-control differ, M-C4 token and session analyzer, M-C7 gRPC and rate-limit tests, M-C9 Insidia Labs SAST for Python and JavaScript/TypeScript, M-A16 AI infrastructure exposure templates. Adopt naabu and tlsx for port and TLS checks.
 - The sections above describe what each track must achieve; these modules are how the gaps in the engines are closed. Where an engine already covers a row well, we do not build.
 
 ## Tests

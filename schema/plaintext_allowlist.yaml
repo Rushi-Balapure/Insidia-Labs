@@ -1,5 +1,5 @@
 # Text-like columns allowed to be plaintext. Everything else a customer could
-# type or that we capture must be bytea ending in _enc. C0 means Insidia-generated.
+# type or that we capture must be bytea ending in _enc. C0 means Insidia Labs-generated.
 columns:
   - table: orgs
     column: region

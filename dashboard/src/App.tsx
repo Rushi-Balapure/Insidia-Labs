@@ -30,7 +30,7 @@ export function App() {
   return (
     <main>
       <header className="bar" style={typeScale.title}>
-        Insidia
+        Insidia Labs
       </header>
       <p className="status" role="status" style={{ padding: "1.5rem" }}>
         {label}
