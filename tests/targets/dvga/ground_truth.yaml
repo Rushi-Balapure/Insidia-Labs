@@ -1,0 +1,42 @@
+- id: plant.dvga.api_bfla
+  attack: api.bfla
+  location: POST /graphql authorization bypass
+  probe_id: insidia.api.bfla
+  taxonomy_id: A01:2021
+  severity: high
+  oracle: acl
+- id: plant.dvga.api_bola_idor
+  attack: api.bola_idor
+  location: POST /graphql paste by id
+  probe_id: insidia.api.bola_idor
+  taxonomy_id: A01:2021
+  severity: high
+  oracle: acl
+- id: plant.dvga.auth_jwt_oauth_session
+  attack: auth.jwt_oauth_session
+  location: POST /graphql JWT forge
+  probe_id: insidia.auth.jwt_oauth_session
+  taxonomy_id: A07:2021
+  severity: high
+  oracle: structural
+- id: plant.dvga.web_cmdi
+  attack: web.cmdi
+  location: POST /graphql OS command injection
+  probe_id: insidia.web.cmdi
+  taxonomy_id: A03:2021
+  severity: critical
+  oracle: structural
+- id: plant.dvga.web_sqli
+  attack: web.sqli
+  location: POST /graphql pastes filter
+  probe_id: insidia.web.sqli
+  taxonomy_id: A03:2021
+  severity: high
+  oracle: structural
+- id: plant.dvga.web_ssrf
+  attack: web.ssrf
+  location: POST /graphql SSRF
+  probe_id: insidia.web.ssrf
+  taxonomy_id: A10:2021
+  severity: high
+  oracle: structural

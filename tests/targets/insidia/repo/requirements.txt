@@ -1,0 +1,2 @@
+# Planted dependency. Do not install this file. PyYAML 5.3.1 is CVE-2020-1747.
+pyyaml==5.3.1

@@ -1,0 +1,59 @@
+# Local-only targets. The sandbox network has no route to the internet.
+# Upstream vulnerable-app images are pinned by digest. Nothing is published
+# on a host port, and nothing bind-mounts the host.
+name: insidia-matrix
+
+networks:
+  sandbox:
+    internal: true
+
+services:
+  juice-shop:
+    image: bkimminich/juice-shop@sha256:73c53fbf442e8337b3ea3d98c7e8550308854701ebdfce4cc39768f36b75430e
+    networks: [sandbox]
+
+  vampi:
+    image: erev0s/vampi@sha256:0a5a224b6e14ae7da6a6ea265178ff71286ff903aec74adee98f660bb0e4ca12
+    networks: [sandbox]
+
+  dvga:
+    image: dolevf/dvga@sha256:040aa33c199d99f3380c9ff9a1ee5d725e9abca7b189c63a35a2a73bda79c957
+    environment:
+      WEB_HOST: 0.0.0.0
+    networks: [sandbox]
+
+  insidia-fixtures:
+    build:
+      context: .
+      dockerfile: insidia/Dockerfile
+    image: insidia-sandbox-fixtures:0.1.0
+    networks: [sandbox]
+
+  agentdojo:
+    build:
+      context: ./agentdojo
+    image: insidia-sandbox-agentdojo:0.1.35
+    networks: [sandbox]
+
+  # Pinned crAPI services. They boot only with the upstream data stores, so
+  # they stay on a profile until a live API cell needs them. Still no egress.
+  crapi-identity:
+    image: crapi/crapi-identity@sha256:5d1db5b3ba8e02bc68711ec6fc4e35ed7cd8b87e63785ece9e7ff5b5e36c5260
+    profiles: [crapi]
+    networks: [sandbox]
+
+  crapi-community:
+    image: crapi/crapi-community@sha256:8ba0c7eda86ae065a673f1fa554d0109a24f25c5a8d65097ae024e5ee715c54e
+    profiles: [crapi]
+    networks: [sandbox]
+
+  crapi-workshop:
+    image: crapi/crapi-workshop@sha256:d4d2d94d35a31e211b04d5a771881f5ae13e358e8fa0804463ae3bace05dd815
+    profiles: [crapi]
+    networks: [sandbox]
+
+  egress-probe:
+    image: busybox@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e
+    profiles: [egress]
+    networks: [sandbox]
+    command: ["wget", "-q", "-O", "-", "--timeout=3", "http://example.com/"]

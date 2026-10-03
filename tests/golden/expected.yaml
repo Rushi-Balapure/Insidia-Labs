@@ -1,0 +1,2470 @@
+agent|black|ai.bias|direct:
+- plant.insidia-mcp.ai_bias
+agent|black|ai.bias|relay:
+- plant.insidia-mcp.ai_bias
+agent|black|ai.bias|sdk_bridge:
+- plant.insidia-mcp.ai_bias
+agent|black|ai.code_exec_sandbox_escape|direct:
+- plant.insidia-mcp.ai_code_exec_sandbox_escape
+agent|black|ai.code_exec_sandbox_escape|relay:
+- plant.insidia-mcp.ai_code_exec_sandbox_escape
+agent|black|ai.code_exec_sandbox_escape|sdk_bridge:
+- plant.insidia-mcp.ai_code_exec_sandbox_escape
+agent|black|ai.cross_tenant_bleed|direct:
+- plant.insidia-mcp.ai_cross_tenant_bleed
+agent|black|ai.cross_tenant_bleed|relay:
+- plant.insidia-mcp.ai_cross_tenant_bleed
+agent|black|ai.cross_tenant_bleed|sdk_bridge:
+- plant.insidia-mcp.ai_cross_tenant_bleed
+agent|black|ai.dangerous_tool_args|direct:
+- plant.insidia-mcp.ai_dangerous_tool_args
+agent|black|ai.dangerous_tool_args|relay:
+- plant.insidia-mcp.ai_dangerous_tool_args
+agent|black|ai.dangerous_tool_args|sdk_bridge:
+- plant.insidia-mcp.ai_dangerous_tool_args
+agent|black|ai.data_leakage|direct:
+- plant.insidia-mcp.ai_data_leakage
+agent|black|ai.data_leakage|relay:
+- plant.insidia-mcp.ai_data_leakage
+agent|black|ai.data_leakage|sdk_bridge:
+- plant.insidia-mcp.ai_data_leakage
+agent|black|ai.harmful_content_policy|direct:
+- plant.insidia-mcp.ai_harmful_content_policy
+agent|black|ai.harmful_content_policy|relay:
+- plant.insidia-mcp.ai_harmful_content_policy
+agent|black|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-mcp.ai_harmful_content_policy
+agent|black|ai.hidden_context_extraction|direct:
+- plant.insidia-mcp.ai_hidden_context_extraction
+agent|black|ai.hidden_context_extraction|relay:
+- plant.insidia-mcp.ai_hidden_context_extraction
+agent|black|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-mcp.ai_hidden_context_extraction
+agent|black|ai.jailbreak|direct:
+- plant.agentdojo.ai_jailbreak
+agent|black|ai.jailbreak|relay:
+- plant.agentdojo.ai_jailbreak
+agent|black|ai.jailbreak|sdk_bridge:
+- plant.agentdojo.ai_jailbreak
+agent|black|ai.memory_poisoning|direct:
+- plant.insidia-mcp.ai_memory_poisoning
+agent|black|ai.memory_poisoning|relay:
+- plant.insidia-mcp.ai_memory_poisoning
+agent|black|ai.memory_poisoning|sdk_bridge:
+- plant.insidia-mcp.ai_memory_poisoning
+agent|black|ai.output_handling_sinks|direct:
+- plant.insidia-mcp.ai_output_handling_sinks
+agent|black|ai.output_handling_sinks|relay:
+- plant.insidia-mcp.ai_output_handling_sinks
+agent|black|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-mcp.ai_output_handling_sinks
+agent|black|ai.privilege_identity_abuse|direct:
+- plant.insidia-mcp.ai_privilege_identity_abuse
+agent|black|ai.privilege_identity_abuse|relay:
+- plant.insidia-mcp.ai_privilege_identity_abuse
+agent|black|ai.privilege_identity_abuse|sdk_bridge:
+- plant.insidia-mcp.ai_privilege_identity_abuse
+agent|black|ai.prompt_injection_direct|direct:
+- plant.insidia-mcp.ai_prompt_injection_direct
+agent|black|ai.prompt_injection_direct|relay:
+- plant.insidia-mcp.ai_prompt_injection_direct
+agent|black|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-mcp.ai_prompt_injection_direct
+agent|black|ai.prompt_injection_indirect|direct:
+- plant.agentdojo.ai_prompt_injection_indirect
+agent|black|ai.prompt_injection_indirect|relay:
+- plant.agentdojo.ai_prompt_injection_indirect
+agent|black|ai.prompt_injection_indirect|sdk_bridge:
+- plant.agentdojo.ai_prompt_injection_indirect
+agent|black|ai.secondary_injection|direct:
+- plant.insidia-mcp.ai_secondary_injection
+agent|black|ai.secondary_injection|relay:
+- plant.insidia-mcp.ai_secondary_injection
+agent|black|ai.secondary_injection|sdk_bridge:
+- plant.insidia-mcp.ai_secondary_injection
+agent|black|ai.tool_chain_hijack|direct:
+- plant.insidia-mcp.ai_tool_chain_hijack
+agent|black|ai.tool_chain_hijack|relay:
+- plant.insidia-mcp.ai_tool_chain_hijack
+agent|black|ai.tool_chain_hijack|sdk_bridge:
+- plant.insidia-mcp.ai_tool_chain_hijack
+agent|black|ai.tool_misuse|direct:
+- plant.agentdojo.ai_tool_misuse
+agent|black|ai.tool_misuse|relay:
+- plant.agentdojo.ai_tool_misuse
+agent|black|ai.tool_misuse|sdk_bridge:
+- plant.agentdojo.ai_tool_misuse
+agent|black|ai.unbounded_consumption|direct:
+- plant.insidia-mcp.ai_unbounded_consumption
+agent|black|ai.unbounded_consumption|relay:
+- plant.insidia-mcp.ai_unbounded_consumption
+agent|black|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-mcp.ai_unbounded_consumption
+agent|gray|ai.bias|direct:
+- plant.insidia-mcp.ai_bias
+agent|gray|ai.bias|relay:
+- plant.insidia-mcp.ai_bias
+agent|gray|ai.bias|sdk_bridge:
+- plant.insidia-mcp.ai_bias
+agent|gray|ai.code_exec_sandbox_escape|direct:
+- plant.insidia-mcp.ai_code_exec_sandbox_escape
+agent|gray|ai.code_exec_sandbox_escape|relay:
+- plant.insidia-mcp.ai_code_exec_sandbox_escape
+agent|gray|ai.code_exec_sandbox_escape|sdk_bridge:
+- plant.insidia-mcp.ai_code_exec_sandbox_escape
+agent|gray|ai.cross_tenant_bleed|direct:
+- plant.insidia-mcp.ai_cross_tenant_bleed
+agent|gray|ai.cross_tenant_bleed|relay:
+- plant.insidia-mcp.ai_cross_tenant_bleed
+agent|gray|ai.cross_tenant_bleed|sdk_bridge:
+- plant.insidia-mcp.ai_cross_tenant_bleed
+agent|gray|ai.dangerous_tool_args|direct:
+- plant.insidia-mcp.ai_dangerous_tool_args
+agent|gray|ai.dangerous_tool_args|relay:
+- plant.insidia-mcp.ai_dangerous_tool_args
+agent|gray|ai.dangerous_tool_args|sdk_bridge:
+- plant.insidia-mcp.ai_dangerous_tool_args
+agent|gray|ai.data_leakage|direct:
+- plant.insidia-mcp.ai_data_leakage
+agent|gray|ai.data_leakage|relay:
+- plant.insidia-mcp.ai_data_leakage
+agent|gray|ai.data_leakage|sdk_bridge:
+- plant.insidia-mcp.ai_data_leakage
+agent|gray|ai.harmful_content_policy|direct:
+- plant.insidia-mcp.ai_harmful_content_policy
+agent|gray|ai.harmful_content_policy|relay:
+- plant.insidia-mcp.ai_harmful_content_policy
+agent|gray|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-mcp.ai_harmful_content_policy
+agent|gray|ai.hidden_context_extraction|direct:
+- plant.insidia-mcp.ai_hidden_context_extraction
+agent|gray|ai.hidden_context_extraction|relay:
+- plant.insidia-mcp.ai_hidden_context_extraction
+agent|gray|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-mcp.ai_hidden_context_extraction
+agent|gray|ai.jailbreak|direct:
+- plant.agentdojo.ai_jailbreak
+agent|gray|ai.jailbreak|relay:
+- plant.agentdojo.ai_jailbreak
+agent|gray|ai.jailbreak|sdk_bridge:
+- plant.agentdojo.ai_jailbreak
+agent|gray|ai.memory_poisoning|direct:
+- plant.insidia-mcp.ai_memory_poisoning
+agent|gray|ai.memory_poisoning|relay:
+- plant.insidia-mcp.ai_memory_poisoning
+agent|gray|ai.memory_poisoning|sdk_bridge:
+- plant.insidia-mcp.ai_memory_poisoning
+agent|gray|ai.output_handling_sinks|direct:
+- plant.insidia-mcp.ai_output_handling_sinks
+agent|gray|ai.output_handling_sinks|relay:
+- plant.insidia-mcp.ai_output_handling_sinks
+agent|gray|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-mcp.ai_output_handling_sinks
+agent|gray|ai.privilege_identity_abuse|direct:
+- plant.insidia-mcp.ai_privilege_identity_abuse
+agent|gray|ai.privilege_identity_abuse|relay:
+- plant.insidia-mcp.ai_privilege_identity_abuse
+agent|gray|ai.privilege_identity_abuse|sdk_bridge:
+- plant.insidia-mcp.ai_privilege_identity_abuse
+agent|gray|ai.prompt_injection_direct|direct:
+- plant.insidia-mcp.ai_prompt_injection_direct
+agent|gray|ai.prompt_injection_direct|relay:
+- plant.insidia-mcp.ai_prompt_injection_direct
+agent|gray|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-mcp.ai_prompt_injection_direct
+agent|gray|ai.prompt_injection_indirect|direct:
+- plant.agentdojo.ai_prompt_injection_indirect
+agent|gray|ai.prompt_injection_indirect|relay:
+- plant.agentdojo.ai_prompt_injection_indirect
+agent|gray|ai.prompt_injection_indirect|sdk_bridge:
+- plant.agentdojo.ai_prompt_injection_indirect
+agent|gray|ai.secondary_injection|direct:
+- plant.insidia-mcp.ai_secondary_injection
+agent|gray|ai.secondary_injection|relay:
+- plant.insidia-mcp.ai_secondary_injection
+agent|gray|ai.secondary_injection|sdk_bridge:
+- plant.insidia-mcp.ai_secondary_injection
+agent|gray|ai.supply_chain|direct:
+- plant.insidia-mcp.ai_supply_chain
+agent|gray|ai.supply_chain|relay:
+- plant.insidia-mcp.ai_supply_chain
+agent|gray|ai.supply_chain|sdk_bridge:
+- plant.insidia-mcp.ai_supply_chain
+agent|gray|ai.tool_chain_hijack|direct:
+- plant.insidia-mcp.ai_tool_chain_hijack
+agent|gray|ai.tool_chain_hijack|relay:
+- plant.insidia-mcp.ai_tool_chain_hijack
+agent|gray|ai.tool_chain_hijack|sdk_bridge:
+- plant.insidia-mcp.ai_tool_chain_hijack
+agent|gray|ai.tool_misuse|direct:
+- plant.agentdojo.ai_tool_misuse
+agent|gray|ai.tool_misuse|relay:
+- plant.agentdojo.ai_tool_misuse
+agent|gray|ai.tool_misuse|sdk_bridge:
+- plant.agentdojo.ai_tool_misuse
+agent|gray|ai.unbounded_consumption|direct:
+- plant.insidia-mcp.ai_unbounded_consumption
+agent|gray|ai.unbounded_consumption|relay:
+- plant.insidia-mcp.ai_unbounded_consumption
+agent|gray|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-mcp.ai_unbounded_consumption
+agent|white|ai.bias|direct:
+- plant.insidia-mcp.ai_bias
+agent|white|ai.bias|relay:
+- plant.insidia-mcp.ai_bias
+agent|white|ai.bias|sdk_bridge:
+- plant.insidia-mcp.ai_bias
+agent|white|ai.code_exec_sandbox_escape|direct:
+- plant.insidia-mcp.ai_code_exec_sandbox_escape
+agent|white|ai.code_exec_sandbox_escape|relay:
+- plant.insidia-mcp.ai_code_exec_sandbox_escape
+agent|white|ai.code_exec_sandbox_escape|sdk_bridge:
+- plant.insidia-mcp.ai_code_exec_sandbox_escape
+agent|white|ai.cross_tenant_bleed|direct:
+- plant.insidia-mcp.ai_cross_tenant_bleed
+agent|white|ai.cross_tenant_bleed|relay:
+- plant.insidia-mcp.ai_cross_tenant_bleed
+agent|white|ai.cross_tenant_bleed|sdk_bridge:
+- plant.insidia-mcp.ai_cross_tenant_bleed
+agent|white|ai.dangerous_tool_args|direct:
+- plant.insidia-mcp.ai_dangerous_tool_args
+agent|white|ai.dangerous_tool_args|relay:
+- plant.insidia-mcp.ai_dangerous_tool_args
+agent|white|ai.dangerous_tool_args|sdk_bridge:
+- plant.insidia-mcp.ai_dangerous_tool_args
+agent|white|ai.data_leakage|direct:
+- plant.insidia-mcp.ai_data_leakage
+agent|white|ai.data_leakage|relay:
+- plant.insidia-mcp.ai_data_leakage
+agent|white|ai.data_leakage|sdk_bridge:
+- plant.insidia-mcp.ai_data_leakage
+agent|white|ai.harmful_content_policy|direct:
+- plant.insidia-mcp.ai_harmful_content_policy
+agent|white|ai.harmful_content_policy|relay:
+- plant.insidia-mcp.ai_harmful_content_policy
+agent|white|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-mcp.ai_harmful_content_policy
+agent|white|ai.hidden_context_extraction|direct:
+- plant.insidia-mcp.ai_hidden_context_extraction
+agent|white|ai.hidden_context_extraction|relay:
+- plant.insidia-mcp.ai_hidden_context_extraction
+agent|white|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-mcp.ai_hidden_context_extraction
+agent|white|ai.jailbreak|direct:
+- plant.agentdojo.ai_jailbreak
+agent|white|ai.jailbreak|relay:
+- plant.agentdojo.ai_jailbreak
+agent|white|ai.jailbreak|sdk_bridge:
+- plant.agentdojo.ai_jailbreak
+agent|white|ai.memory_poisoning|direct:
+- plant.insidia-mcp.ai_memory_poisoning
+agent|white|ai.memory_poisoning|relay:
+- plant.insidia-mcp.ai_memory_poisoning
+agent|white|ai.memory_poisoning|sdk_bridge:
+- plant.insidia-mcp.ai_memory_poisoning
+agent|white|ai.output_handling_sinks|direct:
+- plant.insidia-mcp.ai_output_handling_sinks
+agent|white|ai.output_handling_sinks|relay:
+- plant.insidia-mcp.ai_output_handling_sinks
+agent|white|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-mcp.ai_output_handling_sinks
+agent|white|ai.privilege_identity_abuse|direct:
+- plant.insidia-mcp.ai_privilege_identity_abuse
+agent|white|ai.privilege_identity_abuse|relay:
+- plant.insidia-mcp.ai_privilege_identity_abuse
+agent|white|ai.privilege_identity_abuse|sdk_bridge:
+- plant.insidia-mcp.ai_privilege_identity_abuse
+agent|white|ai.prompt_injection_direct|direct:
+- plant.insidia-mcp.ai_prompt_injection_direct
+agent|white|ai.prompt_injection_direct|relay:
+- plant.insidia-mcp.ai_prompt_injection_direct
+agent|white|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-mcp.ai_prompt_injection_direct
+agent|white|ai.prompt_injection_indirect|direct:
+- plant.agentdojo.ai_prompt_injection_indirect
+agent|white|ai.prompt_injection_indirect|relay:
+- plant.agentdojo.ai_prompt_injection_indirect
+agent|white|ai.prompt_injection_indirect|sdk_bridge:
+- plant.agentdojo.ai_prompt_injection_indirect
+agent|white|ai.secondary_injection|direct:
+- plant.insidia-mcp.ai_secondary_injection
+agent|white|ai.secondary_injection|relay:
+- plant.insidia-mcp.ai_secondary_injection
+agent|white|ai.secondary_injection|sdk_bridge:
+- plant.insidia-mcp.ai_secondary_injection
+agent|white|ai.supply_chain|direct:
+- plant.insidia-mcp.ai_supply_chain
+agent|white|ai.supply_chain|relay:
+- plant.insidia-mcp.ai_supply_chain
+agent|white|ai.supply_chain|sdk_bridge:
+- plant.insidia-mcp.ai_supply_chain
+agent|white|ai.tool_chain_hijack|direct:
+- plant.insidia-mcp.ai_tool_chain_hijack
+agent|white|ai.tool_chain_hijack|relay:
+- plant.insidia-mcp.ai_tool_chain_hijack
+agent|white|ai.tool_chain_hijack|sdk_bridge:
+- plant.insidia-mcp.ai_tool_chain_hijack
+agent|white|ai.tool_misuse|direct:
+- plant.agentdojo.ai_tool_misuse
+agent|white|ai.tool_misuse|relay:
+- plant.agentdojo.ai_tool_misuse
+agent|white|ai.tool_misuse|sdk_bridge:
+- plant.agentdojo.ai_tool_misuse
+agent|white|ai.unbounded_consumption|direct:
+- plant.insidia-mcp.ai_unbounded_consumption
+agent|white|ai.unbounded_consumption|relay:
+- plant.insidia-mcp.ai_unbounded_consumption
+agent|white|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-mcp.ai_unbounded_consumption
+api_graphql|black|api.bfla|direct:
+- plant.dvga.api_bfla
+api_graphql|black|api.bfla|tunnel:
+- plant.dvga.api_bfla
+api_graphql|black|api.bola_idor|direct:
+- plant.dvga.api_bola_idor
+api_graphql|black|api.bola_idor|tunnel:
+- plant.dvga.api_bola_idor
+api_graphql|black|api.mass_assignment|direct:
+- plant.insidia-graphql.api_mass_assignment
+api_graphql|black|api.mass_assignment|tunnel:
+- plant.insidia-graphql.api_mass_assignment
+api_graphql|black|auth.jwt_oauth_session|direct:
+- plant.dvga.auth_jwt_oauth_session
+api_graphql|black|auth.jwt_oauth_session|tunnel:
+- plant.dvga.auth_jwt_oauth_session
+api_graphql|black|infra.cve|direct:
+- plant.insidia-graphql.infra_cve
+api_graphql|black|infra.cve|tunnel:
+- plant.insidia-graphql.infra_cve
+api_graphql|black|infra.tls|direct:
+- plant.insidia-graphql.infra_tls
+api_graphql|black|infra.tls|tunnel:
+- plant.insidia-graphql.infra_tls
+api_graphql|black|logic.race|direct:
+- plant.insidia-graphql.logic_race
+api_graphql|black|logic.race|tunnel:
+- plant.insidia-graphql.logic_race
+api_graphql|black|web.cmdi|direct:
+- plant.dvga.web_cmdi
+api_graphql|black|web.cmdi|tunnel:
+- plant.dvga.web_cmdi
+api_graphql|black|web.sqli|direct:
+- plant.dvga.web_sqli
+api_graphql|black|web.sqli|tunnel:
+- plant.dvga.web_sqli
+api_graphql|black|web.ssrf|direct:
+- plant.dvga.web_ssrf
+api_graphql|black|web.ssrf|tunnel:
+- plant.dvga.web_ssrf
+api_graphql|black|web.ssti|direct:
+- plant.insidia-graphql.web_ssti
+api_graphql|black|web.ssti|tunnel:
+- plant.insidia-graphql.web_ssti
+api_graphql|gray|api.bfla|direct:
+- plant.dvga.api_bfla
+api_graphql|gray|api.bfla|tunnel:
+- plant.dvga.api_bfla
+api_graphql|gray|api.bola_idor|direct:
+- plant.dvga.api_bola_idor
+api_graphql|gray|api.bola_idor|tunnel:
+- plant.dvga.api_bola_idor
+api_graphql|gray|api.mass_assignment|direct:
+- plant.insidia-graphql.api_mass_assignment
+api_graphql|gray|api.mass_assignment|tunnel:
+- plant.insidia-graphql.api_mass_assignment
+api_graphql|gray|auth.jwt_oauth_session|direct:
+- plant.dvga.auth_jwt_oauth_session
+api_graphql|gray|auth.jwt_oauth_session|tunnel:
+- plant.dvga.auth_jwt_oauth_session
+api_graphql|gray|infra.cve|direct:
+- plant.insidia-graphql.infra_cve
+api_graphql|gray|infra.cve|tunnel:
+- plant.insidia-graphql.infra_cve
+api_graphql|gray|infra.tls|direct:
+- plant.insidia-graphql.infra_tls
+api_graphql|gray|infra.tls|tunnel:
+- plant.insidia-graphql.infra_tls
+api_graphql|gray|logic.race|direct:
+- plant.insidia-graphql.logic_race
+api_graphql|gray|logic.race|tunnel:
+- plant.insidia-graphql.logic_race
+api_graphql|gray|web.cmdi|direct:
+- plant.dvga.web_cmdi
+api_graphql|gray|web.cmdi|tunnel:
+- plant.dvga.web_cmdi
+api_graphql|gray|web.sqli|direct:
+- plant.dvga.web_sqli
+api_graphql|gray|web.sqli|tunnel:
+- plant.dvga.web_sqli
+api_graphql|gray|web.ssrf|direct:
+- plant.dvga.web_ssrf
+api_graphql|gray|web.ssrf|tunnel:
+- plant.dvga.web_ssrf
+api_graphql|gray|web.ssti|direct:
+- plant.insidia-graphql.web_ssti
+api_graphql|gray|web.ssti|tunnel:
+- plant.insidia-graphql.web_ssti
+api_graphql|white|api.bfla|direct:
+- plant.dvga.api_bfla
+api_graphql|white|api.bfla|tunnel:
+- plant.dvga.api_bfla
+api_graphql|white|api.bola_idor|direct:
+- plant.dvga.api_bola_idor
+api_graphql|white|api.bola_idor|tunnel:
+- plant.dvga.api_bola_idor
+api_graphql|white|api.mass_assignment|direct:
+- plant.insidia-graphql.api_mass_assignment
+api_graphql|white|api.mass_assignment|tunnel:
+- plant.insidia-graphql.api_mass_assignment
+api_graphql|white|auth.jwt_oauth_session|direct:
+- plant.dvga.auth_jwt_oauth_session
+api_graphql|white|auth.jwt_oauth_session|tunnel:
+- plant.dvga.auth_jwt_oauth_session
+api_graphql|white|infra.cve|direct:
+- plant.insidia-graphql.infra_cve
+api_graphql|white|infra.cve|tunnel:
+- plant.insidia-graphql.infra_cve
+api_graphql|white|infra.tls|direct:
+- plant.insidia-graphql.infra_tls
+api_graphql|white|infra.tls|tunnel:
+- plant.insidia-graphql.infra_tls
+api_graphql|white|logic.race|direct:
+- plant.insidia-graphql.logic_race
+api_graphql|white|logic.race|tunnel:
+- plant.insidia-graphql.logic_race
+api_graphql|white|web.cmdi|direct:
+- plant.dvga.web_cmdi
+api_graphql|white|web.cmdi|tunnel:
+- plant.dvga.web_cmdi
+api_graphql|white|web.sqli|direct:
+- plant.dvga.web_sqli
+api_graphql|white|web.sqli|tunnel:
+- plant.dvga.web_sqli
+api_graphql|white|web.ssrf|direct:
+- plant.dvga.web_ssrf
+api_graphql|white|web.ssrf|tunnel:
+- plant.dvga.web_ssrf
+api_graphql|white|web.ssti|direct:
+- plant.insidia-graphql.web_ssti
+api_graphql|white|web.ssti|tunnel:
+- plant.insidia-graphql.web_ssti
+api_grpc|black|api.bfla|direct:
+- plant.insidia-grpc.api_bfla
+api_grpc|black|api.bfla|tunnel:
+- plant.insidia-grpc.api_bfla
+api_grpc|black|api.bola_idor|direct:
+- plant.insidia-grpc.api_bola_idor
+api_grpc|black|api.bola_idor|tunnel:
+- plant.insidia-grpc.api_bola_idor
+api_grpc|black|auth.jwt_oauth_session|direct:
+- plant.insidia-grpc.auth_jwt_oauth_session
+api_grpc|black|auth.jwt_oauth_session|tunnel:
+- plant.insidia-grpc.auth_jwt_oauth_session
+api_grpc|black|infra.cve|direct:
+- plant.insidia-grpc.infra_cve
+api_grpc|black|infra.cve|tunnel:
+- plant.insidia-grpc.infra_cve
+api_grpc|black|infra.tls|direct:
+- plant.insidia-grpc.infra_tls
+api_grpc|black|infra.tls|tunnel:
+- plant.insidia-grpc.infra_tls
+api_grpc|gray|api.bfla|direct:
+- plant.insidia-grpc.api_bfla
+api_grpc|gray|api.bfla|tunnel:
+- plant.insidia-grpc.api_bfla
+api_grpc|gray|api.bola_idor|direct:
+- plant.insidia-grpc.api_bola_idor
+api_grpc|gray|api.bola_idor|tunnel:
+- plant.insidia-grpc.api_bola_idor
+api_grpc|gray|auth.jwt_oauth_session|direct:
+- plant.insidia-grpc.auth_jwt_oauth_session
+api_grpc|gray|auth.jwt_oauth_session|tunnel:
+- plant.insidia-grpc.auth_jwt_oauth_session
+api_grpc|gray|infra.cve|direct:
+- plant.insidia-grpc.infra_cve
+api_grpc|gray|infra.cve|tunnel:
+- plant.insidia-grpc.infra_cve
+api_grpc|gray|infra.tls|direct:
+- plant.insidia-grpc.infra_tls
+api_grpc|gray|infra.tls|tunnel:
+- plant.insidia-grpc.infra_tls
+api_grpc|white|api.bfla|direct:
+- plant.insidia-grpc.api_bfla
+api_grpc|white|api.bfla|tunnel:
+- plant.insidia-grpc.api_bfla
+api_grpc|white|api.bola_idor|direct:
+- plant.insidia-grpc.api_bola_idor
+api_grpc|white|api.bola_idor|tunnel:
+- plant.insidia-grpc.api_bola_idor
+api_grpc|white|auth.jwt_oauth_session|direct:
+- plant.insidia-grpc.auth_jwt_oauth_session
+api_grpc|white|auth.jwt_oauth_session|tunnel:
+- plant.insidia-grpc.auth_jwt_oauth_session
+api_grpc|white|infra.cve|direct:
+- plant.insidia-grpc.infra_cve
+api_grpc|white|infra.cve|tunnel:
+- plant.insidia-grpc.infra_cve
+api_grpc|white|infra.tls|direct:
+- plant.insidia-grpc.infra_tls
+api_grpc|white|infra.tls|tunnel:
+- plant.insidia-grpc.infra_tls
+api_rest|black|api.bfla|direct:
+- plant.crapi.api_bfla
+api_rest|black|api.bfla|tunnel:
+- plant.crapi.api_bfla
+api_rest|black|api.bola_idor|direct:
+- plant.crapi.api_bola_idor
+api_rest|black|api.bola_idor|tunnel:
+- plant.crapi.api_bola_idor
+api_rest|black|api.mass_assignment|direct:
+- plant.crapi.api_mass_assignment
+api_rest|black|api.mass_assignment|tunnel:
+- plant.crapi.api_mass_assignment
+api_rest|black|auth.jwt_oauth_session|direct:
+- plant.crapi.auth_jwt_oauth_session
+api_rest|black|auth.jwt_oauth_session|tunnel:
+- plant.crapi.auth_jwt_oauth_session
+api_rest|black|infra.cve|direct:
+- plant.insidia-api.infra_cve
+api_rest|black|infra.cve|tunnel:
+- plant.insidia-api.infra_cve
+api_rest|black|infra.tls|direct:
+- plant.insidia-api.infra_tls
+api_rest|black|infra.tls|tunnel:
+- plant.insidia-api.infra_tls
+api_rest|black|logic.race|direct:
+- plant.insidia-api.logic_race
+api_rest|black|logic.race|tunnel:
+- plant.insidia-api.logic_race
+api_rest|black|web.cmdi|direct:
+- plant.insidia-api.web_cmdi
+api_rest|black|web.cmdi|tunnel:
+- plant.insidia-api.web_cmdi
+api_rest|black|web.deserialization|direct:
+- plant.insidia-api.web_deserialization
+api_rest|black|web.deserialization|tunnel:
+- plant.insidia-api.web_deserialization
+api_rest|black|web.path_lfi|direct:
+- plant.insidia-api.web_path_lfi
+api_rest|black|web.path_lfi|tunnel:
+- plant.insidia-api.web_path_lfi
+api_rest|black|web.sqli|direct:
+- plant.vampi.web_sqli
+api_rest|black|web.sqli|tunnel:
+- plant.vampi.web_sqli
+api_rest|black|web.ssrf|direct:
+- plant.crapi.web_ssrf
+api_rest|black|web.ssrf|tunnel:
+- plant.crapi.web_ssrf
+api_rest|black|web.ssti|direct:
+- plant.insidia-api.web_ssti
+api_rest|black|web.ssti|tunnel:
+- plant.insidia-api.web_ssti
+api_rest|black|web.xxe|direct:
+- plant.insidia-api.web_xxe
+api_rest|black|web.xxe|tunnel:
+- plant.insidia-api.web_xxe
+api_rest|gray|api.bfla|direct:
+- plant.crapi.api_bfla
+api_rest|gray|api.bfla|tunnel:
+- plant.crapi.api_bfla
+api_rest|gray|api.bola_idor|direct:
+- plant.crapi.api_bola_idor
+api_rest|gray|api.bola_idor|tunnel:
+- plant.crapi.api_bola_idor
+api_rest|gray|api.mass_assignment|direct:
+- plant.crapi.api_mass_assignment
+api_rest|gray|api.mass_assignment|tunnel:
+- plant.crapi.api_mass_assignment
+api_rest|gray|auth.jwt_oauth_session|direct:
+- plant.crapi.auth_jwt_oauth_session
+api_rest|gray|auth.jwt_oauth_session|tunnel:
+- plant.crapi.auth_jwt_oauth_session
+api_rest|gray|infra.cve|direct:
+- plant.insidia-api.infra_cve
+api_rest|gray|infra.cve|tunnel:
+- plant.insidia-api.infra_cve
+api_rest|gray|infra.tls|direct:
+- plant.insidia-api.infra_tls
+api_rest|gray|infra.tls|tunnel:
+- plant.insidia-api.infra_tls
+api_rest|gray|logic.race|direct:
+- plant.insidia-api.logic_race
+api_rest|gray|logic.race|tunnel:
+- plant.insidia-api.logic_race
+api_rest|gray|web.cmdi|direct:
+- plant.insidia-api.web_cmdi
+api_rest|gray|web.cmdi|tunnel:
+- plant.insidia-api.web_cmdi
+api_rest|gray|web.deserialization|direct:
+- plant.insidia-api.web_deserialization
+api_rest|gray|web.deserialization|tunnel:
+- plant.insidia-api.web_deserialization
+api_rest|gray|web.path_lfi|direct:
+- plant.insidia-api.web_path_lfi
+api_rest|gray|web.path_lfi|tunnel:
+- plant.insidia-api.web_path_lfi
+api_rest|gray|web.sqli|direct:
+- plant.vampi.web_sqli
+api_rest|gray|web.sqli|tunnel:
+- plant.vampi.web_sqli
+api_rest|gray|web.ssrf|direct:
+- plant.crapi.web_ssrf
+api_rest|gray|web.ssrf|tunnel:
+- plant.crapi.web_ssrf
+api_rest|gray|web.ssti|direct:
+- plant.insidia-api.web_ssti
+api_rest|gray|web.ssti|tunnel:
+- plant.insidia-api.web_ssti
+api_rest|gray|web.xxe|direct:
+- plant.insidia-api.web_xxe
+api_rest|gray|web.xxe|tunnel:
+- plant.insidia-api.web_xxe
+api_rest|white|api.bfla|direct:
+- plant.crapi.api_bfla
+api_rest|white|api.bfla|tunnel:
+- plant.crapi.api_bfla
+api_rest|white|api.bola_idor|direct:
+- plant.crapi.api_bola_idor
+api_rest|white|api.bola_idor|tunnel:
+- plant.crapi.api_bola_idor
+api_rest|white|api.mass_assignment|direct:
+- plant.crapi.api_mass_assignment
+api_rest|white|api.mass_assignment|tunnel:
+- plant.crapi.api_mass_assignment
+api_rest|white|auth.jwt_oauth_session|direct:
+- plant.crapi.auth_jwt_oauth_session
+api_rest|white|auth.jwt_oauth_session|tunnel:
+- plant.crapi.auth_jwt_oauth_session
+api_rest|white|infra.cve|direct:
+- plant.insidia-api.infra_cve
+api_rest|white|infra.cve|tunnel:
+- plant.insidia-api.infra_cve
+api_rest|white|infra.tls|direct:
+- plant.insidia-api.infra_tls
+api_rest|white|infra.tls|tunnel:
+- plant.insidia-api.infra_tls
+api_rest|white|logic.race|direct:
+- plant.insidia-api.logic_race
+api_rest|white|logic.race|tunnel:
+- plant.insidia-api.logic_race
+api_rest|white|web.cmdi|direct:
+- plant.insidia-api.web_cmdi
+api_rest|white|web.cmdi|tunnel:
+- plant.insidia-api.web_cmdi
+api_rest|white|web.deserialization|direct:
+- plant.insidia-api.web_deserialization
+api_rest|white|web.deserialization|tunnel:
+- plant.insidia-api.web_deserialization
+api_rest|white|web.path_lfi|direct:
+- plant.insidia-api.web_path_lfi
+api_rest|white|web.path_lfi|tunnel:
+- plant.insidia-api.web_path_lfi
+api_rest|white|web.sqli|direct:
+- plant.vampi.web_sqli
+api_rest|white|web.sqli|tunnel:
+- plant.vampi.web_sqli
+api_rest|white|web.ssrf|direct:
+- plant.crapi.web_ssrf
+api_rest|white|web.ssrf|tunnel:
+- plant.crapi.web_ssrf
+api_rest|white|web.ssti|direct:
+- plant.insidia-api.web_ssti
+api_rest|white|web.ssti|tunnel:
+- plant.insidia-api.web_ssti
+api_rest|white|web.xxe|direct:
+- plant.insidia-api.web_xxe
+api_rest|white|web.xxe|tunnel:
+- plant.insidia-api.web_xxe
+api_ws|black|auth.jwt_oauth_session|direct:
+- plant.insidia-ws.auth_jwt_oauth_session
+api_ws|black|auth.jwt_oauth_session|tunnel:
+- plant.insidia-ws.auth_jwt_oauth_session
+api_ws|black|infra.cve|direct:
+- plant.insidia-ws.infra_cve
+api_ws|black|infra.cve|tunnel:
+- plant.insidia-ws.infra_cve
+api_ws|black|infra.tls|direct:
+- plant.insidia-ws.infra_tls
+api_ws|black|infra.tls|tunnel:
+- plant.insidia-ws.infra_tls
+api_ws|gray|auth.jwt_oauth_session|direct:
+- plant.insidia-ws.auth_jwt_oauth_session
+api_ws|gray|auth.jwt_oauth_session|tunnel:
+- plant.insidia-ws.auth_jwt_oauth_session
+api_ws|gray|infra.cve|direct:
+- plant.insidia-ws.infra_cve
+api_ws|gray|infra.cve|tunnel:
+- plant.insidia-ws.infra_cve
+api_ws|gray|infra.tls|direct:
+- plant.insidia-ws.infra_tls
+api_ws|gray|infra.tls|tunnel:
+- plant.insidia-ws.infra_tls
+api_ws|white|auth.jwt_oauth_session|direct:
+- plant.insidia-ws.auth_jwt_oauth_session
+api_ws|white|auth.jwt_oauth_session|tunnel:
+- plant.insidia-ws.auth_jwt_oauth_session
+api_ws|white|infra.cve|direct:
+- plant.insidia-ws.infra_cve
+api_ws|white|infra.cve|tunnel:
+- plant.insidia-ws.infra_cve
+api_ws|white|infra.tls|direct:
+- plant.insidia-ws.infra_tls
+api_ws|white|infra.tls|tunnel:
+- plant.insidia-ws.infra_tls
+chat_anthropic|black|ai.bias|direct:
+- plant.insidia-chatbot.ai_bias
+chat_anthropic|black|ai.bias|relay:
+- plant.insidia-chatbot.ai_bias
+chat_anthropic|black|ai.bias|sdk_bridge:
+- plant.insidia-chatbot.ai_bias
+chat_anthropic|black|ai.data_leakage|direct:
+- plant.insidia-chatbot.ai_data_leakage
+chat_anthropic|black|ai.data_leakage|relay:
+- plant.insidia-chatbot.ai_data_leakage
+chat_anthropic|black|ai.data_leakage|sdk_bridge:
+- plant.insidia-chatbot.ai_data_leakage
+chat_anthropic|black|ai.harmful_content_policy|direct:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_anthropic|black|ai.harmful_content_policy|relay:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_anthropic|black|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_anthropic|black|ai.hidden_context_extraction|direct:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_anthropic|black|ai.hidden_context_extraction|relay:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_anthropic|black|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_anthropic|black|ai.jailbreak|direct:
+- plant.insidia-chatbot.ai_jailbreak
+chat_anthropic|black|ai.jailbreak|relay:
+- plant.insidia-chatbot.ai_jailbreak
+chat_anthropic|black|ai.jailbreak|sdk_bridge:
+- plant.insidia-chatbot.ai_jailbreak
+chat_anthropic|black|ai.output_handling_sinks|direct:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_anthropic|black|ai.output_handling_sinks|relay:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_anthropic|black|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_anthropic|black|ai.prompt_injection_direct|direct:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_anthropic|black|ai.prompt_injection_direct|relay:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_anthropic|black|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_anthropic|black|ai.unbounded_consumption|direct:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_anthropic|black|ai.unbounded_consumption|relay:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_anthropic|black|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_anthropic|gray|ai.bias|direct:
+- plant.insidia-chatbot.ai_bias
+chat_anthropic|gray|ai.bias|relay:
+- plant.insidia-chatbot.ai_bias
+chat_anthropic|gray|ai.bias|sdk_bridge:
+- plant.insidia-chatbot.ai_bias
+chat_anthropic|gray|ai.data_leakage|direct:
+- plant.insidia-chatbot.ai_data_leakage
+chat_anthropic|gray|ai.data_leakage|relay:
+- plant.insidia-chatbot.ai_data_leakage
+chat_anthropic|gray|ai.data_leakage|sdk_bridge:
+- plant.insidia-chatbot.ai_data_leakage
+chat_anthropic|gray|ai.harmful_content_policy|direct:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_anthropic|gray|ai.harmful_content_policy|relay:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_anthropic|gray|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_anthropic|gray|ai.hidden_context_extraction|direct:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_anthropic|gray|ai.hidden_context_extraction|relay:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_anthropic|gray|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_anthropic|gray|ai.jailbreak|direct:
+- plant.insidia-chatbot.ai_jailbreak
+chat_anthropic|gray|ai.jailbreak|relay:
+- plant.insidia-chatbot.ai_jailbreak
+chat_anthropic|gray|ai.jailbreak|sdk_bridge:
+- plant.insidia-chatbot.ai_jailbreak
+chat_anthropic|gray|ai.output_handling_sinks|direct:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_anthropic|gray|ai.output_handling_sinks|relay:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_anthropic|gray|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_anthropic|gray|ai.prompt_injection_direct|direct:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_anthropic|gray|ai.prompt_injection_direct|relay:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_anthropic|gray|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_anthropic|gray|ai.unbounded_consumption|direct:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_anthropic|gray|ai.unbounded_consumption|relay:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_anthropic|gray|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_anthropic|white|ai.bias|direct:
+- plant.insidia-chatbot.ai_bias
+chat_anthropic|white|ai.bias|relay:
+- plant.insidia-chatbot.ai_bias
+chat_anthropic|white|ai.bias|sdk_bridge:
+- plant.insidia-chatbot.ai_bias
+chat_anthropic|white|ai.data_leakage|direct:
+- plant.insidia-chatbot.ai_data_leakage
+chat_anthropic|white|ai.data_leakage|relay:
+- plant.insidia-chatbot.ai_data_leakage
+chat_anthropic|white|ai.data_leakage|sdk_bridge:
+- plant.insidia-chatbot.ai_data_leakage
+chat_anthropic|white|ai.harmful_content_policy|direct:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_anthropic|white|ai.harmful_content_policy|relay:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_anthropic|white|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_anthropic|white|ai.hidden_context_extraction|direct:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_anthropic|white|ai.hidden_context_extraction|relay:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_anthropic|white|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_anthropic|white|ai.jailbreak|direct:
+- plant.insidia-chatbot.ai_jailbreak
+chat_anthropic|white|ai.jailbreak|relay:
+- plant.insidia-chatbot.ai_jailbreak
+chat_anthropic|white|ai.jailbreak|sdk_bridge:
+- plant.insidia-chatbot.ai_jailbreak
+chat_anthropic|white|ai.output_handling_sinks|direct:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_anthropic|white|ai.output_handling_sinks|relay:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_anthropic|white|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_anthropic|white|ai.prompt_injection_direct|direct:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_anthropic|white|ai.prompt_injection_direct|relay:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_anthropic|white|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_anthropic|white|ai.unbounded_consumption|direct:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_anthropic|white|ai.unbounded_consumption|relay:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_anthropic|white|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_azure|black|ai.bias|direct:
+- plant.insidia-chatbot.ai_bias
+chat_azure|black|ai.bias|relay:
+- plant.insidia-chatbot.ai_bias
+chat_azure|black|ai.bias|sdk_bridge:
+- plant.insidia-chatbot.ai_bias
+chat_azure|black|ai.data_leakage|direct:
+- plant.insidia-chatbot.ai_data_leakage
+chat_azure|black|ai.data_leakage|relay:
+- plant.insidia-chatbot.ai_data_leakage
+chat_azure|black|ai.data_leakage|sdk_bridge:
+- plant.insidia-chatbot.ai_data_leakage
+chat_azure|black|ai.harmful_content_policy|direct:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_azure|black|ai.harmful_content_policy|relay:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_azure|black|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_azure|black|ai.hidden_context_extraction|direct:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_azure|black|ai.hidden_context_extraction|relay:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_azure|black|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_azure|black|ai.jailbreak|direct:
+- plant.insidia-chatbot.ai_jailbreak
+chat_azure|black|ai.jailbreak|relay:
+- plant.insidia-chatbot.ai_jailbreak
+chat_azure|black|ai.jailbreak|sdk_bridge:
+- plant.insidia-chatbot.ai_jailbreak
+chat_azure|black|ai.output_handling_sinks|direct:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_azure|black|ai.output_handling_sinks|relay:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_azure|black|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_azure|black|ai.prompt_injection_direct|direct:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_azure|black|ai.prompt_injection_direct|relay:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_azure|black|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_azure|black|ai.unbounded_consumption|direct:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_azure|black|ai.unbounded_consumption|relay:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_azure|black|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_azure|gray|ai.bias|direct:
+- plant.insidia-chatbot.ai_bias
+chat_azure|gray|ai.bias|relay:
+- plant.insidia-chatbot.ai_bias
+chat_azure|gray|ai.bias|sdk_bridge:
+- plant.insidia-chatbot.ai_bias
+chat_azure|gray|ai.data_leakage|direct:
+- plant.insidia-chatbot.ai_data_leakage
+chat_azure|gray|ai.data_leakage|relay:
+- plant.insidia-chatbot.ai_data_leakage
+chat_azure|gray|ai.data_leakage|sdk_bridge:
+- plant.insidia-chatbot.ai_data_leakage
+chat_azure|gray|ai.harmful_content_policy|direct:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_azure|gray|ai.harmful_content_policy|relay:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_azure|gray|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_azure|gray|ai.hidden_context_extraction|direct:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_azure|gray|ai.hidden_context_extraction|relay:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_azure|gray|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_azure|gray|ai.jailbreak|direct:
+- plant.insidia-chatbot.ai_jailbreak
+chat_azure|gray|ai.jailbreak|relay:
+- plant.insidia-chatbot.ai_jailbreak
+chat_azure|gray|ai.jailbreak|sdk_bridge:
+- plant.insidia-chatbot.ai_jailbreak
+chat_azure|gray|ai.output_handling_sinks|direct:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_azure|gray|ai.output_handling_sinks|relay:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_azure|gray|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_azure|gray|ai.prompt_injection_direct|direct:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_azure|gray|ai.prompt_injection_direct|relay:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_azure|gray|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_azure|gray|ai.unbounded_consumption|direct:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_azure|gray|ai.unbounded_consumption|relay:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_azure|gray|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_azure|white|ai.bias|direct:
+- plant.insidia-chatbot.ai_bias
+chat_azure|white|ai.bias|relay:
+- plant.insidia-chatbot.ai_bias
+chat_azure|white|ai.bias|sdk_bridge:
+- plant.insidia-chatbot.ai_bias
+chat_azure|white|ai.data_leakage|direct:
+- plant.insidia-chatbot.ai_data_leakage
+chat_azure|white|ai.data_leakage|relay:
+- plant.insidia-chatbot.ai_data_leakage
+chat_azure|white|ai.data_leakage|sdk_bridge:
+- plant.insidia-chatbot.ai_data_leakage
+chat_azure|white|ai.harmful_content_policy|direct:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_azure|white|ai.harmful_content_policy|relay:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_azure|white|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_azure|white|ai.hidden_context_extraction|direct:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_azure|white|ai.hidden_context_extraction|relay:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_azure|white|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_azure|white|ai.jailbreak|direct:
+- plant.insidia-chatbot.ai_jailbreak
+chat_azure|white|ai.jailbreak|relay:
+- plant.insidia-chatbot.ai_jailbreak
+chat_azure|white|ai.jailbreak|sdk_bridge:
+- plant.insidia-chatbot.ai_jailbreak
+chat_azure|white|ai.output_handling_sinks|direct:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_azure|white|ai.output_handling_sinks|relay:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_azure|white|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_azure|white|ai.prompt_injection_direct|direct:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_azure|white|ai.prompt_injection_direct|relay:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_azure|white|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_azure|white|ai.unbounded_consumption|direct:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_azure|white|ai.unbounded_consumption|relay:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_azure|white|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_bedrock|black|ai.bias|direct:
+- plant.insidia-chatbot.ai_bias
+chat_bedrock|black|ai.bias|relay:
+- plant.insidia-chatbot.ai_bias
+chat_bedrock|black|ai.bias|sdk_bridge:
+- plant.insidia-chatbot.ai_bias
+chat_bedrock|black|ai.data_leakage|direct:
+- plant.insidia-chatbot.ai_data_leakage
+chat_bedrock|black|ai.data_leakage|relay:
+- plant.insidia-chatbot.ai_data_leakage
+chat_bedrock|black|ai.data_leakage|sdk_bridge:
+- plant.insidia-chatbot.ai_data_leakage
+chat_bedrock|black|ai.harmful_content_policy|direct:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_bedrock|black|ai.harmful_content_policy|relay:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_bedrock|black|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_bedrock|black|ai.hidden_context_extraction|direct:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_bedrock|black|ai.hidden_context_extraction|relay:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_bedrock|black|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_bedrock|black|ai.jailbreak|direct:
+- plant.insidia-chatbot.ai_jailbreak
+chat_bedrock|black|ai.jailbreak|relay:
+- plant.insidia-chatbot.ai_jailbreak
+chat_bedrock|black|ai.jailbreak|sdk_bridge:
+- plant.insidia-chatbot.ai_jailbreak
+chat_bedrock|black|ai.output_handling_sinks|direct:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_bedrock|black|ai.output_handling_sinks|relay:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_bedrock|black|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_bedrock|black|ai.prompt_injection_direct|direct:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_bedrock|black|ai.prompt_injection_direct|relay:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_bedrock|black|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_bedrock|black|ai.unbounded_consumption|direct:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_bedrock|black|ai.unbounded_consumption|relay:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_bedrock|black|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_bedrock|gray|ai.bias|direct:
+- plant.insidia-chatbot.ai_bias
+chat_bedrock|gray|ai.bias|relay:
+- plant.insidia-chatbot.ai_bias
+chat_bedrock|gray|ai.bias|sdk_bridge:
+- plant.insidia-chatbot.ai_bias
+chat_bedrock|gray|ai.data_leakage|direct:
+- plant.insidia-chatbot.ai_data_leakage
+chat_bedrock|gray|ai.data_leakage|relay:
+- plant.insidia-chatbot.ai_data_leakage
+chat_bedrock|gray|ai.data_leakage|sdk_bridge:
+- plant.insidia-chatbot.ai_data_leakage
+chat_bedrock|gray|ai.harmful_content_policy|direct:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_bedrock|gray|ai.harmful_content_policy|relay:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_bedrock|gray|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_bedrock|gray|ai.hidden_context_extraction|direct:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_bedrock|gray|ai.hidden_context_extraction|relay:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_bedrock|gray|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_bedrock|gray|ai.jailbreak|direct:
+- plant.insidia-chatbot.ai_jailbreak
+chat_bedrock|gray|ai.jailbreak|relay:
+- plant.insidia-chatbot.ai_jailbreak
+chat_bedrock|gray|ai.jailbreak|sdk_bridge:
+- plant.insidia-chatbot.ai_jailbreak
+chat_bedrock|gray|ai.output_handling_sinks|direct:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_bedrock|gray|ai.output_handling_sinks|relay:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_bedrock|gray|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_bedrock|gray|ai.prompt_injection_direct|direct:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_bedrock|gray|ai.prompt_injection_direct|relay:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_bedrock|gray|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_bedrock|gray|ai.unbounded_consumption|direct:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_bedrock|gray|ai.unbounded_consumption|relay:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_bedrock|gray|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_bedrock|white|ai.bias|direct:
+- plant.insidia-chatbot.ai_bias
+chat_bedrock|white|ai.bias|relay:
+- plant.insidia-chatbot.ai_bias
+chat_bedrock|white|ai.bias|sdk_bridge:
+- plant.insidia-chatbot.ai_bias
+chat_bedrock|white|ai.data_leakage|direct:
+- plant.insidia-chatbot.ai_data_leakage
+chat_bedrock|white|ai.data_leakage|relay:
+- plant.insidia-chatbot.ai_data_leakage
+chat_bedrock|white|ai.data_leakage|sdk_bridge:
+- plant.insidia-chatbot.ai_data_leakage
+chat_bedrock|white|ai.harmful_content_policy|direct:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_bedrock|white|ai.harmful_content_policy|relay:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_bedrock|white|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_bedrock|white|ai.hidden_context_extraction|direct:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_bedrock|white|ai.hidden_context_extraction|relay:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_bedrock|white|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_bedrock|white|ai.jailbreak|direct:
+- plant.insidia-chatbot.ai_jailbreak
+chat_bedrock|white|ai.jailbreak|relay:
+- plant.insidia-chatbot.ai_jailbreak
+chat_bedrock|white|ai.jailbreak|sdk_bridge:
+- plant.insidia-chatbot.ai_jailbreak
+chat_bedrock|white|ai.output_handling_sinks|direct:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_bedrock|white|ai.output_handling_sinks|relay:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_bedrock|white|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_bedrock|white|ai.prompt_injection_direct|direct:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_bedrock|white|ai.prompt_injection_direct|relay:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_bedrock|white|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_bedrock|white|ai.unbounded_consumption|direct:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_bedrock|white|ai.unbounded_consumption|relay:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_bedrock|white|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_http|black|ai.bias|direct:
+- plant.insidia-chatbot.ai_bias
+chat_http|black|ai.bias|relay:
+- plant.insidia-chatbot.ai_bias
+chat_http|black|ai.bias|sdk_bridge:
+- plant.insidia-chatbot.ai_bias
+chat_http|black|ai.data_leakage|direct:
+- plant.insidia-chatbot.ai_data_leakage
+chat_http|black|ai.data_leakage|relay:
+- plant.insidia-chatbot.ai_data_leakage
+chat_http|black|ai.data_leakage|sdk_bridge:
+- plant.insidia-chatbot.ai_data_leakage
+chat_http|black|ai.harmful_content_policy|direct:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_http|black|ai.harmful_content_policy|relay:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_http|black|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_http|black|ai.hidden_context_extraction|direct:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_http|black|ai.hidden_context_extraction|relay:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_http|black|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_http|black|ai.jailbreak|direct:
+- plant.insidia-chatbot.ai_jailbreak
+chat_http|black|ai.jailbreak|relay:
+- plant.insidia-chatbot.ai_jailbreak
+chat_http|black|ai.jailbreak|sdk_bridge:
+- plant.insidia-chatbot.ai_jailbreak
+chat_http|black|ai.output_handling_sinks|direct:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_http|black|ai.output_handling_sinks|relay:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_http|black|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_http|black|ai.prompt_injection_direct|direct:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_http|black|ai.prompt_injection_direct|relay:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_http|black|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_http|black|ai.unbounded_consumption|direct:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_http|black|ai.unbounded_consumption|relay:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_http|black|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_http|gray|ai.bias|direct:
+- plant.insidia-chatbot.ai_bias
+chat_http|gray|ai.bias|relay:
+- plant.insidia-chatbot.ai_bias
+chat_http|gray|ai.bias|sdk_bridge:
+- plant.insidia-chatbot.ai_bias
+chat_http|gray|ai.data_leakage|direct:
+- plant.insidia-chatbot.ai_data_leakage
+chat_http|gray|ai.data_leakage|relay:
+- plant.insidia-chatbot.ai_data_leakage
+chat_http|gray|ai.data_leakage|sdk_bridge:
+- plant.insidia-chatbot.ai_data_leakage
+chat_http|gray|ai.harmful_content_policy|direct:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_http|gray|ai.harmful_content_policy|relay:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_http|gray|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_http|gray|ai.hidden_context_extraction|direct:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_http|gray|ai.hidden_context_extraction|relay:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_http|gray|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_http|gray|ai.jailbreak|direct:
+- plant.insidia-chatbot.ai_jailbreak
+chat_http|gray|ai.jailbreak|relay:
+- plant.insidia-chatbot.ai_jailbreak
+chat_http|gray|ai.jailbreak|sdk_bridge:
+- plant.insidia-chatbot.ai_jailbreak
+chat_http|gray|ai.output_handling_sinks|direct:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_http|gray|ai.output_handling_sinks|relay:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_http|gray|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_http|gray|ai.prompt_injection_direct|direct:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_http|gray|ai.prompt_injection_direct|relay:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_http|gray|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_http|gray|ai.unbounded_consumption|direct:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_http|gray|ai.unbounded_consumption|relay:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_http|gray|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_http|white|ai.bias|direct:
+- plant.insidia-chatbot.ai_bias
+chat_http|white|ai.bias|relay:
+- plant.insidia-chatbot.ai_bias
+chat_http|white|ai.bias|sdk_bridge:
+- plant.insidia-chatbot.ai_bias
+chat_http|white|ai.data_leakage|direct:
+- plant.insidia-chatbot.ai_data_leakage
+chat_http|white|ai.data_leakage|relay:
+- plant.insidia-chatbot.ai_data_leakage
+chat_http|white|ai.data_leakage|sdk_bridge:
+- plant.insidia-chatbot.ai_data_leakage
+chat_http|white|ai.harmful_content_policy|direct:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_http|white|ai.harmful_content_policy|relay:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_http|white|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_http|white|ai.hidden_context_extraction|direct:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_http|white|ai.hidden_context_extraction|relay:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_http|white|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_http|white|ai.jailbreak|direct:
+- plant.insidia-chatbot.ai_jailbreak
+chat_http|white|ai.jailbreak|relay:
+- plant.insidia-chatbot.ai_jailbreak
+chat_http|white|ai.jailbreak|sdk_bridge:
+- plant.insidia-chatbot.ai_jailbreak
+chat_http|white|ai.output_handling_sinks|direct:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_http|white|ai.output_handling_sinks|relay:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_http|white|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_http|white|ai.prompt_injection_direct|direct:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_http|white|ai.prompt_injection_direct|relay:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_http|white|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_http|white|ai.unbounded_consumption|direct:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_http|white|ai.unbounded_consumption|relay:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_http|white|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_openai|black|ai.bias|direct:
+- plant.insidia-chatbot.ai_bias
+chat_openai|black|ai.bias|relay:
+- plant.insidia-chatbot.ai_bias
+chat_openai|black|ai.bias|sdk_bridge:
+- plant.insidia-chatbot.ai_bias
+chat_openai|black|ai.data_leakage|direct:
+- plant.insidia-chatbot.ai_data_leakage
+chat_openai|black|ai.data_leakage|relay:
+- plant.insidia-chatbot.ai_data_leakage
+chat_openai|black|ai.data_leakage|sdk_bridge:
+- plant.insidia-chatbot.ai_data_leakage
+chat_openai|black|ai.harmful_content_policy|direct:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_openai|black|ai.harmful_content_policy|relay:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_openai|black|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_openai|black|ai.hidden_context_extraction|direct:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_openai|black|ai.hidden_context_extraction|relay:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_openai|black|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_openai|black|ai.jailbreak|direct:
+- plant.insidia-chatbot.ai_jailbreak
+chat_openai|black|ai.jailbreak|relay:
+- plant.insidia-chatbot.ai_jailbreak
+chat_openai|black|ai.jailbreak|sdk_bridge:
+- plant.insidia-chatbot.ai_jailbreak
+chat_openai|black|ai.output_handling_sinks|direct:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_openai|black|ai.output_handling_sinks|relay:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_openai|black|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_openai|black|ai.prompt_injection_direct|direct:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_openai|black|ai.prompt_injection_direct|relay:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_openai|black|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_openai|black|ai.unbounded_consumption|direct:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_openai|black|ai.unbounded_consumption|relay:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_openai|black|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_openai|gray|ai.bias|direct:
+- plant.insidia-chatbot.ai_bias
+chat_openai|gray|ai.bias|relay:
+- plant.insidia-chatbot.ai_bias
+chat_openai|gray|ai.bias|sdk_bridge:
+- plant.insidia-chatbot.ai_bias
+chat_openai|gray|ai.data_leakage|direct:
+- plant.insidia-chatbot.ai_data_leakage
+chat_openai|gray|ai.data_leakage|relay:
+- plant.insidia-chatbot.ai_data_leakage
+chat_openai|gray|ai.data_leakage|sdk_bridge:
+- plant.insidia-chatbot.ai_data_leakage
+chat_openai|gray|ai.harmful_content_policy|direct:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_openai|gray|ai.harmful_content_policy|relay:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_openai|gray|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_openai|gray|ai.hidden_context_extraction|direct:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_openai|gray|ai.hidden_context_extraction|relay:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_openai|gray|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_openai|gray|ai.jailbreak|direct:
+- plant.insidia-chatbot.ai_jailbreak
+chat_openai|gray|ai.jailbreak|relay:
+- plant.insidia-chatbot.ai_jailbreak
+chat_openai|gray|ai.jailbreak|sdk_bridge:
+- plant.insidia-chatbot.ai_jailbreak
+chat_openai|gray|ai.output_handling_sinks|direct:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_openai|gray|ai.output_handling_sinks|relay:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_openai|gray|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_openai|gray|ai.prompt_injection_direct|direct:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_openai|gray|ai.prompt_injection_direct|relay:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_openai|gray|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_openai|gray|ai.unbounded_consumption|direct:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_openai|gray|ai.unbounded_consumption|relay:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_openai|gray|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_openai|white|ai.bias|direct:
+- plant.insidia-chatbot.ai_bias
+chat_openai|white|ai.bias|relay:
+- plant.insidia-chatbot.ai_bias
+chat_openai|white|ai.bias|sdk_bridge:
+- plant.insidia-chatbot.ai_bias
+chat_openai|white|ai.data_leakage|direct:
+- plant.insidia-chatbot.ai_data_leakage
+chat_openai|white|ai.data_leakage|relay:
+- plant.insidia-chatbot.ai_data_leakage
+chat_openai|white|ai.data_leakage|sdk_bridge:
+- plant.insidia-chatbot.ai_data_leakage
+chat_openai|white|ai.harmful_content_policy|direct:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_openai|white|ai.harmful_content_policy|relay:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_openai|white|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_openai|white|ai.hidden_context_extraction|direct:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_openai|white|ai.hidden_context_extraction|relay:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_openai|white|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_openai|white|ai.jailbreak|direct:
+- plant.insidia-chatbot.ai_jailbreak
+chat_openai|white|ai.jailbreak|relay:
+- plant.insidia-chatbot.ai_jailbreak
+chat_openai|white|ai.jailbreak|sdk_bridge:
+- plant.insidia-chatbot.ai_jailbreak
+chat_openai|white|ai.output_handling_sinks|direct:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_openai|white|ai.output_handling_sinks|relay:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_openai|white|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_openai|white|ai.prompt_injection_direct|direct:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_openai|white|ai.prompt_injection_direct|relay:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_openai|white|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_openai|white|ai.unbounded_consumption|direct:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_openai|white|ai.unbounded_consumption|relay:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_openai|white|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_ws|black|ai.bias|direct:
+- plant.insidia-chatbot.ai_bias
+chat_ws|black|ai.bias|relay:
+- plant.insidia-chatbot.ai_bias
+chat_ws|black|ai.bias|sdk_bridge:
+- plant.insidia-chatbot.ai_bias
+chat_ws|black|ai.data_leakage|direct:
+- plant.insidia-chatbot.ai_data_leakage
+chat_ws|black|ai.data_leakage|relay:
+- plant.insidia-chatbot.ai_data_leakage
+chat_ws|black|ai.data_leakage|sdk_bridge:
+- plant.insidia-chatbot.ai_data_leakage
+chat_ws|black|ai.harmful_content_policy|direct:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_ws|black|ai.harmful_content_policy|relay:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_ws|black|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_ws|black|ai.hidden_context_extraction|direct:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_ws|black|ai.hidden_context_extraction|relay:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_ws|black|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_ws|black|ai.jailbreak|direct:
+- plant.insidia-chatbot.ai_jailbreak
+chat_ws|black|ai.jailbreak|relay:
+- plant.insidia-chatbot.ai_jailbreak
+chat_ws|black|ai.jailbreak|sdk_bridge:
+- plant.insidia-chatbot.ai_jailbreak
+chat_ws|black|ai.output_handling_sinks|direct:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_ws|black|ai.output_handling_sinks|relay:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_ws|black|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_ws|black|ai.prompt_injection_direct|direct:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_ws|black|ai.prompt_injection_direct|relay:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_ws|black|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_ws|black|ai.unbounded_consumption|direct:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_ws|black|ai.unbounded_consumption|relay:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_ws|black|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_ws|gray|ai.bias|direct:
+- plant.insidia-chatbot.ai_bias
+chat_ws|gray|ai.bias|relay:
+- plant.insidia-chatbot.ai_bias
+chat_ws|gray|ai.bias|sdk_bridge:
+- plant.insidia-chatbot.ai_bias
+chat_ws|gray|ai.data_leakage|direct:
+- plant.insidia-chatbot.ai_data_leakage
+chat_ws|gray|ai.data_leakage|relay:
+- plant.insidia-chatbot.ai_data_leakage
+chat_ws|gray|ai.data_leakage|sdk_bridge:
+- plant.insidia-chatbot.ai_data_leakage
+chat_ws|gray|ai.harmful_content_policy|direct:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_ws|gray|ai.harmful_content_policy|relay:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_ws|gray|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_ws|gray|ai.hidden_context_extraction|direct:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_ws|gray|ai.hidden_context_extraction|relay:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_ws|gray|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_ws|gray|ai.jailbreak|direct:
+- plant.insidia-chatbot.ai_jailbreak
+chat_ws|gray|ai.jailbreak|relay:
+- plant.insidia-chatbot.ai_jailbreak
+chat_ws|gray|ai.jailbreak|sdk_bridge:
+- plant.insidia-chatbot.ai_jailbreak
+chat_ws|gray|ai.output_handling_sinks|direct:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_ws|gray|ai.output_handling_sinks|relay:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_ws|gray|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_ws|gray|ai.prompt_injection_direct|direct:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_ws|gray|ai.prompt_injection_direct|relay:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_ws|gray|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_ws|gray|ai.unbounded_consumption|direct:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_ws|gray|ai.unbounded_consumption|relay:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_ws|gray|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_ws|white|ai.bias|direct:
+- plant.insidia-chatbot.ai_bias
+chat_ws|white|ai.bias|relay:
+- plant.insidia-chatbot.ai_bias
+chat_ws|white|ai.bias|sdk_bridge:
+- plant.insidia-chatbot.ai_bias
+chat_ws|white|ai.data_leakage|direct:
+- plant.insidia-chatbot.ai_data_leakage
+chat_ws|white|ai.data_leakage|relay:
+- plant.insidia-chatbot.ai_data_leakage
+chat_ws|white|ai.data_leakage|sdk_bridge:
+- plant.insidia-chatbot.ai_data_leakage
+chat_ws|white|ai.harmful_content_policy|direct:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_ws|white|ai.harmful_content_policy|relay:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_ws|white|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-chatbot.ai_harmful_content_policy
+chat_ws|white|ai.hidden_context_extraction|direct:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_ws|white|ai.hidden_context_extraction|relay:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_ws|white|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-chatbot.ai_hidden_context_extraction
+chat_ws|white|ai.jailbreak|direct:
+- plant.insidia-chatbot.ai_jailbreak
+chat_ws|white|ai.jailbreak|relay:
+- plant.insidia-chatbot.ai_jailbreak
+chat_ws|white|ai.jailbreak|sdk_bridge:
+- plant.insidia-chatbot.ai_jailbreak
+chat_ws|white|ai.output_handling_sinks|direct:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_ws|white|ai.output_handling_sinks|relay:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_ws|white|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-chatbot.ai_output_handling_sinks
+chat_ws|white|ai.prompt_injection_direct|direct:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_ws|white|ai.prompt_injection_direct|relay:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_ws|white|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-chatbot.ai_prompt_injection_direct
+chat_ws|white|ai.unbounded_consumption|direct:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_ws|white|ai.unbounded_consumption|relay:
+- plant.insidia-chatbot.ai_unbounded_consumption
+chat_ws|white|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-chatbot.ai_unbounded_consumption
+codebase|white|code.sast_sinks|direct:
+- plant.insidia-repo.code_sast_sinks
+codebase|white|code.sast_sinks|relay:
+- plant.insidia-repo.code_sast_sinks
+codebase|white|code.sast_sinks|sdk_bridge:
+- plant.insidia-repo.code_sast_sinks
+codebase|white|code.sast_sinks|tunnel:
+- plant.insidia-repo.code_sast_sinks
+codebase|white|code.secrets|direct:
+- plant.insidia-repo.code_secrets
+codebase|white|code.secrets|relay:
+- plant.insidia-repo.code_secrets
+codebase|white|code.secrets|sdk_bridge:
+- plant.insidia-repo.code_secrets
+codebase|white|code.secrets|tunnel:
+- plant.insidia-repo.code_secrets
+codebase|white|deps.sca|direct:
+- plant.insidia-repo.deps_sca
+codebase|white|deps.sca|relay:
+- plant.insidia-repo.deps_sca
+codebase|white|deps.sca|sdk_bridge:
+- plant.insidia-repo.deps_sca
+codebase|white|deps.sca|tunnel:
+- plant.insidia-repo.deps_sca
+ml_model|black|ai.predictive_ml|direct:
+- plant.insidia-ml.ai_predictive_ml
+ml_model|black|ai.predictive_ml|tunnel:
+- plant.insidia-ml.ai_predictive_ml
+ml_model|gray|ai.supply_chain|direct:
+- plant.insidia-ml.ai_supply_chain
+ml_model|gray|ai.supply_chain|tunnel:
+- plant.insidia-ml.ai_supply_chain
+ml_model|white|ai.predictive_ml|direct:
+- plant.insidia-ml.ai_predictive_ml
+ml_model|white|ai.predictive_ml|tunnel:
+- plant.insidia-ml.ai_predictive_ml
+ml_model|white|ai.supply_chain|direct:
+- plant.insidia-ml.ai_supply_chain
+ml_model|white|ai.supply_chain|tunnel:
+- plant.insidia-ml.ai_supply_chain
+multi_agent|black|ai.bias|direct:
+- plant.insidia-a2a.ai_bias
+multi_agent|black|ai.bias|relay:
+- plant.insidia-a2a.ai_bias
+multi_agent|black|ai.bias|sdk_bridge:
+- plant.insidia-a2a.ai_bias
+multi_agent|black|ai.cascade_rogue|direct:
+- plant.insidia-a2a.ai_cascade_rogue
+multi_agent|black|ai.cascade_rogue|relay:
+- plant.insidia-a2a.ai_cascade_rogue
+multi_agent|black|ai.cascade_rogue|sdk_bridge:
+- plant.insidia-a2a.ai_cascade_rogue
+multi_agent|black|ai.code_exec_sandbox_escape|direct:
+- plant.insidia-a2a.ai_code_exec_sandbox_escape
+multi_agent|black|ai.code_exec_sandbox_escape|relay:
+- plant.insidia-a2a.ai_code_exec_sandbox_escape
+multi_agent|black|ai.code_exec_sandbox_escape|sdk_bridge:
+- plant.insidia-a2a.ai_code_exec_sandbox_escape
+multi_agent|black|ai.cross_tenant_bleed|direct:
+- plant.insidia-a2a.ai_cross_tenant_bleed
+multi_agent|black|ai.cross_tenant_bleed|relay:
+- plant.insidia-a2a.ai_cross_tenant_bleed
+multi_agent|black|ai.cross_tenant_bleed|sdk_bridge:
+- plant.insidia-a2a.ai_cross_tenant_bleed
+multi_agent|black|ai.dangerous_tool_args|direct:
+- plant.insidia-a2a.ai_dangerous_tool_args
+multi_agent|black|ai.dangerous_tool_args|relay:
+- plant.insidia-a2a.ai_dangerous_tool_args
+multi_agent|black|ai.dangerous_tool_args|sdk_bridge:
+- plant.insidia-a2a.ai_dangerous_tool_args
+multi_agent|black|ai.data_leakage|direct:
+- plant.insidia-a2a.ai_data_leakage
+multi_agent|black|ai.data_leakage|relay:
+- plant.insidia-a2a.ai_data_leakage
+multi_agent|black|ai.data_leakage|sdk_bridge:
+- plant.insidia-a2a.ai_data_leakage
+multi_agent|black|ai.harmful_content_policy|direct:
+- plant.insidia-a2a.ai_harmful_content_policy
+multi_agent|black|ai.harmful_content_policy|relay:
+- plant.insidia-a2a.ai_harmful_content_policy
+multi_agent|black|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-a2a.ai_harmful_content_policy
+multi_agent|black|ai.hidden_context_extraction|direct:
+- plant.insidia-a2a.ai_hidden_context_extraction
+multi_agent|black|ai.hidden_context_extraction|relay:
+- plant.insidia-a2a.ai_hidden_context_extraction
+multi_agent|black|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-a2a.ai_hidden_context_extraction
+multi_agent|black|ai.jailbreak|direct:
+- plant.insidia-a2a.ai_jailbreak
+multi_agent|black|ai.jailbreak|relay:
+- plant.insidia-a2a.ai_jailbreak
+multi_agent|black|ai.jailbreak|sdk_bridge:
+- plant.insidia-a2a.ai_jailbreak
+multi_agent|black|ai.memory_poisoning|direct:
+- plant.insidia-a2a.ai_memory_poisoning
+multi_agent|black|ai.memory_poisoning|relay:
+- plant.insidia-a2a.ai_memory_poisoning
+multi_agent|black|ai.memory_poisoning|sdk_bridge:
+- plant.insidia-a2a.ai_memory_poisoning
+multi_agent|black|ai.multi_agent_spoof|direct:
+- plant.insidia-a2a.ai_multi_agent_spoof
+multi_agent|black|ai.multi_agent_spoof|relay:
+- plant.insidia-a2a.ai_multi_agent_spoof
+multi_agent|black|ai.multi_agent_spoof|sdk_bridge:
+- plant.insidia-a2a.ai_multi_agent_spoof
+multi_agent|black|ai.output_handling_sinks|direct:
+- plant.insidia-a2a.ai_output_handling_sinks
+multi_agent|black|ai.output_handling_sinks|relay:
+- plant.insidia-a2a.ai_output_handling_sinks
+multi_agent|black|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-a2a.ai_output_handling_sinks
+multi_agent|black|ai.privilege_identity_abuse|direct:
+- plant.insidia-a2a.ai_privilege_identity_abuse
+multi_agent|black|ai.privilege_identity_abuse|relay:
+- plant.insidia-a2a.ai_privilege_identity_abuse
+multi_agent|black|ai.privilege_identity_abuse|sdk_bridge:
+- plant.insidia-a2a.ai_privilege_identity_abuse
+multi_agent|black|ai.prompt_injection_direct|direct:
+- plant.insidia-a2a.ai_prompt_injection_direct
+multi_agent|black|ai.prompt_injection_direct|relay:
+- plant.insidia-a2a.ai_prompt_injection_direct
+multi_agent|black|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-a2a.ai_prompt_injection_direct
+multi_agent|black|ai.prompt_injection_indirect|direct:
+- plant.insidia-a2a.ai_prompt_injection_indirect
+multi_agent|black|ai.prompt_injection_indirect|relay:
+- plant.insidia-a2a.ai_prompt_injection_indirect
+multi_agent|black|ai.prompt_injection_indirect|sdk_bridge:
+- plant.insidia-a2a.ai_prompt_injection_indirect
+multi_agent|black|ai.secondary_injection|direct:
+- plant.insidia-a2a.ai_secondary_injection
+multi_agent|black|ai.secondary_injection|relay:
+- plant.insidia-a2a.ai_secondary_injection
+multi_agent|black|ai.secondary_injection|sdk_bridge:
+- plant.insidia-a2a.ai_secondary_injection
+multi_agent|black|ai.tool_chain_hijack|direct:
+- plant.insidia-a2a.ai_tool_chain_hijack
+multi_agent|black|ai.tool_chain_hijack|relay:
+- plant.insidia-a2a.ai_tool_chain_hijack
+multi_agent|black|ai.tool_chain_hijack|sdk_bridge:
+- plant.insidia-a2a.ai_tool_chain_hijack
+multi_agent|black|ai.tool_misuse|direct:
+- plant.insidia-a2a.ai_tool_misuse
+multi_agent|black|ai.tool_misuse|relay:
+- plant.insidia-a2a.ai_tool_misuse
+multi_agent|black|ai.tool_misuse|sdk_bridge:
+- plant.insidia-a2a.ai_tool_misuse
+multi_agent|black|ai.unbounded_consumption|direct:
+- plant.insidia-a2a.ai_unbounded_consumption
+multi_agent|black|ai.unbounded_consumption|relay:
+- plant.insidia-a2a.ai_unbounded_consumption
+multi_agent|black|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-a2a.ai_unbounded_consumption
+multi_agent|gray|ai.bias|direct:
+- plant.insidia-a2a.ai_bias
+multi_agent|gray|ai.bias|relay:
+- plant.insidia-a2a.ai_bias
+multi_agent|gray|ai.bias|sdk_bridge:
+- plant.insidia-a2a.ai_bias
+multi_agent|gray|ai.cascade_rogue|direct:
+- plant.insidia-a2a.ai_cascade_rogue
+multi_agent|gray|ai.cascade_rogue|relay:
+- plant.insidia-a2a.ai_cascade_rogue
+multi_agent|gray|ai.cascade_rogue|sdk_bridge:
+- plant.insidia-a2a.ai_cascade_rogue
+multi_agent|gray|ai.code_exec_sandbox_escape|direct:
+- plant.insidia-a2a.ai_code_exec_sandbox_escape
+multi_agent|gray|ai.code_exec_sandbox_escape|relay:
+- plant.insidia-a2a.ai_code_exec_sandbox_escape
+multi_agent|gray|ai.code_exec_sandbox_escape|sdk_bridge:
+- plant.insidia-a2a.ai_code_exec_sandbox_escape
+multi_agent|gray|ai.cross_tenant_bleed|direct:
+- plant.insidia-a2a.ai_cross_tenant_bleed
+multi_agent|gray|ai.cross_tenant_bleed|relay:
+- plant.insidia-a2a.ai_cross_tenant_bleed
+multi_agent|gray|ai.cross_tenant_bleed|sdk_bridge:
+- plant.insidia-a2a.ai_cross_tenant_bleed
+multi_agent|gray|ai.dangerous_tool_args|direct:
+- plant.insidia-a2a.ai_dangerous_tool_args
+multi_agent|gray|ai.dangerous_tool_args|relay:
+- plant.insidia-a2a.ai_dangerous_tool_args
+multi_agent|gray|ai.dangerous_tool_args|sdk_bridge:
+- plant.insidia-a2a.ai_dangerous_tool_args
+multi_agent|gray|ai.data_leakage|direct:
+- plant.insidia-a2a.ai_data_leakage
+multi_agent|gray|ai.data_leakage|relay:
+- plant.insidia-a2a.ai_data_leakage
+multi_agent|gray|ai.data_leakage|sdk_bridge:
+- plant.insidia-a2a.ai_data_leakage
+multi_agent|gray|ai.harmful_content_policy|direct:
+- plant.insidia-a2a.ai_harmful_content_policy
+multi_agent|gray|ai.harmful_content_policy|relay:
+- plant.insidia-a2a.ai_harmful_content_policy
+multi_agent|gray|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-a2a.ai_harmful_content_policy
+multi_agent|gray|ai.hidden_context_extraction|direct:
+- plant.insidia-a2a.ai_hidden_context_extraction
+multi_agent|gray|ai.hidden_context_extraction|relay:
+- plant.insidia-a2a.ai_hidden_context_extraction
+multi_agent|gray|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-a2a.ai_hidden_context_extraction
+multi_agent|gray|ai.jailbreak|direct:
+- plant.insidia-a2a.ai_jailbreak
+multi_agent|gray|ai.jailbreak|relay:
+- plant.insidia-a2a.ai_jailbreak
+multi_agent|gray|ai.jailbreak|sdk_bridge:
+- plant.insidia-a2a.ai_jailbreak
+multi_agent|gray|ai.memory_poisoning|direct:
+- plant.insidia-a2a.ai_memory_poisoning
+multi_agent|gray|ai.memory_poisoning|relay:
+- plant.insidia-a2a.ai_memory_poisoning
+multi_agent|gray|ai.memory_poisoning|sdk_bridge:
+- plant.insidia-a2a.ai_memory_poisoning
+multi_agent|gray|ai.multi_agent_spoof|direct:
+- plant.insidia-a2a.ai_multi_agent_spoof
+multi_agent|gray|ai.multi_agent_spoof|relay:
+- plant.insidia-a2a.ai_multi_agent_spoof
+multi_agent|gray|ai.multi_agent_spoof|sdk_bridge:
+- plant.insidia-a2a.ai_multi_agent_spoof
+multi_agent|gray|ai.output_handling_sinks|direct:
+- plant.insidia-a2a.ai_output_handling_sinks
+multi_agent|gray|ai.output_handling_sinks|relay:
+- plant.insidia-a2a.ai_output_handling_sinks
+multi_agent|gray|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-a2a.ai_output_handling_sinks
+multi_agent|gray|ai.privilege_identity_abuse|direct:
+- plant.insidia-a2a.ai_privilege_identity_abuse
+multi_agent|gray|ai.privilege_identity_abuse|relay:
+- plant.insidia-a2a.ai_privilege_identity_abuse
+multi_agent|gray|ai.privilege_identity_abuse|sdk_bridge:
+- plant.insidia-a2a.ai_privilege_identity_abuse
+multi_agent|gray|ai.prompt_injection_direct|direct:
+- plant.insidia-a2a.ai_prompt_injection_direct
+multi_agent|gray|ai.prompt_injection_direct|relay:
+- plant.insidia-a2a.ai_prompt_injection_direct
+multi_agent|gray|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-a2a.ai_prompt_injection_direct
+multi_agent|gray|ai.prompt_injection_indirect|direct:
+- plant.insidia-a2a.ai_prompt_injection_indirect
+multi_agent|gray|ai.prompt_injection_indirect|relay:
+- plant.insidia-a2a.ai_prompt_injection_indirect
+multi_agent|gray|ai.prompt_injection_indirect|sdk_bridge:
+- plant.insidia-a2a.ai_prompt_injection_indirect
+multi_agent|gray|ai.secondary_injection|direct:
+- plant.insidia-a2a.ai_secondary_injection
+multi_agent|gray|ai.secondary_injection|relay:
+- plant.insidia-a2a.ai_secondary_injection
+multi_agent|gray|ai.secondary_injection|sdk_bridge:
+- plant.insidia-a2a.ai_secondary_injection
+multi_agent|gray|ai.supply_chain|direct:
+- plant.insidia-a2a.ai_supply_chain
+multi_agent|gray|ai.supply_chain|relay:
+- plant.insidia-a2a.ai_supply_chain
+multi_agent|gray|ai.supply_chain|sdk_bridge:
+- plant.insidia-a2a.ai_supply_chain
+multi_agent|gray|ai.tool_chain_hijack|direct:
+- plant.insidia-a2a.ai_tool_chain_hijack
+multi_agent|gray|ai.tool_chain_hijack|relay:
+- plant.insidia-a2a.ai_tool_chain_hijack
+multi_agent|gray|ai.tool_chain_hijack|sdk_bridge:
+- plant.insidia-a2a.ai_tool_chain_hijack
+multi_agent|gray|ai.tool_misuse|direct:
+- plant.insidia-a2a.ai_tool_misuse
+multi_agent|gray|ai.tool_misuse|relay:
+- plant.insidia-a2a.ai_tool_misuse
+multi_agent|gray|ai.tool_misuse|sdk_bridge:
+- plant.insidia-a2a.ai_tool_misuse
+multi_agent|gray|ai.unbounded_consumption|direct:
+- plant.insidia-a2a.ai_unbounded_consumption
+multi_agent|gray|ai.unbounded_consumption|relay:
+- plant.insidia-a2a.ai_unbounded_consumption
+multi_agent|gray|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-a2a.ai_unbounded_consumption
+multi_agent|white|ai.bias|direct:
+- plant.insidia-a2a.ai_bias
+multi_agent|white|ai.bias|relay:
+- plant.insidia-a2a.ai_bias
+multi_agent|white|ai.bias|sdk_bridge:
+- plant.insidia-a2a.ai_bias
+multi_agent|white|ai.cascade_rogue|direct:
+- plant.insidia-a2a.ai_cascade_rogue
+multi_agent|white|ai.cascade_rogue|relay:
+- plant.insidia-a2a.ai_cascade_rogue
+multi_agent|white|ai.cascade_rogue|sdk_bridge:
+- plant.insidia-a2a.ai_cascade_rogue
+multi_agent|white|ai.code_exec_sandbox_escape|direct:
+- plant.insidia-a2a.ai_code_exec_sandbox_escape
+multi_agent|white|ai.code_exec_sandbox_escape|relay:
+- plant.insidia-a2a.ai_code_exec_sandbox_escape
+multi_agent|white|ai.code_exec_sandbox_escape|sdk_bridge:
+- plant.insidia-a2a.ai_code_exec_sandbox_escape
+multi_agent|white|ai.cross_tenant_bleed|direct:
+- plant.insidia-a2a.ai_cross_tenant_bleed
+multi_agent|white|ai.cross_tenant_bleed|relay:
+- plant.insidia-a2a.ai_cross_tenant_bleed
+multi_agent|white|ai.cross_tenant_bleed|sdk_bridge:
+- plant.insidia-a2a.ai_cross_tenant_bleed
+multi_agent|white|ai.dangerous_tool_args|direct:
+- plant.insidia-a2a.ai_dangerous_tool_args
+multi_agent|white|ai.dangerous_tool_args|relay:
+- plant.insidia-a2a.ai_dangerous_tool_args
+multi_agent|white|ai.dangerous_tool_args|sdk_bridge:
+- plant.insidia-a2a.ai_dangerous_tool_args
+multi_agent|white|ai.data_leakage|direct:
+- plant.insidia-a2a.ai_data_leakage
+multi_agent|white|ai.data_leakage|relay:
+- plant.insidia-a2a.ai_data_leakage
+multi_agent|white|ai.data_leakage|sdk_bridge:
+- plant.insidia-a2a.ai_data_leakage
+multi_agent|white|ai.harmful_content_policy|direct:
+- plant.insidia-a2a.ai_harmful_content_policy
+multi_agent|white|ai.harmful_content_policy|relay:
+- plant.insidia-a2a.ai_harmful_content_policy
+multi_agent|white|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-a2a.ai_harmful_content_policy
+multi_agent|white|ai.hidden_context_extraction|direct:
+- plant.insidia-a2a.ai_hidden_context_extraction
+multi_agent|white|ai.hidden_context_extraction|relay:
+- plant.insidia-a2a.ai_hidden_context_extraction
+multi_agent|white|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-a2a.ai_hidden_context_extraction
+multi_agent|white|ai.jailbreak|direct:
+- plant.insidia-a2a.ai_jailbreak
+multi_agent|white|ai.jailbreak|relay:
+- plant.insidia-a2a.ai_jailbreak
+multi_agent|white|ai.jailbreak|sdk_bridge:
+- plant.insidia-a2a.ai_jailbreak
+multi_agent|white|ai.memory_poisoning|direct:
+- plant.insidia-a2a.ai_memory_poisoning
+multi_agent|white|ai.memory_poisoning|relay:
+- plant.insidia-a2a.ai_memory_poisoning
+multi_agent|white|ai.memory_poisoning|sdk_bridge:
+- plant.insidia-a2a.ai_memory_poisoning
+multi_agent|white|ai.multi_agent_spoof|direct:
+- plant.insidia-a2a.ai_multi_agent_spoof
+multi_agent|white|ai.multi_agent_spoof|relay:
+- plant.insidia-a2a.ai_multi_agent_spoof
+multi_agent|white|ai.multi_agent_spoof|sdk_bridge:
+- plant.insidia-a2a.ai_multi_agent_spoof
+multi_agent|white|ai.output_handling_sinks|direct:
+- plant.insidia-a2a.ai_output_handling_sinks
+multi_agent|white|ai.output_handling_sinks|relay:
+- plant.insidia-a2a.ai_output_handling_sinks
+multi_agent|white|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-a2a.ai_output_handling_sinks
+multi_agent|white|ai.privilege_identity_abuse|direct:
+- plant.insidia-a2a.ai_privilege_identity_abuse
+multi_agent|white|ai.privilege_identity_abuse|relay:
+- plant.insidia-a2a.ai_privilege_identity_abuse
+multi_agent|white|ai.privilege_identity_abuse|sdk_bridge:
+- plant.insidia-a2a.ai_privilege_identity_abuse
+multi_agent|white|ai.prompt_injection_direct|direct:
+- plant.insidia-a2a.ai_prompt_injection_direct
+multi_agent|white|ai.prompt_injection_direct|relay:
+- plant.insidia-a2a.ai_prompt_injection_direct
+multi_agent|white|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-a2a.ai_prompt_injection_direct
+multi_agent|white|ai.prompt_injection_indirect|direct:
+- plant.insidia-a2a.ai_prompt_injection_indirect
+multi_agent|white|ai.prompt_injection_indirect|relay:
+- plant.insidia-a2a.ai_prompt_injection_indirect
+multi_agent|white|ai.prompt_injection_indirect|sdk_bridge:
+- plant.insidia-a2a.ai_prompt_injection_indirect
+multi_agent|white|ai.secondary_injection|direct:
+- plant.insidia-a2a.ai_secondary_injection
+multi_agent|white|ai.secondary_injection|relay:
+- plant.insidia-a2a.ai_secondary_injection
+multi_agent|white|ai.secondary_injection|sdk_bridge:
+- plant.insidia-a2a.ai_secondary_injection
+multi_agent|white|ai.supply_chain|direct:
+- plant.insidia-a2a.ai_supply_chain
+multi_agent|white|ai.supply_chain|relay:
+- plant.insidia-a2a.ai_supply_chain
+multi_agent|white|ai.supply_chain|sdk_bridge:
+- plant.insidia-a2a.ai_supply_chain
+multi_agent|white|ai.tool_chain_hijack|direct:
+- plant.insidia-a2a.ai_tool_chain_hijack
+multi_agent|white|ai.tool_chain_hijack|relay:
+- plant.insidia-a2a.ai_tool_chain_hijack
+multi_agent|white|ai.tool_chain_hijack|sdk_bridge:
+- plant.insidia-a2a.ai_tool_chain_hijack
+multi_agent|white|ai.tool_misuse|direct:
+- plant.insidia-a2a.ai_tool_misuse
+multi_agent|white|ai.tool_misuse|relay:
+- plant.insidia-a2a.ai_tool_misuse
+multi_agent|white|ai.tool_misuse|sdk_bridge:
+- plant.insidia-a2a.ai_tool_misuse
+multi_agent|white|ai.unbounded_consumption|direct:
+- plant.insidia-a2a.ai_unbounded_consumption
+multi_agent|white|ai.unbounded_consumption|relay:
+- plant.insidia-a2a.ai_unbounded_consumption
+multi_agent|white|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-a2a.ai_unbounded_consumption
+rag|black|ai.bias|direct:
+- plant.insidia-rag.ai_bias
+rag|black|ai.bias|relay:
+- plant.insidia-rag.ai_bias
+rag|black|ai.bias|sdk_bridge:
+- plant.insidia-rag.ai_bias
+rag|black|ai.citation_groundedness|direct:
+- plant.insidia-rag.ai_citation_groundedness
+rag|black|ai.citation_groundedness|relay:
+- plant.insidia-rag.ai_citation_groundedness
+rag|black|ai.citation_groundedness|sdk_bridge:
+- plant.insidia-rag.ai_citation_groundedness
+rag|black|ai.cross_tenant_bleed|direct:
+- plant.insidia-rag.ai_cross_tenant_bleed
+rag|black|ai.cross_tenant_bleed|relay:
+- plant.insidia-rag.ai_cross_tenant_bleed
+rag|black|ai.cross_tenant_bleed|sdk_bridge:
+- plant.insidia-rag.ai_cross_tenant_bleed
+rag|black|ai.data_leakage|direct:
+- plant.insidia-rag.ai_data_leakage
+rag|black|ai.data_leakage|relay:
+- plant.insidia-rag.ai_data_leakage
+rag|black|ai.data_leakage|sdk_bridge:
+- plant.insidia-rag.ai_data_leakage
+rag|black|ai.harmful_content_policy|direct:
+- plant.insidia-rag.ai_harmful_content_policy
+rag|black|ai.harmful_content_policy|relay:
+- plant.insidia-rag.ai_harmful_content_policy
+rag|black|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-rag.ai_harmful_content_policy
+rag|black|ai.hidden_context_extraction|direct:
+- plant.insidia-rag.ai_hidden_context_extraction
+rag|black|ai.hidden_context_extraction|relay:
+- plant.insidia-rag.ai_hidden_context_extraction
+rag|black|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-rag.ai_hidden_context_extraction
+rag|black|ai.jailbreak|direct:
+- plant.insidia-rag.ai_jailbreak
+rag|black|ai.jailbreak|relay:
+- plant.insidia-rag.ai_jailbreak
+rag|black|ai.jailbreak|sdk_bridge:
+- plant.insidia-rag.ai_jailbreak
+rag|black|ai.memory_poisoning|direct:
+- plant.insidia-rag.ai_memory_poisoning
+rag|black|ai.memory_poisoning|relay:
+- plant.insidia-rag.ai_memory_poisoning
+rag|black|ai.memory_poisoning|sdk_bridge:
+- plant.insidia-rag.ai_memory_poisoning
+rag|black|ai.output_handling_sinks|direct:
+- plant.insidia-rag.ai_output_handling_sinks
+rag|black|ai.output_handling_sinks|relay:
+- plant.insidia-rag.ai_output_handling_sinks
+rag|black|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-rag.ai_output_handling_sinks
+rag|black|ai.prompt_injection_direct|direct:
+- plant.insidia-rag.ai_prompt_injection_direct
+rag|black|ai.prompt_injection_direct|relay:
+- plant.insidia-rag.ai_prompt_injection_direct
+rag|black|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-rag.ai_prompt_injection_direct
+rag|black|ai.prompt_injection_indirect|direct:
+- plant.insidia-rag.ai_prompt_injection_indirect
+rag|black|ai.prompt_injection_indirect|relay:
+- plant.insidia-rag.ai_prompt_injection_indirect
+rag|black|ai.prompt_injection_indirect|sdk_bridge:
+- plant.insidia-rag.ai_prompt_injection_indirect
+rag|black|ai.rag_poisoning|direct:
+- plant.insidia-rag.ai_rag_poisoning
+rag|black|ai.rag_poisoning|relay:
+- plant.insidia-rag.ai_rag_poisoning
+rag|black|ai.rag_poisoning|sdk_bridge:
+- plant.insidia-rag.ai_rag_poisoning
+rag|black|ai.unbounded_consumption|direct:
+- plant.insidia-rag.ai_unbounded_consumption
+rag|black|ai.unbounded_consumption|relay:
+- plant.insidia-rag.ai_unbounded_consumption
+rag|black|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-rag.ai_unbounded_consumption
+rag|gray|ai.bias|direct:
+- plant.insidia-rag.ai_bias
+rag|gray|ai.bias|relay:
+- plant.insidia-rag.ai_bias
+rag|gray|ai.bias|sdk_bridge:
+- plant.insidia-rag.ai_bias
+rag|gray|ai.citation_groundedness|direct:
+- plant.insidia-rag.ai_citation_groundedness
+rag|gray|ai.citation_groundedness|relay:
+- plant.insidia-rag.ai_citation_groundedness
+rag|gray|ai.citation_groundedness|sdk_bridge:
+- plant.insidia-rag.ai_citation_groundedness
+rag|gray|ai.cross_tenant_bleed|direct:
+- plant.insidia-rag.ai_cross_tenant_bleed
+rag|gray|ai.cross_tenant_bleed|relay:
+- plant.insidia-rag.ai_cross_tenant_bleed
+rag|gray|ai.cross_tenant_bleed|sdk_bridge:
+- plant.insidia-rag.ai_cross_tenant_bleed
+rag|gray|ai.data_leakage|direct:
+- plant.insidia-rag.ai_data_leakage
+rag|gray|ai.data_leakage|relay:
+- plant.insidia-rag.ai_data_leakage
+rag|gray|ai.data_leakage|sdk_bridge:
+- plant.insidia-rag.ai_data_leakage
+rag|gray|ai.embedding_inversion|direct:
+- plant.insidia-rag.ai_embedding_inversion
+rag|gray|ai.embedding_inversion|relay:
+- plant.insidia-rag.ai_embedding_inversion
+rag|gray|ai.embedding_inversion|sdk_bridge:
+- plant.insidia-rag.ai_embedding_inversion
+rag|gray|ai.harmful_content_policy|direct:
+- plant.insidia-rag.ai_harmful_content_policy
+rag|gray|ai.harmful_content_policy|relay:
+- plant.insidia-rag.ai_harmful_content_policy
+rag|gray|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-rag.ai_harmful_content_policy
+rag|gray|ai.hidden_context_extraction|direct:
+- plant.insidia-rag.ai_hidden_context_extraction
+rag|gray|ai.hidden_context_extraction|relay:
+- plant.insidia-rag.ai_hidden_context_extraction
+rag|gray|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-rag.ai_hidden_context_extraction
+rag|gray|ai.jailbreak|direct:
+- plant.insidia-rag.ai_jailbreak
+rag|gray|ai.jailbreak|relay:
+- plant.insidia-rag.ai_jailbreak
+rag|gray|ai.jailbreak|sdk_bridge:
+- plant.insidia-rag.ai_jailbreak
+rag|gray|ai.memory_poisoning|direct:
+- plant.insidia-rag.ai_memory_poisoning
+rag|gray|ai.memory_poisoning|relay:
+- plant.insidia-rag.ai_memory_poisoning
+rag|gray|ai.memory_poisoning|sdk_bridge:
+- plant.insidia-rag.ai_memory_poisoning
+rag|gray|ai.output_handling_sinks|direct:
+- plant.insidia-rag.ai_output_handling_sinks
+rag|gray|ai.output_handling_sinks|relay:
+- plant.insidia-rag.ai_output_handling_sinks
+rag|gray|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-rag.ai_output_handling_sinks
+rag|gray|ai.prompt_injection_direct|direct:
+- plant.insidia-rag.ai_prompt_injection_direct
+rag|gray|ai.prompt_injection_direct|relay:
+- plant.insidia-rag.ai_prompt_injection_direct
+rag|gray|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-rag.ai_prompt_injection_direct
+rag|gray|ai.prompt_injection_indirect|direct:
+- plant.insidia-rag.ai_prompt_injection_indirect
+rag|gray|ai.prompt_injection_indirect|relay:
+- plant.insidia-rag.ai_prompt_injection_indirect
+rag|gray|ai.prompt_injection_indirect|sdk_bridge:
+- plant.insidia-rag.ai_prompt_injection_indirect
+rag|gray|ai.rag_poisoning|direct:
+- plant.insidia-rag.ai_rag_poisoning
+rag|gray|ai.rag_poisoning|relay:
+- plant.insidia-rag.ai_rag_poisoning
+rag|gray|ai.rag_poisoning|sdk_bridge:
+- plant.insidia-rag.ai_rag_poisoning
+rag|gray|ai.supply_chain|direct:
+- plant.insidia-rag.ai_supply_chain
+rag|gray|ai.supply_chain|relay:
+- plant.insidia-rag.ai_supply_chain
+rag|gray|ai.supply_chain|sdk_bridge:
+- plant.insidia-rag.ai_supply_chain
+rag|gray|ai.unbounded_consumption|direct:
+- plant.insidia-rag.ai_unbounded_consumption
+rag|gray|ai.unbounded_consumption|relay:
+- plant.insidia-rag.ai_unbounded_consumption
+rag|gray|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-rag.ai_unbounded_consumption
+rag|white|ai.bias|direct:
+- plant.insidia-rag.ai_bias
+rag|white|ai.bias|relay:
+- plant.insidia-rag.ai_bias
+rag|white|ai.bias|sdk_bridge:
+- plant.insidia-rag.ai_bias
+rag|white|ai.citation_groundedness|direct:
+- plant.insidia-rag.ai_citation_groundedness
+rag|white|ai.citation_groundedness|relay:
+- plant.insidia-rag.ai_citation_groundedness
+rag|white|ai.citation_groundedness|sdk_bridge:
+- plant.insidia-rag.ai_citation_groundedness
+rag|white|ai.cross_tenant_bleed|direct:
+- plant.insidia-rag.ai_cross_tenant_bleed
+rag|white|ai.cross_tenant_bleed|relay:
+- plant.insidia-rag.ai_cross_tenant_bleed
+rag|white|ai.cross_tenant_bleed|sdk_bridge:
+- plant.insidia-rag.ai_cross_tenant_bleed
+rag|white|ai.data_leakage|direct:
+- plant.insidia-rag.ai_data_leakage
+rag|white|ai.data_leakage|relay:
+- plant.insidia-rag.ai_data_leakage
+rag|white|ai.data_leakage|sdk_bridge:
+- plant.insidia-rag.ai_data_leakage
+rag|white|ai.embedding_inversion|direct:
+- plant.insidia-rag.ai_embedding_inversion
+rag|white|ai.embedding_inversion|relay:
+- plant.insidia-rag.ai_embedding_inversion
+rag|white|ai.embedding_inversion|sdk_bridge:
+- plant.insidia-rag.ai_embedding_inversion
+rag|white|ai.harmful_content_policy|direct:
+- plant.insidia-rag.ai_harmful_content_policy
+rag|white|ai.harmful_content_policy|relay:
+- plant.insidia-rag.ai_harmful_content_policy
+rag|white|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-rag.ai_harmful_content_policy
+rag|white|ai.hidden_context_extraction|direct:
+- plant.insidia-rag.ai_hidden_context_extraction
+rag|white|ai.hidden_context_extraction|relay:
+- plant.insidia-rag.ai_hidden_context_extraction
+rag|white|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-rag.ai_hidden_context_extraction
+rag|white|ai.jailbreak|direct:
+- plant.insidia-rag.ai_jailbreak
+rag|white|ai.jailbreak|relay:
+- plant.insidia-rag.ai_jailbreak
+rag|white|ai.jailbreak|sdk_bridge:
+- plant.insidia-rag.ai_jailbreak
+rag|white|ai.memory_poisoning|direct:
+- plant.insidia-rag.ai_memory_poisoning
+rag|white|ai.memory_poisoning|relay:
+- plant.insidia-rag.ai_memory_poisoning
+rag|white|ai.memory_poisoning|sdk_bridge:
+- plant.insidia-rag.ai_memory_poisoning
+rag|white|ai.output_handling_sinks|direct:
+- plant.insidia-rag.ai_output_handling_sinks
+rag|white|ai.output_handling_sinks|relay:
+- plant.insidia-rag.ai_output_handling_sinks
+rag|white|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-rag.ai_output_handling_sinks
+rag|white|ai.prompt_injection_direct|direct:
+- plant.insidia-rag.ai_prompt_injection_direct
+rag|white|ai.prompt_injection_direct|relay:
+- plant.insidia-rag.ai_prompt_injection_direct
+rag|white|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-rag.ai_prompt_injection_direct
+rag|white|ai.prompt_injection_indirect|direct:
+- plant.insidia-rag.ai_prompt_injection_indirect
+rag|white|ai.prompt_injection_indirect|relay:
+- plant.insidia-rag.ai_prompt_injection_indirect
+rag|white|ai.prompt_injection_indirect|sdk_bridge:
+- plant.insidia-rag.ai_prompt_injection_indirect
+rag|white|ai.rag_poisoning|direct:
+- plant.insidia-rag.ai_rag_poisoning
+rag|white|ai.rag_poisoning|relay:
+- plant.insidia-rag.ai_rag_poisoning
+rag|white|ai.rag_poisoning|sdk_bridge:
+- plant.insidia-rag.ai_rag_poisoning
+rag|white|ai.supply_chain|direct:
+- plant.insidia-rag.ai_supply_chain
+rag|white|ai.supply_chain|relay:
+- plant.insidia-rag.ai_supply_chain
+rag|white|ai.supply_chain|sdk_bridge:
+- plant.insidia-rag.ai_supply_chain
+rag|white|ai.unbounded_consumption|direct:
+- plant.insidia-rag.ai_unbounded_consumption
+rag|white|ai.unbounded_consumption|relay:
+- plant.insidia-rag.ai_unbounded_consumption
+rag|white|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-rag.ai_unbounded_consumption
+sdk_inproc|black|ai.bias|sdk_bridge:
+- plant.insidia-sdk.ai_bias
+sdk_inproc|black|ai.data_leakage|sdk_bridge:
+- plant.insidia-sdk.ai_data_leakage
+sdk_inproc|black|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-sdk.ai_harmful_content_policy
+sdk_inproc|black|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-sdk.ai_hidden_context_extraction
+sdk_inproc|black|ai.jailbreak|sdk_bridge:
+- plant.insidia-sdk.ai_jailbreak
+sdk_inproc|black|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-sdk.ai_output_handling_sinks
+sdk_inproc|black|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-sdk.ai_prompt_injection_direct
+sdk_inproc|black|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-sdk.ai_unbounded_consumption
+sdk_inproc|gray|ai.bias|sdk_bridge:
+- plant.insidia-sdk.ai_bias
+sdk_inproc|gray|ai.data_leakage|sdk_bridge:
+- plant.insidia-sdk.ai_data_leakage
+sdk_inproc|gray|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-sdk.ai_harmful_content_policy
+sdk_inproc|gray|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-sdk.ai_hidden_context_extraction
+sdk_inproc|gray|ai.jailbreak|sdk_bridge:
+- plant.insidia-sdk.ai_jailbreak
+sdk_inproc|gray|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-sdk.ai_output_handling_sinks
+sdk_inproc|gray|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-sdk.ai_prompt_injection_direct
+sdk_inproc|gray|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-sdk.ai_unbounded_consumption
+sdk_inproc|white|ai.bias|sdk_bridge:
+- plant.insidia-sdk.ai_bias
+sdk_inproc|white|ai.data_leakage|sdk_bridge:
+- plant.insidia-sdk.ai_data_leakage
+sdk_inproc|white|ai.harmful_content_policy|sdk_bridge:
+- plant.insidia-sdk.ai_harmful_content_policy
+sdk_inproc|white|ai.hidden_context_extraction|sdk_bridge:
+- plant.insidia-sdk.ai_hidden_context_extraction
+sdk_inproc|white|ai.jailbreak|sdk_bridge:
+- plant.insidia-sdk.ai_jailbreak
+sdk_inproc|white|ai.output_handling_sinks|sdk_bridge:
+- plant.insidia-sdk.ai_output_handling_sinks
+sdk_inproc|white|ai.prompt_injection_direct|sdk_bridge:
+- plant.insidia-sdk.ai_prompt_injection_direct
+sdk_inproc|white|ai.unbounded_consumption|sdk_bridge:
+- plant.insidia-sdk.ai_unbounded_consumption
+web|black|api.bfla|direct:
+- plant.juiceshop.api_bfla
+web|black|api.bfla|tunnel:
+- plant.juiceshop.api_bfla
+web|black|api.bola_idor|direct:
+- plant.juiceshop.api_bola_idor
+web|black|api.bola_idor|tunnel:
+- plant.juiceshop.api_bola_idor
+web|black|auth.jwt_oauth_session|direct:
+- plant.juiceshop.auth_jwt_oauth_session
+web|black|auth.jwt_oauth_session|tunnel:
+- plant.juiceshop.auth_jwt_oauth_session
+web|black|infra.cve|direct:
+- plant.insidia-web.infra_cve
+web|black|infra.cve|tunnel:
+- plant.insidia-web.infra_cve
+web|black|infra.tls|direct:
+- plant.insidia-web.infra_tls
+web|black|infra.tls|tunnel:
+- plant.insidia-web.infra_tls
+web|black|logic.race|direct:
+- plant.insidia-web.logic_race
+web|black|logic.race|tunnel:
+- plant.insidia-web.logic_race
+web|black|web.client_side|direct:
+- plant.juiceshop.web_client_side
+web|black|web.client_side|tunnel:
+- plant.juiceshop.web_client_side
+web|black|web.cmdi|direct:
+- plant.insidia-web.web_cmdi
+web|black|web.cmdi|tunnel:
+- plant.insidia-web.web_cmdi
+web|black|web.deserialization|direct:
+- plant.insidia-web.web_deserialization
+web|black|web.deserialization|tunnel:
+- plant.insidia-web.web_deserialization
+web|black|web.path_lfi|direct:
+- plant.insidia-web.web_path_lfi
+web|black|web.path_lfi|tunnel:
+- plant.insidia-web.web_path_lfi
+web|black|web.smuggling_cache|direct:
+- plant.insidia-web.web_smuggling_cache
+web|black|web.smuggling_cache|tunnel:
+- plant.insidia-web.web_smuggling_cache
+web|black|web.sqli|direct:
+- plant.juiceshop.web_sqli
+web|black|web.sqli|tunnel:
+- plant.juiceshop.web_sqli
+web|black|web.ssrf|direct:
+- plant.insidia-web.web_ssrf
+web|black|web.ssrf|tunnel:
+- plant.insidia-web.web_ssrf
+web|black|web.ssti|direct:
+- plant.insidia-web.web_ssti
+web|black|web.ssti|tunnel:
+- plant.insidia-web.web_ssti
+web|black|web.xss|direct:
+- plant.juiceshop.web_xss
+web|black|web.xss|tunnel:
+- plant.juiceshop.web_xss
+web|black|web.xxe|direct:
+- plant.insidia-web.web_xxe
+web|black|web.xxe|tunnel:
+- plant.insidia-web.web_xxe
+web|gray|api.bfla|direct:
+- plant.juiceshop.api_bfla
+web|gray|api.bfla|tunnel:
+- plant.juiceshop.api_bfla
+web|gray|api.bola_idor|direct:
+- plant.juiceshop.api_bola_idor
+web|gray|api.bola_idor|tunnel:
+- plant.juiceshop.api_bola_idor
+web|gray|auth.jwt_oauth_session|direct:
+- plant.juiceshop.auth_jwt_oauth_session
+web|gray|auth.jwt_oauth_session|tunnel:
+- plant.juiceshop.auth_jwt_oauth_session
+web|gray|infra.cve|direct:
+- plant.insidia-web.infra_cve
+web|gray|infra.cve|tunnel:
+- plant.insidia-web.infra_cve
+web|gray|infra.tls|direct:
+- plant.insidia-web.infra_tls
+web|gray|infra.tls|tunnel:
+- plant.insidia-web.infra_tls
+web|gray|logic.race|direct:
+- plant.insidia-web.logic_race
+web|gray|logic.race|tunnel:
+- plant.insidia-web.logic_race
+web|gray|web.client_side|direct:
+- plant.juiceshop.web_client_side
+web|gray|web.client_side|tunnel:
+- plant.juiceshop.web_client_side
+web|gray|web.cmdi|direct:
+- plant.insidia-web.web_cmdi
+web|gray|web.cmdi|tunnel:
+- plant.insidia-web.web_cmdi
+web|gray|web.deserialization|direct:
+- plant.insidia-web.web_deserialization
+web|gray|web.deserialization|tunnel:
+- plant.insidia-web.web_deserialization
+web|gray|web.path_lfi|direct:
+- plant.insidia-web.web_path_lfi
+web|gray|web.path_lfi|tunnel:
+- plant.insidia-web.web_path_lfi
+web|gray|web.smuggling_cache|direct:
+- plant.insidia-web.web_smuggling_cache
+web|gray|web.smuggling_cache|tunnel:
+- plant.insidia-web.web_smuggling_cache
+web|gray|web.sqli|direct:
+- plant.juiceshop.web_sqli
+web|gray|web.sqli|tunnel:
+- plant.juiceshop.web_sqli
+web|gray|web.ssrf|direct:
+- plant.insidia-web.web_ssrf
+web|gray|web.ssrf|tunnel:
+- plant.insidia-web.web_ssrf
+web|gray|web.ssti|direct:
+- plant.insidia-web.web_ssti
+web|gray|web.ssti|tunnel:
+- plant.insidia-web.web_ssti
+web|gray|web.xss|direct:
+- plant.juiceshop.web_xss
+web|gray|web.xss|tunnel:
+- plant.juiceshop.web_xss
+web|gray|web.xxe|direct:
+- plant.insidia-web.web_xxe
+web|gray|web.xxe|tunnel:
+- plant.insidia-web.web_xxe
+web|white|api.bfla|direct:
+- plant.juiceshop.api_bfla
+web|white|api.bfla|tunnel:
+- plant.juiceshop.api_bfla
+web|white|api.bola_idor|direct:
+- plant.juiceshop.api_bola_idor
+web|white|api.bola_idor|tunnel:
+- plant.juiceshop.api_bola_idor
+web|white|auth.jwt_oauth_session|direct:
+- plant.juiceshop.auth_jwt_oauth_session
+web|white|auth.jwt_oauth_session|tunnel:
+- plant.juiceshop.auth_jwt_oauth_session
+web|white|infra.cve|direct:
+- plant.insidia-web.infra_cve
+web|white|infra.cve|tunnel:
+- plant.insidia-web.infra_cve
+web|white|infra.tls|direct:
+- plant.insidia-web.infra_tls
+web|white|infra.tls|tunnel:
+- plant.insidia-web.infra_tls
+web|white|logic.race|direct:
+- plant.insidia-web.logic_race
+web|white|logic.race|tunnel:
+- plant.insidia-web.logic_race
+web|white|web.client_side|direct:
+- plant.juiceshop.web_client_side
+web|white|web.client_side|tunnel:
+- plant.juiceshop.web_client_side
+web|white|web.cmdi|direct:
+- plant.insidia-web.web_cmdi
+web|white|web.cmdi|tunnel:
+- plant.insidia-web.web_cmdi
+web|white|web.deserialization|direct:
+- plant.insidia-web.web_deserialization
+web|white|web.deserialization|tunnel:
+- plant.insidia-web.web_deserialization
+web|white|web.path_lfi|direct:
+- plant.insidia-web.web_path_lfi
+web|white|web.path_lfi|tunnel:
+- plant.insidia-web.web_path_lfi
+web|white|web.smuggling_cache|direct:
+- plant.insidia-web.web_smuggling_cache
+web|white|web.smuggling_cache|tunnel:
+- plant.insidia-web.web_smuggling_cache
+web|white|web.sqli|direct:
+- plant.juiceshop.web_sqli
+web|white|web.sqli|tunnel:
+- plant.juiceshop.web_sqli
+web|white|web.ssrf|direct:
+- plant.insidia-web.web_ssrf
+web|white|web.ssrf|tunnel:
+- plant.insidia-web.web_ssrf
+web|white|web.ssti|direct:
+- plant.insidia-web.web_ssti
+web|white|web.ssti|tunnel:
+- plant.insidia-web.web_ssti
+web|white|web.xss|direct:
+- plant.juiceshop.web_xss
+web|white|web.xss|tunnel:
+- plant.juiceshop.web_xss
+web|white|web.xxe|direct:
+- plant.insidia-web.web_xxe
+web|white|web.xxe|tunnel:
+- plant.insidia-web.web_xxe
