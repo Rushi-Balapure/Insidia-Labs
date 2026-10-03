@@ -171,9 +171,12 @@ CREATE TABLE orgs (
   id            uuid PRIMARY KEY DEFAULT uuidv7(),
   name_enc      bytea NOT NULL,                -- C1, org data key
   region        text NOT NULL,                 -- C0, pinned at creation
-  plan          text NOT NULL DEFAULT 'trial', -- C0
+  plan          text NOT NULL DEFAULT 'trial', -- C0: 'trial' until the org buys a paid plan
   retention_days int NOT NULL DEFAULT 180,     -- C0, evidence retention
   status        text NOT NULL DEFAULT 'active' CHECK (status IN ('active','suspended','deleting')),
+  trial_started_at timestamptz NOT NULL DEFAULT now(), -- C0
+  trial_scans_used int NOT NULL DEFAULT 0,     -- C0, counted at launch; see the trial limit
+  converted_at  timestamptz,                   -- C0, when the org moved off 'trial'
   created_at    timestamptz NOT NULL DEFAULT now()
 );
 
@@ -354,7 +357,8 @@ CREATE TABLE probes (                               -- Insidia probe ids (public
   attack_family_id text NOT NULL REFERENCES attack_families(id),
   default_severity text NOT NULL,
   oracle           text NOT NULL,                    -- canary, tool_trace, goal_diff, ...
-  requires_runner  boolean NOT NULL DEFAULT false    -- drives the direct/runner availability table
+  requires_runner  boolean NOT NULL DEFAULT false,   -- drives the direct/runner availability table
+  requires_attacker_model boolean NOT NULL DEFAULT false -- true = needs our attacker/judge model; excluded from trial scans
 );
 
 CREATE TABLE probe_upstream_map (                   -- INTERNAL: upstream probe name -> Insidia probe
