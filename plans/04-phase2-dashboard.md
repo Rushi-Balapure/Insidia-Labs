@@ -16,7 +16,25 @@ A customer can sign up, create an org, enroll a runner, define a target, launch 
 - Live progress updates over WebSocket without refreshing.
 
 ## Out of scope
-SSO/SAML (Phase 10), compliance PDFs (Phase 3), agent graphs (Phase 7), billing charges (metering only).
+SSO/SAML (Phase 10), compliance PDFs (Phase 3), agent graphs (Phase 7), paid billing and payment capture (trial gating ships here; the purchase flow and invoicing are a billing milestone — this phase shows the upgrade call to action and marks the org for sales/self-serve checkout).
+
+## Trial mode
+Every new org starts on the `trial` plan. Trial lets a prospect prove value on their own target with basic scans, then upgrade. It never runs our attacker or judge models, so a trial costs us almost nothing.
+
+**What a trial org can do**
+- **Up to 3 scans total** (`orgs.trial_scans_used`, counted at launch; the limit is a settings-registry value so staff can grant a few more). The count is shown as "2 of 3 trial scans used".
+- **Basic scans only:** black-box, Standard coverage, on a single target, one scan at a time.
+- **No AI-generated attacks.** Trial scans run only probes with `requires_attacker_model = false`: the static jailbreak and prompt-injection corpora, and the classic web/API checks (ZAP, Nuclei, Dalfox) whose findings come from deterministic oracles. Adaptive, model-driven generation (M-A11, PyRIT TAP/PAIR/Crescendo, the pentest agent) and the judge model are off. The scan summary says which families were skipped and that upgrading unlocks them.
+- Short retention (trial default in the registry, for example 14 days) and no scheduled or continuous scans.
+
+**What is locked** (visible but disabled, each with an "Upgrade to unlock" affordance, never hidden, so the prospect sees the value): Thorough and Custom coverage, gray/white-box, the pentest agent, multiple targets and concurrency, integrations and exports beyond a basic report, API keys for automation, and scheduled scans.
+
+**Enforcement is server-side.** Entitlements come from the plan's entry in the settings registry (see [20-admin-console.md](20-admin-console.md#per-customer-settings)), resolved at scan launch into the scan's `config_snapshot`. The API rejects a trial org that exceeds a limit (HTTP 402 with an upgrade link); the disabled UI is only a convenience. A locked probe set is filtered the same way direct mode filters `requires_runner`.
+
+**Ending the trial**
+- When the 3rd scan is used (or the trial window ends), the org goes read-only for scanning: past findings and reports stay visible, "Launch scan" is replaced by "Upgrade".
+- **Upgrade** sets `plan` off `trial` and `converted_at`, which lifts the gates on the next scan. Phase 2 records the intent and routes to checkout or sales; the payment integration is a later billing milestone.
+- Staff can extend a trial by a bounded amount from the admin console (audited).
 
 ## Admin console, first version
 Ships in this phase, before the first design partner, as a separate internal app (`admin/` + `engine/admin_api/`). Full plan: [20-admin-console.md](20-admin-console.md#delivery-by-phase).
@@ -74,11 +92,12 @@ React, Vite, TypeScript, Tailwind, shadcn/ui (restyled to the design system abov
    - **No, or I want deeper tests: use a runner.** The customer picks or enrolls a runner, a mode (relay or tunnel), and a secret reference name that the runner resolves locally.
    - Both paths then set transport, request template, response selector, and rate limit. **Validate** calls Phase 1 `ValidateTarget` and shows latency and a redacted sample.
    - A side panel lists which test families are available in the chosen mode and which need a runner (from `probes.requires_runner`), with a "why use a runner" explanation.
-4. **Scans.** Pick target and profile ("AI chat baseline", "Web baseline"), then coverage: **Standard** (fastest, one Insidia Engine module per attack family), **Thorough** (every module that covers the family, results cross-validated), or **Custom** (per family). The launch sheet shows estimated attempts, cost, and duration for the chosen coverage. Show state, budget, and progress counts; cancel and pause.
+4. **Scans.** Pick target and profile ("AI chat baseline", "Web baseline"), then coverage: **Standard** (fastest, one Insidia Engine module per attack family), **Thorough** (every module that covers the family, results cross-validated), or **Custom** (per family). The launch sheet shows estimated attempts, cost, and duration for the chosen coverage. Show state, budget, and progress counts; cancel and pause. On a trial org the sheet shows "Scan N of 3", forces black-box + Standard, marks the model-driven families as "Upgrade to unlock", and the launch call is refused server-side past the trial limit.
 5. **Live view.** WebSocket fed by the Valkey pub/sub events the workers already emit (`scan.progress`, `finding.created`). Progress is shown per attack family and per "Insidia Engine module N", never by real engine name. Reconnect resumes from the scan row, not from socket memory.
 6. **Findings.** Filters: severity, track (AI vs web), status (`open`, `accepted`, `fixed`, `false_positive`), cross-validated. Detail drawer: attack, redacted response, evidence hash, taxonomy ids if present (labels can be raw ids until Phase 3). Exposed secrets appear only as masked tokens (`[AWS_ACCESS_KEY len=20 fp=3f9a1c07]`) with a "match against my key" helper that computes the fingerprint in the browser. No engine field.
 7. **Usage.** Charts of attempts and tokens per day per project.
 8. **Settings.** Org name, members, API keys, default redaction rules (regex list stored per org and pushed to the runner on next heartbeat).
+9. **Plan and billing.** Current plan, trial scans remaining, what each paid plan unlocks, and the **Upgrade** button. On trial it is the main conversion surface; after upgrade it shows the plan and usage against limits.
 
 ## API additions
 - Auth routes, membership CRUD, API keys.
@@ -87,6 +106,7 @@ React, Vite, TypeScript, Tailwind, shadcn/ui (restyled to the design system abov
 - Audit of who launched and who changed finding status (table `audit_events`, see [14-database-schema.md](14-database-schema.md); full actor model in Phase 10).
 - Direct-mode routes: start verification, check verification, list egress IPs. A direct scan is refused unless every host is verified and unexpired.
 - Credential routes are write-only: create, replace, delete. No read route exists.
+- Plan and trial routes: read current entitlements and trial count; `POST /upgrade` records intent and (later milestone) starts checkout. Scan-launch returns 402 with an upgrade link when a trial limit is hit.
 - Every page links to the matching section of the customer docs ([15-customer-docs.md](15-customer-docs.md)), so help is in context.
 
 ## Realtime
@@ -97,6 +117,7 @@ API process subscribes to `progress:{org_id}:{scan_id}` and forwards to sockets 
 - Design checks: reduced-motion, reduced-transparency, and high-contrast snapshots for every screen; keyboard-only run through the full launch-and-triage flow; axe accessibility scan with zero serious issues.
 - No secret is ever rendered: the component test plants credential canaries and asserts they never appear in the DOM.
 - API tests: viewer cannot launch; cross-org id in the path returns 403; WebSocket subscription to another org's scan fails.
+- Trial tests: a trial org's 4th scan launch is refused with 402; a trial scan runs no `requires_attacker_model` probe (planted model-driven probe is skipped and reported); Thorough, Custom, gray/white-box, and multi-target launches are refused for a trial org server-side even if the request is forged past the disabled UI; after `plan` changes off `trial`, the next scan runs the full set.
 - Validate flow against the Phase 1 fixtures.
 
 ## Risks
