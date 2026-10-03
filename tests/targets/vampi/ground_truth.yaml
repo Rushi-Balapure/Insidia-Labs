@@ -1,0 +1,7 @@
+- id: plant.vampi.web_sqli
+  attack: web.sqli
+  location: POST /users/v1/login
+  probe_id: insidia.web.sqli
+  taxonomy_id: A03:2021
+  severity: high
+  oracle: structural

@@ -14,6 +14,7 @@ A customer can sign up, create an org, enroll a runner, define a target, launch 
 - A second user in another org cannot open those URLs (403, not 404 with a leak).
 - Usage (attempts, tokens, tunnel bytes) is visible per org.
 - Live progress updates over WebSocket without refreshing.
+- Owned matrix cells are green ([17-test-suite.md](17-test-suite.md)).
 
 ## Out of scope
 SSO/SAML (Phase 10), compliance PDFs (Phase 3), agent graphs (Phase 7), paid billing and payment capture (trial gating ships here; the purchase flow and invoicing are a billing milestone — this phase shows the upgrade call to action and marks the org for sales/self-serve checkout).

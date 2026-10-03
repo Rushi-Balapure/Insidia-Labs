@@ -114,10 +114,10 @@ flowchart LR
 - **Phase 3:** taxonomy tagging assertions on existing cells (each finding carries the expected framework id).
 - **Phase 4A:** rag, indirect injection, memory, output-sink, gray-box chat cells; multimodal converters.
 - **Phase 4B:** API access-control (BOLA/BFLA), auth/JWT, GraphQL, gRPC, injection-depth, SAST (Python, JS/TS) cells.
-- **Phase 5:** chained AI-to-classic cells (prompt injection to SQLi via a tool).
+- **Phase 5:** the chained AI-to-classic exploit is that phase's own exit test. It is not a separate matrix attack; output-sink cells are owned by Phase 4A.
 - **Phase 7:** agent, multi-agent/A2A, MCP, sandbox, approval cells.
 - **Phase 8:** white-box cells (SAST remaining languages, extract, embedding exposure).
-- **Phase 9:** race-condition and WebSocket cells.
+- **Phase 9:** race-condition cells and `api_ws`. Chat transports, including `chat_ws`, stay with the chat phases (1, 4A, 8).
 - **Phase 11:** predictive-ML, smuggling, client-side cells.
 
 ## Tests (of the harness itself)

@@ -1,0 +1,21 @@
+- id: plant.agentdojo.ai_jailbreak
+  attack: ai.jailbreak
+  location: workspace/user_task_0
+  probe_id: insidia.ai.jailbreak
+  taxonomy_id: LLM01
+  severity: high
+  oracle: structural
+- id: plant.agentdojo.ai_prompt_injection_indirect
+  attack: ai.prompt_injection_indirect
+  location: workspace injection tasks
+  probe_id: insidia.ai.prompt_injection_indirect
+  taxonomy_id: LLM01
+  severity: high
+  oracle: structural
+- id: plant.agentdojo.ai_tool_misuse
+  attack: ai.tool_misuse
+  location: workspace/user_task_0
+  probe_id: insidia.ai.tool_misuse
+  taxonomy_id: LLM03
+  severity: high
+  oracle: tool_trace

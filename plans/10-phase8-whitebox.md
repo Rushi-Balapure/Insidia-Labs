@@ -12,6 +12,7 @@ Point the runner at a repository and get static findings plus dynamic tests gene
 - osv-scanner results and a CycloneDX AI-BOM (components: model clients, vector DB, agent framework) download from the scan.
 - The Phase 6 planner accepts that context and adds at least one targeted probe that the black-box profile did not include (asserted in a test).
 - SDK handler in Python completes an in-process relay loop for a fixture function. JS handler is the same protocol if time allows; Python is the exit.
+- Owned matrix cells are green ([17-test-suite.md](17-test-suite.md)).
 
 ## Runner `extract`
 - Walk the tree with a denylist (`.git`, `.env`, secrets files, `node_modules`, `venv`, build output).

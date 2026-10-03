@@ -16,6 +16,7 @@ Tracks 1A, 1B, and 1C are parallel after the shared contracts land. Fair schedul
 - **Registry.** The same AI family runs in Standard mode (one engine) and Thorough mode (two engines), and Thorough merges duplicates into one cross-validated finding.
 - Customer-visible JSON uses Insidia Labs probe ids only. The engine link lives only in internal tables (`scan_tasks.engine_id`, `finding_sources`) and never in API responses.
 - A `pg_dump` after the exit scans contains no planted canary value: target names, URLs, hosts, payloads, responses, or credentials.
+- Owned matrix cells are green ([17-test-suite.md](17-test-suite.md)).
 
 ## Out of scope
 Dashboard UX (Phase 2), full OWASP catalogs (Phase 3), multi-turn adaptive attacks (Phase 4), the pentest agent (Phase 5).

@@ -13,7 +13,7 @@ A proxy the customer places in front of their model or agent. It is a forwarder 
 - Actions: allow, redact, block. Log the decision to the org's event stream (a new `runtime_events` table, following [14-database-schema.md](14-database-schema.md): request metadata encrypted, prompts never stored unless opted in, and then as C2).
 - Ideas may be taken from LLM Guard (MIT), NeMo Guardrails (Apache), and Pipelock (Apache). Reimplement the policy hooks. Do not ship their UIs.
 - Fail closed or fail open is a per-policy switch, default fail open for latency, fail closed for the secret-redaction policy.
-- Exit when started: a fixture request containing a canary is redacted, and the dashboard shows the event.
+- Exit when started: a fixture request containing a canary is redacted, and the dashboard shows the event. Owned matrix cells are green ([17-test-suite.md](17-test-suite.md)).
 
 ## Gap-filling Insidia Labs modules (later)
 From [16-coverage-gaps.md](16-coverage-gaps.md):

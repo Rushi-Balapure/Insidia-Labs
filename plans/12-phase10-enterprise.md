@@ -16,6 +16,7 @@ A company can use Insidia Labs under their identity provider, with roles, an aud
 - Admin console ([20-admin-console.md](20-admin-console.md)): monthly SOC 2 staff access-review export (the security hardening and full two-person rule already ship in Phase 2), and a reduced operator console in the Helm chart for on-prem and private tenants (health, queues, runners, kill switches, settings; engines shown as Insidia Labs Engine modules).
 - On-prem install guide includes `THIRD_PARTY_NOTICES.md` generation for images that are actually shipped. Legal review is a checklist item before the first on-prem customer, not a code task.
 - Air-gapped profile: attacker and judge models point at an in-cluster model service (vLLM + AWQ, Stage 1 spec from [19-model-hosting.md](19-model-hosting.md): at least one 48 GB GPU the customer provides, weights shipped with pinned SHA-256); no calls to our SaaS control plane; image pulls from their registry.
+- Owned matrix cells are green ([17-test-suite.md](17-test-suite.md)). Phase 10 does not own cells.
 
 ## Identity
 - OIDC authorization code flow on the dashboard. Map IdP groups to org roles.

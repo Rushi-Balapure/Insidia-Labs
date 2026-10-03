@@ -1,0 +1,35 @@
+- id: plant.crapi.api_bfla
+  attack: api.bfla
+  location: GET /community/api/v2/community/posts/recent
+  probe_id: insidia.api.bfla
+  taxonomy_id: A01:2021
+  severity: high
+  oracle: acl
+- id: plant.crapi.api_bola_idor
+  attack: api.bola_idor
+  location: GET /workshop/api/mechanic/mechanic_report
+  probe_id: insidia.api.bola_idor
+  taxonomy_id: A01:2021
+  severity: high
+  oracle: acl
+- id: plant.crapi.api_mass_assignment
+  attack: api.mass_assignment
+  location: PUT /identity/api/v2/user/videos/{id}
+  probe_id: insidia.api.mass_assignment
+  taxonomy_id: API3:2023
+  severity: high
+  oracle: structural
+- id: plant.crapi.auth_jwt_oauth_session
+  attack: auth.jwt_oauth_session
+  location: POST /identity/api/auth/login
+  probe_id: insidia.auth.jwt_oauth_session
+  taxonomy_id: A07:2021
+  severity: high
+  oracle: structural
+- id: plant.crapi.web_ssrf
+  attack: web.ssrf
+  location: POST /workshop/api/merchant/contact_mechanic
+  probe_id: insidia.web.ssrf
+  taxonomy_id: A10:2021
+  severity: high
+  oracle: structural
