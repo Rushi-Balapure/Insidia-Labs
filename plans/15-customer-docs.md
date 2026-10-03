@@ -28,6 +28,7 @@ A security engineer who has never talked to us can go from sign-up to a first tr
    - Quickstart: scan a hosted chatbot directly (no install), about 10 minutes
    - Quickstart: scan a local app with the runner, about 15 minutes
    - Choosing direct or runner: a decision guide and the feature availability table
+   - Your trial: what the 3 model-free trial scans include, what is locked, and how to upgrade
 2. **Concepts**
    - Organizations, projects, targets, scans, findings
    - Connection modes (direct, runner relay, runner tunnel)
