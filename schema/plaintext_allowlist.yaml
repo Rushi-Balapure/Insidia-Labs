@@ -1,0 +1,30 @@
+# Text-like columns allowed to be plaintext. Everything else a customer could
+# type or that we capture must be bytea ending in _enc. C0 means Insidia-generated.
+columns:
+  - table: orgs
+    column: region
+    reason: C0 region pin chosen at creation
+  - table: orgs
+    column: plan
+    reason: C0 plan enum
+  - table: orgs
+    column: status
+    reason: C0 status enum
+  - table: org_keys
+    column: purpose
+    reason: C0 key purpose enum
+  - table: org_keys
+    column: state
+    reason: C0 key state enum
+  - table: org_keys
+    column: kms_key_ref
+    reason: C0 KMS key identifier, not a customer value
+  - table: audit_events
+    column: actor_type
+    reason: C0 actor enum
+  - table: audit_events
+    column: action
+    reason: C0 action name from our code
+  - table: audit_events
+    column: target_type
+    reason: C0 entity enum
