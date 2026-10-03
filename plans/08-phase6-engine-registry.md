@@ -38,6 +38,7 @@ Phase 1 shipped a minimal registry. Phase 6 grows it to every engine and module:
 - Default: for each family, the engine or module with the highest recall among those with at least 90% precision; ties go to lower cost.
 - Deterministic-oracle engines are preferred over judge-only ones at equal recall, because their findings are provable.
 - Direct-mode scans skip entries that need a runner (`probes.requires_runner`) and fall back to the next entry, and the scan summary lists what was skipped.
+- Trial scans skip entries that need our attacker or judge model (`probes.requires_attacker_model`); there is no fallback, because the point of trial is model-free basic scanning. The summary lists the families held back and notes that upgrading unlocks them.
 
 ## Thorough mode and dedup
 - Thorough runs every entry for the family. The normalizer maps each result to an Insidia probe id, normalizes the evidence (strip timestamps, nonces, and canary values; canonicalize JSON and whitespace), computes the blind index, and merges on `(org, target, attack_family, evidence_bidx)`.
