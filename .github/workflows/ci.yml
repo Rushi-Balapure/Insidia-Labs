@@ -37,6 +37,20 @@ jobs:
           INSIDIA_TEST_DATABASE_URL: postgresql+psycopg://insidia:insidia_dev_only@localhost:5432/insidia
           INSIDIA_MIGRATION_DATABASE_URL: postgresql+psycopg://insidia:insidia_dev_only@localhost:5432/insidia
 
+  matrix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv python install 3.14
+        working-directory: engine
+      - run: uv sync
+        working-directory: engine
+      - run: uv run --project engine ruff check tests
+      # --project is resolved from this step's directory, so engine is ../engine.
+      - run: uv run --project ../engine python -m pytest
+        working-directory: tests
+
   go:
     runs-on: ubuntu-latest
     steps:

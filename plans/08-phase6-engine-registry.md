@@ -17,6 +17,7 @@ No porting: the OSS engines stay as they are. This phase turns the engines and I
 - The denylist test is green on every customer-facing surface listed below.
 - The Engines section of the admin console is live, and customer accounts cannot reach it (tested).
 - Every Partial or Gap row in [16-coverage-gaps.md](16-coverage-gaps.md) scheduled for Phases 1 to 4 has a benchmark result.
+- Owned matrix cells are green ([17-test-suite.md](17-test-suite.md)). Phase 6 reads the same cells; it does not own any.
 
 ## Out of scope
 Rewriting or forking engines. Removing an engine is allowed (the registry routes to another), but replacing its code with ours is not a goal of this phase.

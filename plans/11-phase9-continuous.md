@@ -13,6 +13,7 @@ Scans run without a person at the dashboard: CI on each change, a schedule, and 
 - Scheduled scan fires from Celery beat, notifies Slack or a generic webhook.
 - Jira issue create is a documented webhook mapping, not a special case if the generic webhook can carry the fields. If Jira needs auth, add one integration module.
 - Burp extension and MDM fleet are specified and prototyped only if the CI exit is already met. They do not block this phase.
+- Owned matrix cells are green ([17-test-suite.md](17-test-suite.md)).
 
 ## CI runner
 The same Go binary. `scan` ensures the daemon is connected (or starts a one-shot session), calls the API to create a scan, streams status, writes SARIF to a path, and exits.

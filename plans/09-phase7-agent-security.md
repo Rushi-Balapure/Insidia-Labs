@@ -13,6 +13,7 @@ Treat agents as a first-class target: discover them, statically scan MCP servers
 - A dynamic test against a fixture agent shows: goal hijack (ASI01), tool misuse or chain exfil (ASI02), and a blocked rug-pull (hash pin mismatch).
 - Dashboard shows an attack-path graph: agent, tools, and the step that fired the oracle.
 - Report section maps those findings to ASI ids. LLM ids are included when they also apply.
+- Owned matrix cells are green ([17-test-suite.md](17-test-suite.md)).
 
 ## Discovery (runner)
 `insidia-runner discover` reads known config paths for Claude Desktop, Cursor, VS Code, and Codex (the list is a table in the runner, updated as paths change). It collects server command, args, tool list if the server is already running, skill files, and A2A agent cards if a URL is in config.

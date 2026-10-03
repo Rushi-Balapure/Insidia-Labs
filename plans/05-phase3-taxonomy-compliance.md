@@ -12,6 +12,7 @@ Every finding can be pivoted by framework. A scan profile is a set of probes sel
 - PDF, HTML, SARIF, and JSON exports download from the dashboard. SARIF has no upstream tool names.
 - Coverage matrix shows which controls were tested vs not tested (not the same as passed).
 - ATLAS heatmap renders tactics for the AI findings.
+- Owned matrix cells are green ([17-test-suite.md](17-test-suite.md)). Phase 3 adds taxonomy tags to cells other phases own; it does not own cells of its own.
 
 ## Tag prefixes
 `owasp-llm` (2026 LLM01–LLM10), `owasp-asi` (ASI01–ASI10), `owasp-web` (2021 or current Top 10), `owasp-api` (API Security Top 10), `atlas`, `attack`, `cwe`, `cvss`, `aivss`, `nist-rmf`, `nist-600-1`, `eu-ai-act`, `iso-42001`, `aicm`, `pci`, `dsgai`.
