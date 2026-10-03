@@ -128,7 +128,8 @@ The "customizability per customer". Every setting comes from a typed registry in
 
 | Group | Examples |
 |---|---|
-| Plan and limits | Plan tier; max concurrent scans; max targets and runners; attempts, tokens, and wall-clock per scan; monthly model-token and GPU-second budget |
+| Plan and limits | Plan tier (`trial` or paid); trial scan allowance and window; max concurrent scans; max targets and runners; attempts, tokens, and wall-clock per scan; monthly model-token and GPU-second budget |
+| Entitlements | What each plan unlocks, as typed flags: attacker-model attacks, Thorough coverage, gray/white box, pentest agent, scheduled/continuous scans, integrations, exports, API automation. Trial sets these off; staff can grant a bounded trial extension (audited) |
 | Features | Feature flags per org: direct mode, Thorough coverage, pentest agent, white box, beta Insidia modules |
 | Coverage | Default coverage mode; attack families or modules disabled for this org (for example, a module that breaks their target); Standard-mode pin per family |
 | Safety | Per-target rate-limit ceiling, scan windows (hours scans may run), destructive-check opt-in. A floor exists that only the two-person rule can lower |
