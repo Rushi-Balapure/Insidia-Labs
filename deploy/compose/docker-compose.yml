@@ -1,0 +1,110 @@
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: insidia
+      POSTGRES_PASSWORD: insidia_dev_only
+      POSTGRES_DB: insidia
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U insidia -d insidia"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    ports:
+      - "5672:5672"
+
+  valkey:
+    image: valkey/valkey:8
+    ports:
+      - "6379:6379"
+
+  migrate:
+    build:
+      context: ../..
+      dockerfile: deploy/compose/engine.Dockerfile
+    environment: &engine_env
+      INSIDIA_DEV_MODE: "true"
+      INSIDIA_DEV_ENDPOINTS: "true"
+      INSIDIA_MASTER_KEY: "insidia-dev-master-key-32bytes!!"
+      INSIDIA_TOKEN_PEPPER: "insidia-dev-token-pepper-32bytes!"
+      INSIDIA_DATABASE_URL: postgresql+psycopg://app_api:app_api_dev_only@postgres:5432/insidia
+      INSIDIA_KEYS_DATABASE_URL: postgresql+psycopg://app_keys:app_keys_dev_only@postgres:5432/insidia
+      INSIDIA_WORKER_DATABASE_URL: postgresql+psycopg://app_worker:app_worker_dev_only@postgres:5432/insidia
+      INSIDIA_MIGRATION_DATABASE_URL: postgresql+psycopg://insidia:insidia_dev_only@postgres:5432/insidia
+      INSIDIA_CELERY_DATABASE_URL: db+postgresql+psycopg://celery_results:celery_results_dev_only@postgres:5432/insidia
+      INSIDIA_BROKER_URL: amqp://guest:guest@rabbitmq:5672//
+      INSIDIA_VALKEY_URL: redis://valkey:6379/0
+    command: ["uv", "run", "alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build:
+      context: ../..
+      dockerfile: deploy/compose/engine.Dockerfile
+    environment: *engine_env
+    command: ["uv", "run", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_started
+      valkey:
+        condition: service_started
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: deploy/compose/engine.Dockerfile
+    environment: *engine_env
+    command:
+      [
+        "uv",
+        "run",
+        "celery",
+        "-A",
+        "workers.common.celery_app:celery_app",
+        "worker",
+        "--loglevel=INFO",
+        "-Q",
+        "control,ai.fast,ai.heavy,classic.dast,static,agent,reports",
+      ]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_started
+
+  hub:
+    build:
+      context: ../..
+      dockerfile: deploy/compose/hub.Dockerfile
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8081/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  dashboard:
+    build:
+      context: ../..
+      dockerfile: deploy/compose/dashboard.Dockerfile
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+
+  docs:
+    build:
+      context: ../..
+      dockerfile: deploy/compose/docs.Dockerfile
+    ports:
+      - "4321:4321"
