@@ -89,7 +89,15 @@ def test_dump_hides_plaintext_and_aad_blocks_a_swap(migrated_database: str) -> N
     )
     owner = create_engine(migrated_database)
     with owner.connect() as conn:
-        blob = conn.execute(text("SELECT payload_enc, id, org_id FROM tenant_pings")).one()
+        blob = conn.execute(
+            text(
+                """
+                SELECT payload_enc, id, org_id FROM tenant_pings
+                WHERE org_id = :org_id
+                """
+            ),
+            {"org_id": created["org_id"]},
+        ).one()
         dump = subprocess.run(  # noqa: S603
             ["pg_dump", "--data-only", "--table", "tenant_pings", migrated_database],
             check=False,

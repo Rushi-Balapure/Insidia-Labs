@@ -109,6 +109,13 @@ CREATE TRIGGER audit_events_no_truncate
   BEFORE TRUNCATE ON audit_events
   FOR EACH STATEMENT EXECUTE FUNCTION reject_audit_mutation();
 
+-- A custom GUC resets to '' at transaction end, and ''::uuid is an error.
+-- NULLIF makes a missing or blank tenant match no rows.
+CREATE FUNCTION current_org_id() RETURNS uuid
+LANGUAGE sql STABLE AS $$
+  SELECT NULLIF(current_setting('app.org_id', true), '')::uuid
+$$;
+
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE projects FORCE ROW LEVEL SECURITY;
 ALTER TABLE org_keys ENABLE ROW LEVEL SECURITY;
@@ -124,25 +131,25 @@ ALTER TABLE orgs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orgs FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY tenant_select ON orgs
-  FOR SELECT USING (id = current_setting('app.org_id', true)::uuid);
+  FOR SELECT USING (id = current_org_id());
 CREATE POLICY tenant_update ON orgs
-  FOR UPDATE USING (id = current_setting('app.org_id', true)::uuid)
-  WITH CHECK (id = current_setting('app.org_id', true)::uuid);
+  FOR UPDATE USING (id = current_org_id())
+  WITH CHECK (id = current_org_id());
 CREATE POLICY signup_insert ON orgs
   FOR INSERT WITH CHECK (true);
 
 CREATE POLICY tenant_isolation ON projects
-  USING (org_id = current_setting('app.org_id', true)::uuid)
-  WITH CHECK (org_id = current_setting('app.org_id', true)::uuid);
+  USING (org_id = current_org_id())
+  WITH CHECK (org_id = current_org_id());
 CREATE POLICY tenant_isolation ON org_keys
-  USING (org_id = current_setting('app.org_id', true)::uuid)
-  WITH CHECK (org_id = current_setting('app.org_id', true)::uuid);
+  USING (org_id = current_org_id())
+  WITH CHECK (org_id = current_org_id());
 CREATE POLICY tenant_isolation ON audit_events
-  USING (org_id = current_setting('app.org_id', true)::uuid)
-  WITH CHECK (org_id = current_setting('app.org_id', true)::uuid);
+  USING (org_id = current_org_id())
+  WITH CHECK (org_id = current_org_id());
 CREATE POLICY tenant_isolation ON tenant_pings
-  USING (org_id = current_setting('app.org_id', true)::uuid)
-  WITH CHECK (org_id = current_setting('app.org_id', true)::uuid);
+  USING (org_id = current_org_id())
+  WITH CHECK (org_id = current_org_id());
 
 REVOKE ALL ON orgs, org_keys, projects, audit_events, tenant_pings FROM PUBLIC;
 GRANT SELECT, INSERT, UPDATE ON orgs TO app_api;
