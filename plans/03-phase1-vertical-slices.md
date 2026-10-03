@@ -14,7 +14,7 @@ Tracks 1A, 1B, and 1C are parallel after the shared contracts land. Fair schedul
 - **Fairness.** With org A queued for 1,000 tasks and org B for 10, org B's tasks start before org A finishes. Per-org concurrency cap is enforced.
 - **1C.** A verified public fixture (chatbot and web app) is scanned for AI and web findings with no runner installed. An unverified host and a redirect to `169.254.169.254` are both refused by the egress proxy.
 - **Registry.** The same AI family runs in Standard mode (one engine) and Thorough mode (two engines), and Thorough merges duplicates into one cross-validated finding.
-- Customer-visible JSON uses Insidia probe ids only. The engine link lives only in internal tables (`scan_tasks.engine_id`, `finding_sources`) and never in API responses.
+- Customer-visible JSON uses Insidia Labs probe ids only. The engine link lives only in internal tables (`scan_tasks.engine_id`, `finding_sources`) and never in API responses.
 - A `pg_dump` after the exit scans contains no planted canary value: target names, URLs, hosts, payloads, responses, or credentials.
 
 ## Out of scope
@@ -113,7 +113,7 @@ Host interactsh (MIT) in our cloud, one correlation id per scan. Blind hits atta
 A tiny app we own (planted SQLi and reflected XSS). Do not depend on a GPL scanner. CI must not scan third-party sites.
 
 ### Fingerprints
-User-Agent and Server banners from scanners are rewritten at the CONNECT proxy to `InsidiaScanner`. Nuclei template ids are mapped to `insidia.web.*` through `probe_upstream_map` before the finding is saved, same as 1A.
+User-Agent and Server banners from scanners are rewritten at the CONNECT proxy to `Insidia LabsLabs`. Nuclei template ids are mapped to `insidia.web.*` through `probe_upstream_map` before the finding is saved, same as 1A.
 
 ## Track 1C — direct mode (no runner)
 
@@ -125,7 +125,7 @@ User-Agent and Server banners from scanners are rewritten at the CONNECT proxy t
 ### Egress proxy (`engine/egress/`)
 - A fixed set of public egress IPs, published in the dashboard and docs so customers can allowlist them.
 - Allows only hosts that are verified targets of the scan's org. Resolves DNS itself and refuses private, loopback, link-local, and IPv6 ULA addresses, including after redirects and DNS rebinding (the resolved IP is pinned for the connection).
-- Applies the target's rate limit, the kill switch, and User-Agent rewriting to `InsidiaScanner`.
+- Applies the target's rate limit, the kill switch, and User-Agent rewriting to `Insidia LabsLabs`.
 - Acts as the direct relay transport for AI targets, so engines use the same RelayTarget plugins as runner mode, and as the HTTP proxy for classic scanners.
 - The only process that decrypts direct-mode credentials, for the running scan only.
 
@@ -138,7 +138,7 @@ Public fixtures we host on a domain we own (chatbot and web app), verified by DN
 ## Capability registry v1
 - Seed `engines`, `attack_families`, `capability_map`, and `probe_upstream_map` for the Phase 1 engines.
 - Standard mode picks priority 1 per family; Thorough runs every enabled entry.
-- The planner records which entries ran for each family, so the dashboard can show "2 Insidia Engine modules ran".
+- The planner records which entries ran for each family, so the dashboard can show "2 Insidia Labs Engine modules ran".
 
 ## Engine isolation
 Engine containers get no internet egress except the hub, the egress proxy, and our model service. A CI test runs each engine image behind a sniffing proxy and fails on any other outbound connection (telemetry, update checks, remote generation).

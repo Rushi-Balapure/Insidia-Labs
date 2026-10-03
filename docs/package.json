@@ -1,0 +1,14 @@
+{
+  "name": "insidia-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "check": "node scripts/denylist.mjs && node scripts/links.mjs"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.35.2",
+    "astro": "^5.13.2"
+  }
+}

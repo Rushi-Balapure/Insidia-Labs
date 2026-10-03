@@ -39,13 +39,13 @@ Email reuses the Phase 2 mail interface.
 ## SIEM
 Optional syslog or HTTPS JSON export on a timer, same redacted finding schema. Document the field list. Do not promise a specific vendor parser in this phase.
 
-## Gap-filling Insidia modules in this phase
+## Gap-filling Insidia Labs modules in this phase
 From [16-coverage-gaps.md](16-coverage-gaps.md):
 - **M-C5 race-condition tester:** single-packet HTTP/2 bursts on endpoints the customer marks as sensitive, opt-in per endpoint because it changes state.
 - **M-C7 WebSocket fuzzing:** message-level fuzzing and authorization checks on WebSocket APIs.
 
 ## Burp extension (stretch)
-A Burp plugin that is a runner: it forwards in-scope proxy history as relay or tunnel traffic for a chosen target. Scope comes from Burp's scope, intersected with the Insidia allowlist. Ship only after CI is done. Language: whatever Burp's current extension API requires; keep it a thin forwarder with no attack logic.
+A Burp plugin that is a runner: it forwards in-scope proxy history as relay or tunnel traffic for a chosen target. Scope comes from Burp's scope, intersected with the Insidia Labs allowlist. Ship only after CI is done. Language: whatever Burp's current extension API requires; keep it a thin forwarder with no attack logic.
 
 ## Fleet discovery (stretch)
 A runner config `discover_on_interval` for company-managed machines, using Phase 7 `discover` (no server execution). Results land in the org's inventory view. Enrollment is the same mTLS flow. MDM packaging is a doc (how to push the binary and a token), not a custom MDM product.

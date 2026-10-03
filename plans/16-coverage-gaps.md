@@ -1,15 +1,15 @@
-# Coverage Gap Analysis and Insidia-Built Modules
+# Coverage Gap Analysis and Insidia Labs-Built Modules
 
-**INTERNAL ONLY.** This file names upstream engines. It must never be copied into customer docs, the website, or sales material. Customer-facing coverage pages are generated from the capability registry, which shows only "Insidia Engine modules".
+**INTERNAL ONLY.** This file names upstream engines. It must never be copied into customer docs, the website, or sales material. Customer-facing coverage pages are generated from the capability registry, which shows only "Insidia Labs Engine modules".
 Parent: [00-master-plan.md](00-master-plan.md). Requirements: [01-ai-redteam-coverage-spec.md](01-ai-redteam-coverage-spec.md). Registry: [08-phase6-engine-registry.md](08-phase6-engine-registry.md).
 
 ## Method
 1. Take every requirement from the AI coverage spec (attack classes 3.1 to 3.11, surfaces A to F, oracles, target classes) and the classic AppSec scope in the master plan.
 2. For each, record which engine covers it **in the way we run it**: in our cloud, with remote generation and telemetry off, through the relay or tunnel, with our own attacker and judge models.
 3. Rate it: **Covered** (an engine does it well enough to ship), **Partial** (some variants, weak oracle, or only in some connection modes), or **Gap** (nothing we can use).
-4. For every Partial or Gap, decide: **adopt** another permissively licensed tool, **build** an Insidia module, or **defer**.
+4. For every Partial or Gap, decide: **adopt** another permissively licensed tool, **build** an Insidia Labs module, or **defer**.
 
-Ratings come from each tool's documentation and our knowledge of it. They are hypotheses until the Phase 6 benchmark measures them (see [Validating this analysis](#validating-this-analysis)). Built modules plug into the same capability registry and appear to customers exactly like any other Insidia Engine module.
+Ratings come from each tool's documentation and our knowledge of it. They are hypotheses until the Phase 6 benchmark measures them (see [Validating this analysis](#validating-this-analysis)). Built modules plug into the same capability registry and appear to customers exactly like any other Insidia Labs Engine module.
 
 ## Constraints that create gaps
 - **promptfoo without remote generation.** We must keep `PROMPTFOO_DISABLE_REMOTE_GENERATION=true`; otherwise customer prompts go to promptfoo's servers, and our use of it becomes visible to them. Per promptfoo's own data-handling docs, this disables:
@@ -122,7 +122,7 @@ These close gaps with little work. All are permissively licensed, run in the clo
 Open decision: **opengrep** (the community fork of the Semgrep engine) is LGPL-2.1. Run unmodified as a separate process in our cloud, it may be acceptable, and it would shorten M-C9 a lot. It is not on the current allowlist, so legal review decides before Phase 8. Semgrep's registry rules stay excluded either way; all rules would be ours.
 
 ## Modules to build
-Each module is Insidia's own code in `engine/workers/insidia/<module>/`, registered in the capability registry like any engine, and shown to customers as an Insidia Engine module. Size: S is up to 2 engineer-weeks, M is 2 to 6, L is more than 6.
+Each module is Insidia Labs's own code in `engine/workers/insidia/<module>/`, registered in the capability registry like any engine, and shown to customers as an Insidia Labs Engine module. Size: S is up to 2 engineer-weeks, M is 2 to 6, L is more than 6.
 
 **Clean-room rule.** For gaps left by GPL tools (sqlmap, commix, tplmap, testssl.sh, trufflehog), engineers must not copy their code or their payload and rule files. We write modules from public specifications, papers, and our own research. Reviewers check this on every pull request in these modules.
 
@@ -139,7 +139,7 @@ Each module is Insidia's own code in `engine/workers/insidia/<module>/`, registe
 | M-A8 | Sandbox sensor kit | Canary files, a fake cloud-metadata endpoint, out-of-band callbacks, and process and file-write sensors for code interpreters, plus the escape payload set. Proves code execution instead of inferring it. | Runner, or honeypot in direct | 7 | M |
 | M-A9 | Approval-bypass suite | Tests whether the agent acts without the required human approval, and whether the approval request shown to the human matches the action actually executed (a misleading summary is a finding). | Runner or SDK | 7 | M |
 | M-A10 | Output-sink simulator | Renders model output in a headless browser to detect script execution and image- or link-based exfiltration to our out-of-band server; parses output as shell, SQL, and ticket or email content to detect injection into downstream systems. | Both | 4A | M |
-| M-A11 | Insidia attack generator | Our attacker-model generation that replaces the promptfoo remote-only plugins and strategies: harmful-content and bias categories, hijacking, off-topic, competitor, system-prompt override, domain packs, and a GOAT-style adaptive multi-turn attacker. Also turns a customer's stated purpose and policies into a custom attack set. | Both | 4A | L |
+| M-A11 | Insidia Labs attack generator | Our attacker-model generation that replaces the promptfoo remote-only plugins and strategies: harmful-content and bias categories, hijacking, off-topic, competitor, system-prompt override, domain packs, and a GOAT-style adaptive multi-turn attacker. Also turns a customer's stated purpose and policies into a custom attack set. | Both | 4A | L |
 | M-A12 | White-box AI analysis | Prompt and tool-graph analysis from extracted code, embedding and vector-store exposure checks, over-privileged tool detection. Already planned in Phase 8; listed here because it closes 3.2 embedding inversion. | Runner `extract` or upload | 8 | L |
 | M-A13 | AI supply-chain checks | GGUF chat-template diffing against known-good, behavioral goldens before and after swapping an adapter, model-signature verification, model-hub namespace reuse and typosquatting checks, and MCP tool-hash drift (rug-pull). | Both (static) | 7 and 8 | M |
 | M-A14 | Consumption and resource oracle | Measures tokens, cost, latency, and tool-loop depth per attempt; runs token-flood, reasoning-DoS, and tool-storm probes under a strict budget so the test itself cannot run up the customer's bill. | Both | 4A | S |
@@ -157,7 +157,7 @@ Each module is Insidia's own code in `engine/workers/insidia/<module>/`, registe
 | M-C6 | Smuggling and cache pack | HTTP request smuggling, web cache poisoning, and cache deception. | Both | 11 | M |
 | M-C7 | Protocol coverage | gRPC (via server reflection or uploaded protos), WebSocket message fuzzing, and rate-limit and resource-consumption tests for APIs. | Both | 4B (gRPC, rate limits), 9 (WebSocket) | M |
 | M-C8 | Client-side pack | Prototype pollution, postMessage handlers, CSP and clickjacking weaknesses, found by instrumenting the page in a headless browser. | Both | 11 | M |
-| M-C9 | Insidia SAST | Tree-sitter parsing with our own taint rules for JavaScript/TypeScript, Python, Go, Java, C#, PHP, and Ruby, plus AI-specific sinks: prompt concatenation of untrusted input, LLM output passed to `eval`, SQL, shell, or HTML, and tools with no authorization check. Replaces Bandit and gosec as the primary static engine. | Runner `extract` or upload | 4B (Python, JS/TS), 8 (the rest) | L |
+| M-C9 | Insidia Labs SAST | Tree-sitter parsing with our own taint rules for JavaScript/TypeScript, Python, Go, Java, C#, PHP, and Ruby, plus AI-specific sinks: prompt concatenation of untrusted input, LLM output passed to `eval`, SQL, shell, or HTML, and tools with no authorization check. Replaces Bandit and gosec as the primary static engine. | Runner `extract` or upload | 4B (Python, JS/TS), 8 (the rest) | L |
 | M-C10 | Secret liveness verifier | For leaked secrets, calls each provider's read-only identity endpoint (for example "who am I") to say whether the key is still live, rate-limited and opt-in. Stores only a live or dead flag and the fingerprint, never the secret. | Cloud, opt-in per org | 8 | S |
 
 ## Build order

@@ -45,7 +45,7 @@ Framework adapters, in order: raw MCP over the honeypot, OpenAI Agents SDK fixtu
 - ASI09 approval skip: fixture has an approval flag; oracle fires if the tool runs while the flag is false.
 - ASI10 rogue behavior: bounded check only (agent continues after a kill instruction in the test harness). No self-replication experiments.
 
-## Gap-filling Insidia modules in this phase
+## Gap-filling Insidia Labs modules in this phase
 From [16-coverage-gaps.md](16-coverage-gaps.md):
 - **M-A4 tool-trace oracle, full version:** traces from the honeypot, the SDK, and OpenTelemetry GenAI spans, checked against a per-target tool policy (allowed tools, arguments, and forbidden chains).
 - **M-A7 multi-agent and A2A harness:** spoofed agent cards and messages (ASI07), supervisor injection through worker output, secondary injection, and cascade blast radius (ASI08).

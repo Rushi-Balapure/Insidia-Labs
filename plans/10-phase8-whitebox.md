@@ -32,16 +32,16 @@ In-process, Lakera-style, for apps that are not a plain HTTP chat:
 async def handler(messages) -> str:
     return app.invoke(messages)
 
-# test harness calls Insidia cloud, which calls handler through the runner's local SDK bridge
+# test harness calls Insidia Labs cloud, which calls handler through the runner's local SDK bridge
 ```
 The SDK bridge is a localhost port on the customer machine opened by the runner. The cloud still talks only to the runner. The SDK does not embed attack content.
 
 OpenTelemetry GenAI spans (model name, tool name, token counts; not full prompts unless the customer opts in) travel through the runner to the scan's object prefix. Tool spans feed the `tool_trace` oracle.
 
-## Gap-filling Insidia modules in this phase
+## Gap-filling Insidia Labs modules in this phase
 From [16-coverage-gaps.md](16-coverage-gaps.md):
 - **M-A12 white-box AI analysis:** prompt and tool-graph analysis, over-privileged tools, embedding and vector-store exposure (closes spec 3.2 embedding inversion).
-- **M-C9 Insidia SAST, remaining languages:** Go, Java, C#, PHP, and Ruby taint rules on top of the Phase 4B engine, plus AI-specific sinks. Legal decides before this phase whether opengrep (LGPL-2.1, unmodified, separate process) may be used as the matching engine.
+- **M-C9 Insidia Labs SAST, remaining languages:** Go, Java, C#, PHP, and Ruby taint rules on top of the Phase 4B engine, plus AI-specific sinks. Legal decides before this phase whether opengrep (LGPL-2.1, unmodified, separate process) may be used as the matching engine.
 - **M-C10 secret liveness verifier:** opt-in, read-only provider checks that report live or dead for a leaked key, storing only the flag and fingerprint.
 - **Adopt OpenSSF model-signing** for model signature and provenance checks (M-A13 static half).
 

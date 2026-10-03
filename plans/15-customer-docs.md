@@ -9,7 +9,7 @@ A security engineer who has never talked to us can go from sign-up to a first tr
 ## Principles
 - **Task first.** Most pages answer "how do I...". Concepts are explained only as far as a task needs them, with a link to the deeper page.
 - **Two paths everywhere.** Every setup guide has a "Direct (no install)" tab and a "Runner" tab, and says plainly what the direct path cannot do.
-- **Insidia Engine only.** Docs follow the same confidentiality rule as the product. No upstream engine, library, or project name appears anywhere, including code samples, screenshots, config keys, and error messages. The denylist CI test runs on the docs build.
+- **Insidia Labs Engine only.** Docs follow the same confidentiality rule as the product. No upstream engine, library, or project name appears anywhere, including code samples, screenshots, config keys, and error messages. The denylist CI test runs on the docs build.
 - **Nothing hand-copied that can be generated.** API reference comes from the OpenAPI schema, CLI reference from the runner's command definitions, probe and taxonomy pages from `taxonomy-data/` and the `probes` table, and egress IPs from the deployment config. Hand-written copies drift.
 - **Every sample runs.** Quickstart commands and API samples are executed in CI against staging. A broken sample fails the build.
 - **Plain language.** Short sentences, no unexplained acronyms, and the same terms as the dashboard labels. Written for a reader who is competent but new to AI security.
@@ -24,10 +24,11 @@ A security engineer who has never talked to us can go from sign-up to a first tr
 
 ## Information architecture
 1. **Get started**
-   - What Insidia tests (AI and agent security, web and API security) and what it does not
+   - What Insidia Labs tests (AI and agent security, web and API security) and what it does not
    - Quickstart: scan a hosted chatbot directly (no install), about 10 minutes
    - Quickstart: scan a local app with the runner, about 15 minutes
    - Choosing direct or runner: a decision guide and the feature availability table
+   - Your trial: what the 3 model-free trial scans include, what is locked, and how to upgrade
 2. **Concepts**
    - Organizations, projects, targets, scans, findings
    - Connection modes (direct, runner relay, runner tunnel)
@@ -35,7 +36,7 @@ A security engineer who has never talked to us can go from sign-up to a first tr
    - Coverage modes (Standard, Thorough, Custom) and what "cross-validated" means
    - How findings are confirmed: oracles and canaries, in plain terms, so customers trust the results
    - Severity and scoring (CVSS for web and API, AIVSS for AI)
-   - How it works: the customer-facing diagram with a single Insidia Engine box
+   - How it works: the customer-facing diagram with a single Insidia Labs Engine box
 3. **Connect a target** (one page per target type, each with a request template example and a Validate step)
    - Chat and completion APIs: OpenAI-compatible, Anthropic-style, Bedrock, Azure, custom HTTP, WebSocket, streaming
    - RAG applications: what to give us for corpus and retrieval tests
@@ -65,7 +66,7 @@ A security engineer who has never talked to us can go from sign-up to a first tr
    - **Remediation guides, one per attack family:** what the issue is, why it matters, how to fix it in common stacks, and how to verify the fix with a rescan. These are generated from probe metadata plus hand-written guidance, and they are the pages customers use most.
    - Baselines and regression tracking
 7. **Compliance and reports**
-   - Framework pages: OWASP LLM 2026, OWASP Agentic, OWASP Web and API, MITRE ATLAS and ATT&CK, NIST AI RMF and AI 600-1, EU AI Act, ISO/IEC 42001, PCI DSS. Each explains which Insidia tests map to which controls (generated from `taxonomy-data/`) and what Insidia cannot prove on its own.
+   - Framework pages: OWASP LLM 2026, OWASP Agentic, OWASP Web and API, MITRE ATLAS and ATT&CK, NIST AI RMF and AI 600-1, EU AI Act, ISO/IEC 42001, PCI DSS. Each explains which Insidia Labs tests map to which controls (generated from `taxonomy-data/`) and what Insidia Labs cannot prove on its own.
    - Report types (executive PDF, technical HTML, evidence pack, SARIF, JSON, AI-BOM) and how to share them with auditors
 8. **Integrations**
    - CI: GitHub Actions, GitLab, generic CLI; failing a build on severity
@@ -82,7 +83,7 @@ A security engineer who has never talked to us can go from sign-up to a first tr
     - Staff access policy: none by default, time-boxed grants approved by you, visible in your audit log
     - Regions, subprocessors, and egress IP list
     - Authorized testing policy: only test systems you own or are permitted to test
-    - Vulnerability disclosure for Insidia itself
+    - Vulnerability disclosure for Insidia Labs itself
 11. **Administration** (Phase 10)
     - SSO (SAML, OIDC), SCIM, roles and custom permissions, audit log export
     - Private tenant and on-prem installation, upgrades, backups, air-gapped model setup

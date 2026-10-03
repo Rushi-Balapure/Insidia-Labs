@@ -35,7 +35,7 @@ engine/taxonomy-data/
 ```
 OWASP documents are CC BY-SA. Store ids and our own one-paragraph explanations. Do not paste their guide text into the repo or the PDF.
 
-Seed `probes.yaml` from promptfoo's MIT mapping files where the mapping is a table of ids, then rename probes to Insidia ids. Keep the MIT copyright header on that seed file in-tree only.
+Seed `probes.yaml` from promptfoo's MIT mapping files where the mapping is a table of ids, then rename probes to Insidia Labs ids. Keep the MIT copyright header on that seed file in-tree only.
 
 ## Profiles
 A profile is a named list of probe ids plus budgets. Ship:

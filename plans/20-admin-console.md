@@ -4,7 +4,7 @@ Internal plan. The admin console names engines and models; it is never shown to 
 Parent: [00-master-plan.md](00-master-plan.md). Tables: [14-database-schema.md](14-database-schema.md). Engine registry: [08-phase6-engine-registry.md](08-phase6-engine-registry.md). Models: [19-model-hosting.md](19-model-hosting.md).
 
 ## Goal
-One internal app where Insidia staff can:
+One internal app where Insidia Labs staff can:
 1. **See** the state of the platform and of each customer: health, usage, scans, runners, errors.
 2. **Debug** a scan, runner, engine, or model call without reading customer data they have not been granted.
 3. **Customize** each customer within safe bounds: plan limits, feature flags, coverage defaults, rate limits, model budget, retention, worker priority.
@@ -50,7 +50,7 @@ It replaces the "staff-only engine console" from the earlier plan; the engine re
 | C2 | Findings content, transcripts, requests and responses, evidence | Active `evidence` grant from the customer |
 | C3 | Credentials, tokens, keys | Never, for anyone. Fingerprints only |
 
-Grants come from the customer: a customer owner or admin approves a staff request in the dashboard ("Insidia support requests evidence access for scan X, 24 hours"). Maximum 72 hours, revocable, and every staff decryption appears in the customer's audit log. Phase 2 ships the approve and revoke flow; Phase 10 adds self-service grant policies.
+Grants come from the customer: a customer owner or admin approves a staff request in the dashboard ("Insidia Labs support requests evidence access for scan X, 24 hours"). Maximum 72 hours, revocable, and every staff decryption appears in the customer's audit log. Phase 2 ships the approve and revoke flow; Phase 10 adds self-service grant policies.
 
 ## Security hardening
 The admin console sees every org, so it gets stronger controls than the customer dashboard. Each layer below assumes the one before it has failed. All of it ships in Phase 2, because the console holds real data from its first day.
@@ -81,7 +81,7 @@ The admin console sees every org, so it gets stronger controls than the customer
 - **Break-glass account:** one offline emergency account whose credentials are split between two founders and stored sealed. Using it pages everyone in `security`, and it is reviewed after every use.
 
 ### 5. Customer content is hostile
-Insidia stores attack transcripts, injected payloads, and responses from targets we were attacking. Anything customer-derived that reaches the console (org and target names, error text, transcripts) can contain a working XSS or prompt-injection payload aimed at staff.
+Insidia Labs stores attack transcripts, injected payloads, and responses from targets we were attacking. Anything customer-derived that reaches the console (org and target names, error text, transcripts) can contain a working XSS or prompt-injection payload aimed at staff.
 - **Text only.** The console renders customer-derived strings as plain text. No HTML, no Markdown, no rich previews, no auto-linked URLs.
 - **Transcripts and evidence** open in a sandboxed iframe on a separate origin (`sandbox` without `allow-scripts`, its own CSP), so even a perfect payload has no script context and no access to the console's cookies.
 - **Strict Content Security Policy:** nonce-based scripts only, no inline scripts, no `eval`, Trusted Types enforced, `frame-ancestors 'none'`, `connect-src` limited to the admin API. HSTS with preload, COOP/COEP, `Referrer-Policy: no-referrer`.
@@ -112,7 +112,7 @@ Insidia stores attack transcripts, injected payloads, and responses from targets
 
 ### 9. Testing the console itself
 - The console's threat model is a section of `internal/threat-model.md`, reviewed before each phase that changes it.
-- Insidia scans its own admin console in staging (web DAST, access control differ M-C3, XSS corpus) on every release.
+- Insidia Labs scans its own admin console in staging (web DAST, access control differ M-C3, XSS corpus) on every release.
 - An external penetration test before the first design partner and yearly after, scoped to the console, proxy, and key service.
 - Incident runbook: end all staff sessions, freeze elevations, rotate the admin API's credentials, preserve audit, notify affected customers per their contracts.
 
@@ -128,8 +128,9 @@ The "customizability per customer". Every setting comes from a typed registry in
 
 | Group | Examples |
 |---|---|
-| Plan and limits | Plan tier; max concurrent scans; max targets and runners; attempts, tokens, and wall-clock per scan; monthly model-token and GPU-second budget |
-| Features | Feature flags per org: direct mode, Thorough coverage, pentest agent, white box, beta Insidia modules |
+| Plan and limits | Plan tier (`trial` or paid); trial scan allowance and window; max concurrent scans; max targets and runners; attempts, tokens, and wall-clock per scan; monthly model-token and GPU-second budget |
+| Entitlements | What each plan unlocks, as typed flags: attacker-model attacks, Thorough coverage, gray/white box, pentest agent, scheduled/continuous scans, integrations, exports, API automation. Trial sets these off; staff can grant a bounded trial extension (audited) |
+| Features | Feature flags per org: direct mode, Thorough coverage, pentest agent, white box, beta Insidia Labs modules |
 | Coverage | Default coverage mode; attack families or modules disabled for this org (for example, a module that breaks their target); Standard-mode pin per family |
 | Safety | Per-target rate-limit ceiling, scan windows (hours scans may run), destructive-check opt-in. A floor exists that only the two-person rule can lower |
 | Scheduling | Priority tier on the RabbitMQ queues; pin to a dedicated worker pool (Phase 9 and 10) |
@@ -141,11 +142,11 @@ How settings resolve:
 - **Effective config = built-in default, then plan default, then org override**, validated against the registry's bounds.
 - Resolved **once at scan launch** and stored on the scan as a snapshot with a hash, so a running scan never changes mid-way and every scan is reproducible.
 - A setting change affects new scans only.
-- Every change records who, what, before and after, and why, in `staff_audit_events`. A change that affects the customer also writes a customer-visible `audit_events` row ("Insidia changed your concurrent scan limit from 2 to 5").
+- Every change records who, what, before and after, and why, in `staff_audit_events`. A change that affects the customer also writes a customer-visible `audit_events` row ("Insidia Labs changed your concurrent scan limit from 2 to 5").
 - Settings that name engines are stored by engine id internally. The customer dashboard shows them as module labels.
 
 ### Scan debugger
-- Timeline of one scan: the Celery canvas as a tree (chord, groups, tasks), each task's state, queue, worker, engine (real name), retries, durations, and Insidia error code.
+- Timeline of one scan: the Celery canvas as a tree (chord, groups, tasks), each task's state, queue, worker, engine (real name), retries, durations, and Insidia Labs error code.
 - Internal error detail: stack traces and engine stderr, scrubbed by the secret redactor and stripped of payloads before they are stored. They are keyed by OpenTelemetry trace id, which links API, dispatcher, worker, hub or egress proxy, and model service spans.
 - Relay and tunnel stats per scan: request count, latency percentiles, timeouts, bytes.
 - Model calls per scan: role, model, tokens, latency, GPU-seconds. No prompts or completions.
@@ -199,7 +200,7 @@ New tables are in [14-database-schema.md](14-database-schema.md#admin-console-ta
 | 9 | Scheduling settings group with dedicated pools; schedule and CI-scan views |
 | 10 | SOC 2 access review export; on-prem operator console |
 
-**On-prem and private tenants:** the customer's operators get a reduced operator console (platform health, queues, runners, kill switches, settings) with engines shown as Insidia Engine modules. The full admin console stays in our SaaS.
+**On-prem and private tenants:** the customer's operators get a reduced operator console (platform health, queues, runners, kill switches, settings) with engines shown as Insidia Labs Engine modules. The full admin console stays in our SaaS.
 
 ## Tests
 - Isolation: no customer session, API key, or runner cert can reach any admin route, and the admin hostname does not resolve or route from the public internet.

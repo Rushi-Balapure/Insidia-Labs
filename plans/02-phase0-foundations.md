@@ -52,7 +52,7 @@ THIRD_PARTY_NOTICES.md  internal, not linked from any UI
    - 0001 Cloud brain + thin runner, no local/free mode.
    - 0002 Relay mode vs tunnel mode.
    - 0003 Celery on RabbitMQ, Valkey (not Redis 8+), one brain, many runners, tenant envelope, fair scheduling deferred in detail to Phase 1 but the envelope exists now.
-   - 0004 Use OSS engines as-is, never port; present them only as the Insidia Engine; fill gaps with Insidia-built modules ([16-coverage-gaps.md](16-coverage-gaps.md)). Python 3.14 for our code; lagging engines get their own image.
+   - 0004 Use OSS engines as-is, never port; present them only as the Insidia Labs Engine; fill gaps with Insidia Labs-built modules ([16-coverage-gaps.md](16-coverage-gaps.md)). Python 3.14 for our code; lagging engines get their own image.
    - 0005 MIT/Apache only (MPL-2.0/BSD infrastructure after review). Stack is confidential. Attribution register honored. Runner ships no scanner code.
    - 0006 `engine/hub` is Go inside the Python brain on purpose.
    - 0007 Two connection modes: direct (ownership-verified, egress proxy) and runner.

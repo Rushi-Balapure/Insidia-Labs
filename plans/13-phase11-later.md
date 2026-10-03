@@ -15,7 +15,7 @@ A proxy the customer places in front of their model or agent. It is a forwarder 
 - Fail closed or fail open is a per-policy switch, default fail open for latency, fail closed for the secret-redaction policy.
 - Exit when started: a fixture request containing a canary is redacted, and the dashboard shows the event.
 
-## Gap-filling Insidia modules (later)
+## Gap-filling Insidia Labs modules (later)
 From [16-coverage-gaps.md](16-coverage-gaps.md):
 - **M-A15 predictive-ML pack:** adopt ART and TextAttack (both MIT) for evasion, membership inference, inversion, and model stealing on classifiers, recommenders, and vision or audio models (spec 3.11). Needs model access through the runner or SDK.
 - **M-C6 smuggling and cache pack:** HTTP request smuggling, web cache poisoning, and cache deception.
