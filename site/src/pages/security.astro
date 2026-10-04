@@ -1,0 +1,26 @@
+---
+import Base from "../layouts/Base.astro";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+
+const description = "How Insidia Labs handles targets, findings, and secrets. Per-organization encryption, redaction, and no training on your findings.";
+---
+<Base title="Security | Insidia Labs" description={description} path="/security">
+  <Header />
+  <main id="content" class="wrap" style="padding:3rem 0 4rem">
+    <h1>Security</h1>
+    <p class="lede">This page describes the product we are building. The marketing site itself stores no customer findings and does not run scans.</p>
+    <div class="grid-3" style="margin-top:2rem">
+      <article class="card"><h2>Where it runs</h2><p>The dashboard and the testing service run on our own servers. This website is a separate static site. It does not call the product and it does not hold tenant data.</p></article>
+      <article class="card"><h2>Encryption</h2><p>Findings are encrypted with a key that belongs to your organization. Another organization's session cannot read them.</p></article>
+      <article class="card"><h2>Secrets</h2><p>If a test observes a secret, the stored evidence is a masked token: type, length, and a fingerprint. The raw value is not kept for display.</p></article>
+    </div>
+    <section class="block">
+      <h2>How a test is allowed to run</h2>
+      <p>Direct tests are for targets you can prove you own, from fixed addresses you can allowlist. Targets inside your network use a runner you install, so the traffic stays on your side. Early-access tests run against staging, and only after written authorization.</p>
+      <p>Your findings are not used as training data.</p>
+      <p><a href="mailto:insidialabs@gmail.com?subject=Security%20question">Ask a security question</a></p>
+    </section>
+  </main>
+  <Footer />
+</Base>

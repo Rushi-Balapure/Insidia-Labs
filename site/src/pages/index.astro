@@ -1,0 +1,194 @@
+---
+import Base from "../layouts/Base.astro";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import DataFlowHero from "../components/DataFlowHero.tsx";
+import LeadForm from "../components/LeadForm.tsx";
+import DemoReel from "../components/DemoReel.astro";
+import { changelog } from "../content/changelog";
+
+const description = "Insidia Labs is an AI pentest agent that chains attacks on your AI into exploits in your app, from prompt to payload. Early access opens December 2026.";
+const endpoint = import.meta.env.PUBLIC_LEAD_ENDPOINT ?? "";
+const faqs = [
+  ["Is Insidia available today?", "Not yet. Insidia is in development, and early access opens in December 2026, starting with three design partners. Join the waitlist to hear when it opens, or apply to be a design partner to get in early."],
+  ["Can prompt injection lead to SQL injection?", "Yes. If an AI agent can call a tool that queries a database, a prompt injection can make the model write a SQL injection payload and pass it to that tool. The payload comes from the model, not a form field, so scanners that test your endpoints directly can miss it."],
+  ["What's the difference between AI red teaming and AI pentesting?", "AI red teaming tests how a model or agent behaves: does it follow injected instructions, leak data, or break its rules? Pentesting tests whether an attacker can actually compromise your systems. Insidia does both as one attack, following an injection through the agent's tools into your app and data."],
+  ["How do you connect a target?", "If the target is reachable from the internet, you prove you own it and Insidia tests it from our cloud. If it sits on your network, a small runner in your environment carries the tests. During early access, design-partner testing runs against staging, and only with written authorization."],
+  ["How is my data handled?", "Findings are stored with per-organization encryption. Secrets are redacted before they are stored, and findings are not used to train models. The waitlist on this site is separate from the product and is not written into a customer database."],
+  ["How does pricing work?", "Design partners get three months of free access. When the product opens, a trial includes three basic scans. Paid plans are request-access. This site has no checkout."],
+  ["How do you pentest an AI agent?", "Map what the agent can reach (tools, APIs, data, MCP servers), attack its inputs with direct and indirect prompt injection, then check what those tool calls can do downstream, such as SQL injection, SSRF, or access-control bypass. Insidia automates that full path and shows each step to reproduce and fix."],
+  ["Will it test production?", "During early access, design-partner testing runs against staging environments only, and only with your written authorization before any test."],
+];
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      name: "Insidia Labs",
+      url: "https://insidialabs.com/",
+      logo: "https://insidialabs.com/brand/mark-small.svg",
+      email: "insidialabs@gmail.com",
+      description,
+    },
+    {
+      "@type": "SoftwareApplication",
+      name: "Insidia",
+      applicationCategory: "SecurityApplication",
+      operatingSystem: "Web",
+      description: "An AI pentest agent that tests AI agents and the apps they touch, following prompt injection through agent tools into classic exploits such as SQL injection, SSRF, XSS, and broken access control.",
+    },
+    {
+      "@type": "FAQPage",
+      mainEntity: faqs.map(([name, text]) => ({
+        "@type": "Question",
+        name,
+        acceptedAnswer: { "@type": "Answer", text },
+      })),
+    },
+  ],
+};
+---
+<Base title="Insidia Labs | AI pentest agent for AI agents and the apps they touch" description={description}>
+  <Fragment slot="head">
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+  </Fragment>
+  <Header />
+  <main id="content">
+    <div class="wrap hero">
+      <div>
+        <h1>Your AI agent is your newest attack surface.</h1>
+        <div class="rule" aria-hidden="true"></div>
+        <p class="lede">Insidia's pentest agent follows an attack from a prompt injection all the way to a real exploit in your app, like an agent tricked into sending SQL injection to your own database. Most AI security tools and AppSec scanners were each built for one half of that path.</p>
+        <div class="cta-row">
+          <a class="btn" href="#waitlist">Join the waitlist</a>
+          <a class="btn ghost" href="mailto:insidialabs@gmail.com?subject=Book%20a%20call">Book a call</a>
+          <a class="btn ghost" href="#demo">Watch the demo</a>
+          <a class="btn ghost" href="https://docs.insidialabs.com">Read the docs</a>
+        </div>
+      </div>
+      <DataFlowHero client:visible />
+    </div>
+
+    <div class="wrap">
+      <p class="kicker">Works with</p>
+      <div class="chips" aria-label="Target types">
+        <span class="chip">Chat apps</span>
+        <span class="chip">RAG</span>
+        <span class="chip">Agents and MCP</span>
+        <span class="chip">Multi-agent</span>
+        <span class="chip">Web apps</span>
+        <span class="chip">REST, GraphQL, and gRPC APIs</span>
+        <span class="chip">Codebases</span>
+      </div>
+    </div>
+
+    <section class="block" id="how">
+      <div class="wrap">
+        <h2>Insidia tests what happens when one attacks the other.</h2>
+        <div class="grid-3">
+          <article>
+            <p class="kicker">01</p>
+            <h3>Attacks both layers</h3>
+            <p class="muted">AI red-teaming and classic AppSec in one run: prompt injection, jailbreaks, RAG and memory, agent tool misuse, plus SQL injection, XSS, SSRF, and broken access control.</p>
+          </article>
+          <article>
+            <p class="kicker">02</p>
+            <h3>Proves the chain</h3>
+            <p class="muted">The pentest agent carries a prompt injection through a tool call into a backend exploit and confirms it with an oracle, not a guess.</p>
+          </article>
+          <article>
+            <p class="kicker">03</p>
+            <h3>Maps to what you report</h3>
+            <p class="muted">Findings carry OWASP LLM and Agentic, MITRE ATLAS, and classic web and API ids, and export as a report.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="block" id="demo">
+      <div class="wrap">
+        <h2>Watch the dashboard</h2>
+        <p class="prose muted">Three short previews play on a loop. They are the product UI, drawn in the page, not a video file. There is no prompt to type, and nothing on this page starts a test.</p>
+        <DemoReel />
+        <blockquote class="example"><strong>Example chain (illustrative).</strong> A support chatbot reads a customer's uploaded document. Hidden text in that document tells the agent to look up order status with a crafted order id. The agent passes it straight to an internal lookup tool, and the order id is a SQL injection payload. A scanner built to test endpoints does not go through the agent to reach that path. A red-teaming tool built to test the model can flag the injection without proving what the payload does downstream. Insidia tests both halves as one attack and shows each step.</blockquote>
+      </div>
+    </section>
+
+    <section class="block" id="problem">
+      <div class="wrap">
+        <div class="grid-3">
+          <h2>Your security tools were each built for one half of the attack.</h2>
+          <div class="span-2">
+            <p>AI security tools test the model. AppSec scanners test the app. Once an LLM agent can call tools, query databases, and hit internal APIs, the most dangerous attacks start in one place and land in the other.</p>
+            <p class="muted">Scanners were built to test endpoints, not to talk to your agent. Red-teaming tools were built to test the model, so they often stop at "the model misbehaved." The path between them is where the damage happens.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="block" id="coverage">
+      <div class="wrap">
+        <h2>What it covers</h2>
+        <div class="grid-3">
+          <article class="card"><h3>AI and agent security</h3><p>Prompt injection, direct and indirect, jailbreaks, tool and function-call abuse, MCP and plugin risks, and data leakage through LLM features.</p></article>
+          <article class="card"><h3>Classic AppSec</h3><p>SQL injection, XSS, SSRF, and broken authentication and access control across web apps and APIs.</p></article>
+          <article class="card"><h3>The seam</h3><p>Attacks that start in one layer and finish in the other, with each step shown.</p></article>
+        </div>
+        <p class="muted" style="margin-top:1.2rem">Built for security and engineering teams shipping LLM features or agents that touch real systems: AI-native SaaS, fintech and healthtech teams adding AI assistants, and developer-tool companies exposing agents or MCP integrations.</p>
+      </div>
+    </section>
+
+    <section class="block" id="security">
+      <div class="wrap">
+        <h2>Security, stated the way the product is built</h2>
+        <div class="grid-3">
+          <article class="card"><h3>Your cloud boundary, our encryption</h3><p>The product runs on our own infrastructure. Findings are stored with per-organization envelope encryption.</p></article>
+          <article class="card"><h3>Secrets stay redacted</h3><p>A discovered secret is stored as a masked token, not as the value itself.</p></article>
+          <article class="card"><h3>Not training data</h3><p>Your findings are not used to train models. <a href="/security">Read the security page</a>.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="block" id="design-partners">
+      <div class="wrap">
+        <h2>Help shape it.</h2>
+        <p class="muted" style="max-width:42rem">We're working with three design partners before general availability. Each one gets three months of free access and a direct line to the founding team. In return, we ask for a short feedback call every two weeks and, if the results are good, the chance to talk about them together.</p>
+        <a class="btn" href="#waitlist">Apply to be a design partner</a>
+      </div>
+    </section>
+
+    <section class="block">
+      <div class="wrap">
+        <h2>Changelog</h2>
+        {changelog.map((entry) => (
+          <article class="log-item">
+            <time datetime={entry.date}>{entry.date}</time>
+            <div><h3>{entry.title}</h3><p class="muted">{entry.body}</p></div>
+          </article>
+        ))}
+        <a href="/changelog">Full changelog</a>
+      </div>
+    </section>
+
+    <section class="block" id="faq">
+      <div class="wrap">
+        <h2>FAQ</h2>
+        {faqs.map(([q, a]) => (
+          <details class="faq">
+            <summary>{q}</summary>
+            <p>{a}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+
+    <section class="block" id="waitlist">
+      <div class="wrap" style="max-width:40rem">
+        <h2>Join the waitlist</h2>
+        <p class="muted">Tell us what you ship. We'll write back about access. Book a call if you'd rather talk first.</p>
+        <LeadForm client:load endpoint={endpoint} />
+      </div>
+    </section>
+  </main>
+  <Footer />
+</Base>

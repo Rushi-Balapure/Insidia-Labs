@@ -1,0 +1,40 @@
+---
+const docs = "https://docs.insidialabs.com";
+---
+<header class="site-header material">
+  <div class="wrap bar">
+    <a class="logo" href="/">
+      <img class="logo-dark" src="/brand/lockup-dark.svg" alt="Insidia Labs" width="171" height="48" />
+      <img class="logo-light" src="/brand/lockup-light.svg" alt="Insidia Labs" width="171" height="48" />
+    </a>
+    <button class="icon-btn menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
+    <nav id="site-nav" class="nav" aria-label="Primary">
+      <div class="nav-links">
+        <a href="/#how">How it works</a>
+        <a href="/#coverage">What it finds</a>
+        <a href="/security">Security</a>
+        <a href={docs}>Docs</a>
+        <a href="/pricing">Pricing</a>
+      </div>
+      <div class="nav-actions">
+        <button class="icon-btn" id="theme-toggle" type="button" aria-label="Switch color theme">◐</button>
+        <a class="btn ghost" href="mailto:insidialabs@gmail.com?subject=Book%20a%20call">Book a call</a>
+        <a class="btn" href="/#waitlist">Join the waitlist</a>
+      </div>
+    </nav>
+  </div>
+</header>
+<script>
+  const toggle = document.querySelector(".menu-toggle");
+  const nav = document.querySelector("#site-nav");
+  toggle?.addEventListener("click", () => {
+    const open = nav?.classList.toggle("is-open");
+    toggle.setAttribute("aria-expanded", open ? "true" : "false");
+  });
+  const theme = document.querySelector("#theme-toggle");
+  theme?.addEventListener("click", () => {
+    const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem("insidia-theme", next);
+  });
+</script>

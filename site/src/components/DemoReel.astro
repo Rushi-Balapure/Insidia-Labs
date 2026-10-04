@@ -1,0 +1,98 @@
+<div class="players" id="demo-players">
+  <article class="player" data-player>
+    <header class="player-bar">
+      <span>Launch</span>
+      <button type="button" data-pause aria-pressed="false">Pause</button>
+    </header>
+    <div class="stage">
+      <div class="rowline"><span>Target</span><strong>support-agent.staging</strong></div>
+      <div class="seg seg-play" aria-hidden="true">
+        <i class="seg-hl"></i>
+        <span>Standard</span>
+        <span>Thorough</span>
+        <span>Custom</span>
+      </div>
+      <div class="rowline">
+        <span>Estimated attempts</span>
+        <span class="swap">
+          <b class="swap-a">120</b>
+          <b class="swap-b">480</b>
+        </span>
+      </div>
+      <div class="rowline"><span>Estimated duration</span><span class="swap"><b class="swap-a">about 8 min</b><b class="swap-b">about 40 min</b></span></div>
+      <span class="btn launch-press">Launch scan</span>
+      <p class="run-flag">Running · Insidia Labs Engine module 1</p>
+    </div>
+    <div class="scrub" aria-hidden="true"><b></b></div>
+    <p class="mock-note">Coverage changes, then the scan starts. Representative UI, synthetic numbers.</p>
+  </article>
+
+  <article class="player" data-player>
+    <header class="player-bar">
+      <span>Live view</span>
+      <button type="button" data-pause aria-pressed="false">Pause</button>
+    </header>
+    <div class="stage">
+      <div class="rowline"><strong>support-agent.staging</strong><span class="badge">Running</span></div>
+      <div>
+        <div class="rowline"><span>Prompt injection · Insidia Labs Engine module 1</span><span>72%</span></div>
+        <div class="meter"><b class="grow grow-1"></b></div>
+      </div>
+      <div>
+        <div class="rowline"><span>Tool misuse · Insidia Labs Engine module 2</span><span>40%</span></div>
+        <div class="meter"><b class="grow grow-2"></b></div>
+      </div>
+      <div>
+        <div class="rowline"><span>SQL injection · Insidia Labs Engine module 3</span><span>15%</span></div>
+        <div class="meter"><b class="grow grow-3"></b></div>
+      </div>
+      <p class="mono finding-in">Evidence [AWS_ACCESS_KEY len=20 fp=3f9a1c07]</p>
+    </div>
+    <div class="scrub" aria-hidden="true"><b></b></div>
+    <p class="mock-note">Progress fills, then a masked secret token appears. Nothing here is a real scan.</p>
+  </article>
+
+  <article class="player" data-player>
+    <header class="player-bar">
+      <span>Attack path</span>
+      <button type="button" data-pause aria-pressed="false">Pause</button>
+    </header>
+    <div class="stage">
+      <div class="path path-play">
+        <span class="nodebox step-in s1">Target</span>
+        <span class="arrow" aria-hidden="true">→</span>
+        <span class="nodebox step-in s2">Insidia Labs Engine</span>
+        <span class="arrow" aria-hidden="true">→</span>
+        <span class="nodebox step-in s3">Tool call</span>
+        <span class="arrow" aria-hidden="true">→</span>
+        <span class="nodebox step-in s4">Database <span class="badge sev critical">Critical</span></span>
+      </div>
+      <p class="mono step-in s5">Oracle confirms the lookup changed. Cross-validated.</p>
+      <table class="matrix">
+        <tbody>
+          <tr class="step-in s5"><td>OWASP LLM01</td><td>Cross-validated</td></tr>
+          <tr class="step-in s6"><td>OWASP A03 Injection</td><td>Cross-validated</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="scrub" aria-hidden="true"><b></b></div>
+    <p class="mock-note">The chain lights up after the test, including the report labels. You are watching, not launching.</p>
+  </article>
+</div>
+<script>
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  document.querySelectorAll("[data-player]").forEach((player) => {
+    const button = player.querySelector("[data-pause]");
+    if (!(button instanceof HTMLButtonElement)) return;
+    if (reduced) {
+      button.disabled = true;
+      button.textContent = "Motion reduced";
+      return;
+    }
+    button.addEventListener("click", () => {
+      const paused = player.classList.toggle("is-paused");
+      button.setAttribute("aria-pressed", paused ? "true" : "false");
+      button.textContent = paused ? "Play" : "Pause";
+    });
+  });
+</script>

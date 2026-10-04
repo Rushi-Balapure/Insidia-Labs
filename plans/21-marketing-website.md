@@ -15,11 +15,11 @@ Model the structure and motion on [arguslabs.in](https://www.arguslabs.in/): a d
 - **apple-design.** The site follows `.agents/skills/apple-design/SKILL.md` like the dashboard: Motion (MIT) for animation, critically damped springs, `transform`/`opacity` only, `prefers-reduced-motion` and `prefers-reduced-transparency` honored, system font stack, light and dark themes.
 - **Lead data is customer-derived.** An email typed into the waitlist is PII. Do not store it in plaintext in our product database. Use a dedicated mechanism (see "Lead capture") that keeps marketing leads out of the tenant database entirely.
 
-## Branding kit (pending)
-The color kit and logo kit are coming from the user. Until they arrive:
-- Build every color, radius, shadow, and the logo as a **token**, not a literal, in `site/src/design/tokens.css` (and a matching `tokens.ts`). Use neutral placeholders (a dark technical palette close to the reference) so the layout is real but swapping the kit is a one-file change.
-- The logo is a single `<Logo/>` component reading from one SVG slot per theme. No raster logos baked into sections.
-- Do not ship the placeholder palette to production. "Apply the branding kit" is an explicit exit item below.
+## Branding kit (applied)
+The approved kit (mark v2, 4 Oct 2026) lives outside the repo at `../brand/kit`. The site copies it into tokens and logo slots:
+- Colors, radii, and the gradient are tokens in `site/src/design/tokens.css` and `site/src/design/tokens.ts`, taken from `brand/kit/colors`. Navy `#101028` is the dark background. Buttons use navy text on Orange `#ED7B39` (white on orange fails WCAG).
+- `<Logo/>` swaps the outlined horizontal lockup: white wordmark on dark, navy wordmark on light. Below 48 px the simplified mark is the favicon. Do not recolor or redraw the mark.
+- Wordmark and UI type use Sora 400 and 600, self-hosted from the kit (OFL), with the system font stack as fallback.
 
 ## Stack and location
 A new top-level `site/` (separate from `dashboard/` the app and `docs/` the Starlight docs):
@@ -31,7 +31,7 @@ A new top-level `site/` (separate from `dashboard/` the app and `docs/` the Star
 site/
   astro.config.mjs
   src/
-    design/            tokens.css, tokens.ts (placeholders until the kit lands)
+    design/            tokens.css, tokens.ts (brand kit)
     components/
       Logo.astro
       DataFlowHero.tsx       the animated hero (Motion)
@@ -109,7 +109,7 @@ Sign-up, login, real scans, billing/checkout (pricing shows "request access" tie
 - The HTML dashboard mockups render for the launcher, live view, findings, attack-path graph, and report preview, all masked and token-driven.
 - Waitlist and book-a-call both work and keep leads out of the tenant database.
 - The denylist, accessibility, and Lighthouse checks pass in CI.
-- The branding kit (colors + logo) is applied by swapping tokens and the logo slot, with no layout change required, once the user provides it.
+- The branding kit (colors + logo) is applied through tokens and the logo slot.
 
 ## Risks
 - **Over-promising.** Marketing copy can outrun what the product does. Keep claims to what the phases above will actually ship; the coverage story is generated from reality, not hand-waved.
