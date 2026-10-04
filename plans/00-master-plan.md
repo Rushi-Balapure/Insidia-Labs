@@ -47,6 +47,9 @@ todos:
   - id: phase11
     content: "Phase 11 (later): runtime guardrails, late gap modules (no desktop app)"
     status: pending
+  - id: phasew
+    content: "Phase W: marketing website (Argus-style landing, data-flow animation, HTML dashboard mockups, waitlist/book-a-call) to capture leads while the product is built"
+    status: pending
 isProject: false
 ---
 
@@ -75,6 +78,7 @@ Plans are stored in both `/home/rushi/Desktop/Rushi/Insidia-Labs/plans/` and thi
 - [18-validity-matrix.md](18-validity-matrix.md) (the validity function and the expanded permutation matrix)
 - [19-model-hosting.md](19-model-hosting.md) (internal: self-hosted uncensored attacker/judge models, GPU stages, runtimes)
 - [20-admin-console.md](20-admin-console.md) (internal: staff admin console for managing, debugging, and per-customer settings)
+- [21-marketing-website.md](21-marketing-website.md) (Phase W: public lead-capture website, ships before the product)
 
 ## Scope
 Insidia Labs is an **AI-native application security platform**. It covers two tracks, built in parallel:
@@ -295,6 +299,7 @@ Findings schema: `Finding{track, engine, probe, severity, confidence, attack, re
 - **Storage:** Postgres for metadata/findings, with field-level envelope encryption for vulnerability evidence; S3-compatible object store for transcripts/evidence, encrypted per tenant. Full design in [14-database-schema.md](14-database-schema.md).
 - **Web:** React (Vite) + TypeScript + Tailwind + shadcn/ui; live progress over WebSocket (fed by worker progress events on Valkey pub/sub, ids only).
 - **Deployment:** Kubernetes + Helm; Terraform for our cloud; same charts for private tenants and on-prem.
+  - **Marketing site vs product, kept apart:** the public marketing site (`site/`, Phase W) is a static bundle on **Vercel** with no brain, no tenant database, and no customer data; its only backend touch is the lead form to a hosted form/CRM endpoint. The **product dashboard and the brain run on our own server cluster** (Kubernetes), because they hold encrypted customer vulnerabilities and need the fixed egress IPs, the hub, and the model service beside them. The dashboard is served on `app.` next to the brain, never on Vercel; the marketing site links out to `app.` and `docs.` and never calls the brain. This keeps a public, high-churn marketing surface sharing nothing with the system that stores customer data (see [21-marketing-website.md](21-marketing-website.md#hosting-and-the-deployment-split)).
 
 ## Multi-tenancy and fair scheduling (one brain, many customers)
 - **Identity:** every row, task, object-storage key, and log line carries `org_id` (and `project_id`). Postgres row-level security enforces isolation; object storage is prefixed and encrypted per tenant.
@@ -329,6 +334,7 @@ Insidia-Labs/
     models/               model manifest (pinned SHA-256), llama.cpp and vLLM configs, judge prompts, model harness (proprietary)
     taxonomy-data/        YAML framework mappings
   dashboard/              React (Vite) web app
+  site/                   public marketing website (Astro) on Vercel; no brain, no tenant data (Phase W, see 21-marketing-website.md)
   admin/                  internal staff admin console (React); API in engine/admin_api/, deployed separately
   shared/
     proto/                relay + control protocol (used by runner, hub, engine)
@@ -355,7 +361,7 @@ Note: `engine/hub/` is Go while the rest of `engine/` is Python; it is grouped u
 - **Infrastructure:** RabbitMQ (MPL-2.0, attribution required), Valkey (BSD-3), PostgreSQL (PostgreSQL License), Celery (BSD-3), WireGuard-go (MIT), Pomerium identity-aware proxy for the admin console (Apache-2.0, internal only, not distributed).
 - **Classic engines:** ZAP (Apache), Nuclei + templates (MIT), Dalfox (MIT), katana/httpx/subfinder/ffuf (MIT), interactsh (MIT), Trivy (Apache), osv-scanner (Apache), gitleaks (MIT), Bandit (Apache), gosec (Apache).
 - **Adopted to fill gaps** (see [16-coverage-gaps.md](16-coverage-gaps.md)): naabu (MIT, ports), tlsx (MIT, TLS), Adversarial Robustness Toolbox and TextAttack (MIT, predictive ML), OpenSSF model-signing (Apache, model provenance), Playwright (Apache, login recorder and sink rendering). opengrep (LGPL-2.1) is pending legal review for SAST.
-- **Docs and UI:** Starlight and Pagefind (MIT) for the docs site; Motion (MIT) for dashboard animation.
+- **Docs and UI:** Starlight and Pagefind (MIT) for the docs site; Astro (MIT) for the marketing site (`site/`, Phase W, hosted on Vercel); Motion (MIT) for dashboard and marketing-site animation.
 - **AI pentest agent:** `usestrix/strix` (Apache 2.0) - adapted as the orchestrator that drives both tracks and validates exploits (the one place we modify upstream code, because its tools must call our hub). PentAGI (MIT code, EULA) as reference only.
 - **Reference / rules:** splx Agentic Radar (Apache), AgentDojo (MIT), Inspect AI (MIT), Pipelock (Apache), LLM Guard (MIT), NeMo Guardrails (Apache). (Tencent AI-Infra-Guard is excluded from the shipped stack; see below.)
 - **Runner transport reference:** Praetorian Augustus (Apache, Go); Probely Farcaster agent (for the WireGuard tunnel design).
@@ -393,6 +399,9 @@ We do not want to disclose that garak, promptfoo, ZAP, Nuclei, Strix, etc. run i
 ## Phases (AI track = A, classic track = B, run in parallel)
 
 Every build phase (1 onward) has an implicit exit gate on top of the criteria listed: the permutation-matrix cells it owns ([17-test-suite.md](17-test-suite.md)) must be green. The per-phase ownership map lives in that file.
+
+### Phase W - Marketing website (ships first, independent of the build)
+A public lead-capture site built before and in parallel with the product, so we can collect a waitlist and book design-partner calls while the brain is under construction. Argus-style dark landing page with an animated AI-to-classic data-flow hero, neutral "what it tests" category chips (no vendor or engine names), a three-step story (attacks both layers, proves the chain, maps to your frameworks), a security section, a changelog, an FAQ, and waitlist plus book-a-call CTAs. Product screenshots are HTML/CSS mockups of the Phase 2 dashboard, built on the shared apple-design tokens and fully masked as "Insidia Labs Engine module N", which double as an early visual prototype. Lives in a new top-level `site/` (Astro + Motion), separate from the app and the docs, and **deploys to Vercel as a static bundle with no brain and no tenant data** (the product dashboard and brain stay on our own server cluster; see Deployment). Honest, pre-product claims only: no fabricated testimonials, logos, or metrics. The branding kit (colors + logo) is applied by swapping design tokens once provided. Full spec in [21-marketing-website.md](21-marketing-website.md). Exit: the site deploys, the data-flow hero and the masked dashboard mockups render and degrade under reduced motion, lead capture works without putting PII in the tenant database, and the name-denylist, accessibility, and Lighthouse checks pass.
 
 ### Phase 0 - Foundations
 Monorepo scaffold with the three top-level components (`runner/` Go, `engine/` Python 3.14 + `engine/hub/` Go, `dashboard/` React), ADRs (direct vs runner connection, relay + tunnel protocols, Celery on RabbitMQ, Valkey not Redis, multi-tenancy model, use-as-is plus masking, license policy and attribution register, database security), the security-first database foundation from [14-database-schema.md](14-database-schema.md) (roles, RLS, envelope encryption, audit), self threat model (runner compromise, tunnel abuse, direct-mode SSRF, tenant isolation, cross-org leakage, database breach, target ownership verification), CI, dev docker-compose (Postgres + RabbitMQ + Valkey + a worker). Exit: services build, CI green, a demo Celery task runs with a tenant envelope and writes an encrypted row another org cannot read.
