@@ -88,7 +88,7 @@ Your understanding is right, and it is a deliberate separation:
 - **Three hosts, three jobs:** the apex domain is the Vercel marketing site, `app.` is the dashboard on our cluster, and `docs.` is the Starlight docs (static, can also be on Vercel or our CDN). The site links out to `app.` and `docs.`; it never embeds the app or calls the brain.
 - **Why the split matters:** keeping the lead-gen site off our product infrastructure means a public, high-traffic, frequently-changed marketing surface shares nothing with the system that holds customers' unfixed vulnerabilities. A compromise or misconfiguration of the Vercel site cannot reach the brain, the tenant database, or any customer data.
 
-
+## SEO and performance
 - Server-rendered static HTML, semantic headings, per-page title and meta description, Open Graph and Twitter cards (OG image from the kit), `sitemap.xml`, `robots.txt`, and JSON-LD `Organization`/`Product` with no engine names.
 - Lighthouse: performance, accessibility, best-practices, and SEO all green on the hero page. Images are compressed and lazy-loaded; the animation island is deferred and does not block first paint.
 - WCAG 2.2 AA: keyboard-operable nav and FAQ, visible focus, contrast from the kit verified, the animation pausable/escapable.
