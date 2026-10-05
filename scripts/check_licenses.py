@@ -22,7 +22,7 @@ DENIED_MARKERS = ("gpl", "agpl", "sspl", "elastic", "bsl-1.1", "busl")
 
 def main() -> None:
     root = Path(__file__).resolve().parents[1]
-    pyproject = tomllib.loads((root / "engine" / "pyproject.toml").read_text())
+    pyproject = tomllib.loads((root / "cloud" / "pyproject.toml").read_text())
     names = set()
     for spec in pyproject["project"]["dependencies"]:
         names.add(spec.split("[")[0].split(">=")[0].split(">")[0].strip().lower())
