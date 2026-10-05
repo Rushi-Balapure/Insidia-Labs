@@ -1,0 +1,23 @@
+---
+import Base from "../layouts/Base.astro";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+
+const description = "Open-source licenses used by Insidia Labs. License names only.";
+---
+<Base title="Open-source licenses | Insidia Labs" description={description} path="/licenses">
+  <Header />
+  <main id="content" class="wrap" style="padding:3rem 0 4rem">
+    <h1>Open-source licenses</h1>
+    <p class="lede">Distributed copies of the product include the license notices for the open-source software they contain. This page lists the licenses, not the role of each component.</p>
+    <ul>
+      <li>MIT</li>
+      <li>Apache-2.0</li>
+      <li>BSD-3-Clause</li>
+      <li>MPL-2.0</li>
+      <li>SIL Open Font License 1.1 (Sora, used on this site)</li>
+    </ul>
+    <p class="muted">The font license text is at <a href="/fonts/OFL.txt">/fonts/OFL.txt</a>.</p>
+  </main>
+  <Footer />
+</Base>

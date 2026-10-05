@@ -1,0 +1,90 @@
+@font-face {
+  font-family: "Sora";
+  src: url("/fonts/Sora-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Sora";
+  src: url("/fonts/Sora-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --insidia-navy-900: #101028;
+  --insidia-white: #ffffff;
+  --insidia-sunburst: #f6c13f;
+  --insidia-amber: #f4af3c;
+  --insidia-tangerine: #f09437;
+  --insidia-orange: #ed7b39;
+  --insidia-coral: #ea654d;
+  --insidia-rose: #e95169;
+  --insidia-magenta: #e33d86;
+  --insidia-berry: #b93486;
+  --insidia-plum: #8d307c;
+  --insidia-deep-purple: #542970;
+  --insidia-indigo-shadow: #35225b;
+  --insidia-navy-800: #181839;
+  --insidia-navy-700: #2e2e56;
+  --insidia-navy-300: #b2b2d1;
+  --insidia-navy-600: #454573;
+  --insidia-navy-50: #f6f6fb;
+  --insidia-gradient: linear-gradient(
+    180deg,
+    #f2a239 0%,
+    #ef8636 14%,
+    #ec6f42 29%,
+    #ea5562 43%,
+    #e73e86 57%,
+    #d0378a 71%,
+    #b23385 86%,
+    #953080 100%
+  );
+  --insidia-gradient-short: linear-gradient(135deg, #f6c13f 0%, #ed7b39 35%, #e33d86 70%, #542970 100%);
+  --radius-sm: 0.625rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1.25rem;
+  --shadow-card: 0 18px 50px rgba(8, 8, 24, 0.28);
+  --sev-critical: #b42318;
+  --sev-high: #c2410c;
+  --sev-medium: #f6c13f;
+  --sev-low: #3f6212;
+  --sev-info: #1d4ed8;
+  --font: "Sora", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SFMono-Regular", "Cascadia Code", monospace;
+}
+
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: var(--insidia-navy-900);
+  --panel: var(--insidia-navy-800);
+  --panel-solid: var(--insidia-navy-800);
+  --line: var(--insidia-navy-700);
+  --text: var(--insidia-white);
+  --muted: var(--insidia-navy-300);
+  --accent: var(--insidia-orange);
+  --header: rgba(16, 16, 40, 0.72);
+  --header-solid: var(--insidia-navy-900);
+  --input: var(--insidia-navy-800);
+  --chip: rgba(46, 46, 86, 0.55);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: var(--insidia-navy-50);
+  --panel: #ffffff;
+  --panel-solid: #ffffff;
+  --line: #d9d9ea;
+  --text: var(--insidia-navy-900);
+  --muted: var(--insidia-navy-600);
+  --accent: var(--insidia-orange);
+  --header: rgba(246, 246, 251, 0.82);
+  --header-solid: var(--insidia-navy-50);
+  --input: #ffffff;
+  --chip: #ffffff;
+}

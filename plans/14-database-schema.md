@@ -1,6 +1,8 @@
 # Database Schema (security-first)
 
-Cross-cutting. The foundation (roles, RLS, encryption, audit) lands in Phase 0; tenant, target, scan, and finding tables in Phase 1; the rest in the phase that first needs them (noted per table).
+> **v6.** This schema is the **Insidia Cloud** database (Phase 2). It is unchanged in design: per-org envelope encryption, forced RLS, write-only secrets. The free CLI does not use it. A CLI run lives in `.insidia/runs/<id>/` on the user's machine (`findings.json`, `report.html`, SARIF), with secrets in evidence masked the same way (`[AWS_ACCESS_KEY len=20 fp=3f9a1c07]`). Phase numbers in the table notes below are v5 numbers; the [mapping](00-master-plan.md#phase-mapping-from-v5) says where each landed. Findings stored in Cloud may name the engine that produced them.
+
+Cross-cutting. The foundation (roles, RLS, encryption, audit) landed in Phase 0; tenant, target, scan, and finding tables land with Insidia Cloud; the rest in the phase that first needs them (noted per table).
 Parent: [00-master-plan.md](00-master-plan.md).
 
 ## Why this is security-critical
@@ -326,7 +328,7 @@ CREATE TABLE target_contexts (                      -- gray-box inputs (Phase 4)
 ### Engine registry and taxonomy (global reference data, Phase 1 and 3)
 No `org_id`, no tenant RLS. Writable only by migrations (proposed from the admin console). These tables hold real engine names and must never be exposed through a customer-facing API or view.
 ```sql
-CREATE TABLE engines (                              -- INTERNAL: real upstream names
+CREATE TABLE engines (                              -- public: upstream names, shown in the product
   id          text PRIMARY KEY,                      -- 'garak', 'promptfoo', 'zap', ...
   track       text NOT NULL CHECK (track IN ('ai','classic','static','agent')),
   version     text NOT NULL,                         -- pinned image version
@@ -345,7 +347,7 @@ CREATE TABLE capability_map (                       -- which engines cover which
   engine_id        text NOT NULL REFERENCES engines(id),
   attack_family_id text NOT NULL REFERENCES attack_families(id),
   priority         int  NOT NULL,                    -- 1 = used in Standard mode
-  module_label     text NOT NULL,                    -- 'Insidia Labs Engine module 2': what customers see
+  module_label     text NOT NULL,                    -- customer-facing label, the engine or module name
   est_cost_per_attempt numeric,
   median_runtime_s int,
   precision_measured numeric,                        -- from the Phase 6 benchmark
@@ -430,7 +432,7 @@ CREATE TABLE scan_tasks (                           -- one row per Celery task; 
   scan_id       uuid NOT NULL REFERENCES scans(id),
   celery_task_id text NOT NULL UNIQUE,
   queue         text NOT NULL,
-  engine_id     text NOT NULL REFERENCES engines(id), -- INTERNAL
+  engine_id     text NOT NULL REFERENCES engines(id), -- public: named in progress and findings
   attack_family_id text NOT NULL REFERENCES attack_families(id),
   state         text NOT NULL CHECK (state IN ('queued','running','retrying','succeeded','failed','cancelled')),
   attempts_done int NOT NULL DEFAULT 0,
@@ -486,11 +488,11 @@ CREATE TABLE findings (
   UNIQUE (org_id, target_id, attack_family_id, evidence_bidx) -- cross-engine dedup key
 );
 
-CREATE TABLE finding_sources (                      -- INTERNAL: each engine result merged into a finding
+CREATE TABLE finding_sources (                      -- each engine result merged into a finding; engine and probe are public
   finding_id     uuid NOT NULL REFERENCES findings(id),
   scan_task_id   uuid NOT NULL REFERENCES scan_tasks(id),
   engine_id      text NOT NULL REFERENCES engines(id),
-  upstream_probe text NOT NULL,                               -- internal reference data, not customer data
+  upstream_probe text NOT NULL,                               -- public, shown next to the Insidia probe id
   raw_object_id  uuid                                         -- evidence_objects row holding the raw engine output (C2)
 );
 
@@ -527,7 +529,7 @@ CREATE TABLE baselines (                            -- Phase 9 regression gating
 );
 ```
 - The dedup key uses the blind index, so the database can merge findings from several engines without ever holding plaintext evidence.
-- `finding_sources` and `scan_tasks.engine_id` are the only places tying a finding to a real engine. Neither is in any customer-facing view.
+- `finding_sources` ties a finding to the engines that produced it. The public view exposes those engine ids and upstream probe names. Raw engine output stays in `evidence_objects` and stays encrypted.
 
 ### Reports, usage, integrations (Phases 2, 3, 9)
 ```sql
@@ -707,26 +709,29 @@ CREATE TABLE staff_audit_events (                   -- internal; same hash chain
 - Per-staff decryption budgets are counted in the key service (Valkey counters), not in this database, so a compromised admin API cannot reset them.
 
 ## Customer-facing views
-The API and report roles read findings only through views that cannot leak engine identity:
+The API and report roles read findings through views. Engine names are included. Encrypted evidence is still only decrypted by the key service.
 ```sql
 CREATE VIEW v_findings_public WITH (security_barrier = true, security_invoker = true) AS
 SELECT f.id, f.org_id, f.project_id, f.target_id, f.last_scan_id,
        f.probe_id, f.attack_family_id, f.track, f.severity, f.confidence,
        f.oracle, f.cross_validated, f.cvss_vector, f.aivss_score, f.status,
        f.exposed_secret_types, f.exposed_secret_fps,
+       array_agg(DISTINCT s.engine_id) FILTER (WHERE s.engine_id IS NOT NULL) AS engine_ids,
+       array_agg(DISTINCT s.upstream_probe) FILTER (WHERE s.upstream_probe IS NOT NULL) AS upstream_probes,
        f.title_enc, f.attack_enc, f.response_enc, f.repro_enc, f.remediation_enc,
        f.key_version, f.first_seen_at, f.last_seen_at
-FROM findings f;                                   -- no finding_sources, no engine columns
+FROM findings f
+LEFT JOIN finding_sources s ON s.finding_id = f.id
+GROUP BY f.id;
 
 CREATE VIEW v_scan_progress WITH (security_barrier = true, security_invoker = true) AS
-SELECT t.scan_id, t.org_id, t.attack_family_id, cm.module_label,
+SELECT t.scan_id, t.org_id, t.attack_family_id, t.engine_id,
        count(*) FILTER (WHERE t.state = 'succeeded') AS done,
        count(*) AS total
 FROM scan_tasks t
-JOIN capability_map cm ON cm.engine_id = t.engine_id AND cm.attack_family_id = t.attack_family_id
-GROUP BY t.scan_id, t.org_id, t.attack_family_id, cm.module_label;  -- module labels only
+GROUP BY t.scan_id, t.org_id, t.attack_family_id, t.engine_id;
 ```
-`security_invoker` makes the view run with the caller's privileges, so RLS still applies. `app_api` and `app_reports` have no `SELECT` on `findings`, `finding_sources`, `scan_tasks`, `engines`, or `probe_upstream_map` directly.
+`security_invoker` makes the view run with the caller's privileges, so RLS still applies. `app_api` and `app_reports` select findings through these views, which include engine ids and upstream probe names. They still cannot read `org_keys`, and evidence plaintext still comes only from the key service.
 
 ## Retention and deletion
 | Data | Default | Configurable | How it is removed |
@@ -761,7 +766,7 @@ Backups are encrypted with a backup key separate from the org keys, kept 35 days
 - No API endpoint returns a secret: a contract test calls every route and scans responses for the planted credential canaries.
 - A dump of `api_keys`, `sessions`, and `runner_enrollment_tokens` cannot authenticate: the HMACs need the KMS-held pepper.
 - Log capture during a forced insert failure contains no payload.
-- `app_api` cannot select from `findings`, `finding_sources`, `engines`, or `org_keys`.
+- `app_api` reads findings only through `v_findings_public` (engine names included) and cannot select `org_keys`.
 - Audit table rejects `UPDATE` and `DELETE`; the chain verifier detects a manually edited row.
 - Crypto-shred: after destroying an org's keys, its findings cannot be decrypted from a restored backup.
 - Denylist: no upstream engine name appears in any row returned by a customer-facing view.

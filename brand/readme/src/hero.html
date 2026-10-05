@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script>if (location.search.includes("light")) document.documentElement.classList.add("light");</script>
+<link rel="stylesheet" href="base.css">
+<style>
+  .canvas { width: 1280px; height: 440px; display: grid; grid-template-columns: 600px 1fr; align-items: center; padding: 0 64px; gap: 48px; }
+  .lockup { height: 84px; display: block; margin: 0 0 22px -26px; }
+  h1 { font-weight: 600; font-size: 40px; line-height: 1.18; letter-spacing: -0.01em; }
+  h1 em { font-style: normal; background: var(--gradient-short); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  p.sub { margin-top: 18px; font-size: 17px; line-height: 1.55; color: var(--muted); max-width: 30em; }
+  .chips { display: flex; gap: 10px; margin-top: 28px; }
+  .term { width: 520px; justify-self: end; }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <div class="glow" style="width:520px;height:420px;right:-80px;top:-160px;background:#ED7B39;opacity:.22"></div>
+  <div class="glow" style="width:520px;height:420px;right:220px;bottom:-260px;background:#E33D86;opacity:.18"></div>
+  <div class="glow" style="width:360px;height:360px;left:-200px;bottom:-220px;background:#542970;opacity:.35"></div>
+
+  <div style="position:relative">
+    <img class="lockup only-dark" src="../../lockups/insidia-labs-horizontal-dark-transparent.svg" alt="">
+    <img class="lockup only-light" src="../../lockups/insidia-labs-horizontal-light.svg" alt="">
+    <h1>Your AI agent is your<br><em>newest attack surface.</em></h1>
+    <p class="sub">Open-source security testing for AI apps, agents, and the web apps and APIs around them.</p>
+    <div class="chips">
+      <span class="chip"><span class="dot"></span><b>Open source</b></span>
+      <span class="chip"><span class="dot m"></span><b>Any agent</b>&nbsp;any model</span>
+      <span class="chip"><b>Runs locally</b></span>
+    </div>
+  </div>
+
+  <div class="term" style="position:relative">
+    <div class="term-bar"><i></i><i></i><i></i><span>example output · ~/support-bot</span></div>
+<pre><span class="p">$</span> <span class="w">insidia scan --policy L2</span>
+<span class="k">  scope      </span>localhost:8080, localhost:3000
+<span class="k">  AI layer   </span>garak · promptfoo · PyRIT · DeepTeam
+<span class="k">  App layer  </span>ZAP · Nuclei · Dalfox · Trivy
+<span class="k">  Insidia    </span>indirect injection · RAG bleed · BOLA
+
+<span class="ok">  ✓</span> 31 of 38 controls passed
+<span class="hi">  ●</span> 3 high  <span class="k">·</span> 1 chain: <span class="w">prompt injection → SQLi</span>
+<span class="k">  report     </span>.insidia/runs/latest/report.html</pre>
+  </div>
+</div>
+</body>
+</html>

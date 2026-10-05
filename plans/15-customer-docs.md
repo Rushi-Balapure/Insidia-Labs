@@ -1,22 +1,24 @@
-# Customer Documentation
+# Documentation
+
+> **v6.** The docs open with the agent skill, then the CLI, then the benchmark, then Insidia Cloud. Engines are named and linked. The v5 engine-name denylist is removed from the docs CI; the secret and real-data checks stay. There is no PyPI page: install is from GitHub, as in the master plan.
 
 Cross-cutting. The docs site is scaffolded in Phase 0, and every later phase ships the docs for its own features as part of its exit criteria.
 Parent: [00-master-plan.md](00-master-plan.md).
 
 ## Goal
-A security engineer who has never talked to us can go from sign-up to a first triaged finding without help. They can also answer the questions their own security, legal, and procurement teams will ask: what do you send to my systems, what do you store, and where. A developer can automate everything from the docs alone.
+A person, or their coding agent, can go from nothing to a first report without help. The first block on the docs home is "Using a coding agent?" with the skill install line. Under it, a human can install the CLI and run a scan. A security team can still answer what Insidia sends, stores, and where.
 
 ## Principles
-- **Task first.** Most pages answer "how do I...". Concepts are explained only as far as a task needs them, with a link to the deeper page.
-- **Two paths everywhere.** Every setup guide has a "Direct (no install)" tab and a "Runner" tab, and says plainly what the direct path cannot do.
-- **Insidia Labs Engine only.** Docs follow the same confidentiality rule as the product. No upstream engine, library, or project name appears anywhere, including code samples, screenshots, config keys, and error messages. The denylist CI test runs on the docs build.
-- **Nothing hand-copied that can be generated.** API reference comes from the OpenAPI schema, CLI reference from the runner's command definitions, probe and taxonomy pages from `taxonomy-data/` and the `probes` table, and egress IPs from the deployment config. Hand-written copies drift.
-- **Every sample runs.** Quickstart commands and API samples are executed in CI against staging. A broken sample fails the build.
-- **Plain language.** Short sentences, no unexplained acronyms, and the same terms as the dashboard labels. Written for a reader who is competent but new to AI security.
+- **Agent first, then human.** The skill (`skills/insidia/SKILL.md`), `llms.txt`, and `AGENTS.md` are the top of the docs. The human quickstart follows.
+- **Task first.** Most pages answer "how do I...". Concepts are explained only as far as a task needs them.
+- **Engines are credited.** Docs name garak, promptfoo, ZAP, and the rest, with links and licenses. A finding page names the engine that produces it.
+- **Nothing hand-copied that can be generated.** The CLI reference comes from the CLI, the API reference from the OpenAPI schema, probe and taxonomy pages from `benchmark/mappings/`, and egress IPs from the deployment config.
+- **Every sample runs.** Quickstart commands are executed in CI. A broken sample fails the build.
+- **Plain language.** Short sentences, and the same terms as the CLI and the dashboard. Written for a reader who is competent but new to AI security.
 
 ## Tooling
 - **Starlight** (Astro, MIT) in a new top-level `docs/` folder, docs-as-code in the same repo, so a feature pull request includes its docs change.
-- Styled with the dashboard's design tokens from `dashboard/src/design/` and following the apple-design skill (see [04-phase2-dashboard.md](04-phase2-dashboard.md#design-system-apple-design-skill)): system font, size-specific tracking, reduced-motion support, light and dark themes.
+- Styled with the brand kit (Sora, navy, orange, magenta) and the apple-design skill (see [04-phase2-dashboard.md](04-phase2-dashboard.md#design-system-apple-design-skill)): reduced-motion support, light and dark themes.
 - Full-text search built into the static site (Pagefind, MIT), with no third-party search service receiving customer queries.
 - Hosted as a static site at `docs.<our domain>`. Public by default. On-prem and enterprise-only pages sit behind sign-in.
 - The dashboard links to the matching docs page from every screen, and error messages carry a stable code that links to a troubleshooting entry (`INS-RUN-003` goes to `/troubleshooting/INS-RUN-003`).
@@ -24,11 +26,11 @@ A security engineer who has never talked to us can go from sign-up to a first tr
 
 ## Information architecture
 1. **Get started**
-   - What Insidia Labs tests (AI and agent security, web and API security) and what it does not
-   - Quickstart: scan a hosted chatbot directly (no install), about 10 minutes
-   - Quickstart: scan a local app with the runner, about 15 minutes
-   - Choosing direct or runner: a decision guide and the feature availability table
-   - Your trial: what the 3 model-free trial scans include, what is locked, and how to upgrade
+   - Using a coding agent: install the skill, the prompt to paste, what the agent will ask you to confirm
+   - What Insidia tests, and what it does not
+   - Install from GitHub (`uv`, `pipx`, the GHCR image) and the human quickstart: `init`, `doctor`, `scan`, `report`
+   - Scope and `authorized: true`
+   - Insidia Cloud, after the CLI: credits, connecting with `insidia login`, direct and runner modes
 2. **Concepts**
    - Organizations, projects, targets, scans, findings
    - Connection modes (direct, runner relay, runner tunnel)
@@ -36,7 +38,7 @@ A security engineer who has never talked to us can go from sign-up to a first tr
    - Coverage modes (Standard, Thorough, Custom) and what "cross-validated" means
    - How findings are confirmed: oracles and canaries, in plain terms, so customers trust the results
    - Severity and scoring (CVSS for web and API, AIVSS for AI)
-   - How it works: the customer-facing diagram with a single Insidia Labs Engine box
+   - How it works: the engines we run, the gap modules we build, and where Insidia Cloud fits
 3. **Connect a target** (one page per target type, each with a request template example and a Validate step)
    - Chat and completion APIs: OpenAI-compatible, Anthropic-style, Bedrock, Azure, custom HTTP, WebSocket, streaming
    - RAG applications: what to give us for corpus and retrieval tests
@@ -95,17 +97,13 @@ A phase is not done until its docs are published. This table is the minimum.
 
 | Phase | Docs that ship with it |
 | --- | --- |
-| 0 | Docs site scaffold, style guide, denylist and link-check CI, error-code framework |
-| 1 | Runner install and enroll, relay and tunnel modes, direct-mode verification and egress IPs, chat API and web app target guides, API authentication |
-| 2 | Both quickstarts, concepts section, dashboard walkthroughs, coverage modes, credentials guide, generated API reference |
-| 3 | Compliance and framework pages, report types, first remediation guides for every Phase 1 attack family |
-| 4 | RAG, multi-turn, REST and GraphQL API guides; gray-box inputs; remediation guides for the new families |
-| 5 | Chained-exploit findings: how to read an attack path and its proof of concept |
-| 6 | Updated coverage-mode page with measured trade-offs; "why cross-validated findings matter" |
-| 7 | Agent, MCP, and multi-agent guides; `discover`; honeypot and canary explanations |
-| 8 | White-box guide, `extract`, what is uploaded and what stays local, SDK integration, AI-BOM |
-| 9 | CI, integrations, schedules, baselines, Burp extension |
-| 10 | Administration, SSO, on-prem install and operations, the full security and trust section |
+| 0 | Docs site scaffold, style guide, link-check CI, error-code framework |
+| 1A–1D | Install from GitHub, scope, CLI reference, target guides, the benchmark, the HTML report, engine credits |
+| 1E | The agent skill at the top, MCP, `llms.txt`, the GitHub Action |
+| 2A–2B | Pointing the attacker at Insidia Cloud, custom attacks, reading a pentest-agent chain |
+| 2C | Dashboard walkthroughs, direct and runner modes, credentials, schedules |
+| 3 | Agent, MCP, and multi-agent guides; white box, AI-BOM, and the SDK; integrations |
+| 4 | SSO, private tenants, self-hosted Cloud, the security and trust section |
 
 ## Other deliverables
 - **In-product help:** short, contextual tips in the dashboard, written by the docs team from the same source files so they never contradict the docs.
@@ -120,15 +118,15 @@ A phase is not done until its docs are published. This table is the minimum.
 - Docs analytics are privacy-preserving and self-hosted: page views, searches with no results, and "was this helpful" votes. Searches with no results become the backlog.
 
 ## CI checks on `docs/`
-- Upstream-name denylist (same list as the product, including model and model-runtime names from [19-model-hosting.md](19-model-hosting.md)).
+- Secret and real-data check: no planted secret, no real customer string. Engine names are expected.
 - Broken internal and external links.
 - Every quickstart and API sample executed against staging.
 - Generated references are up to date with the OpenAPI schema and runner CLI.
 - Every error code the product can return has a troubleshooting page.
-- Every probe and attack family in `taxonomy-data/` has a remediation page.
+- Every probe and attack family in `benchmark/mappings/` has a remediation page.
 - Accessibility scan of the built site.
 
 ## Risks
-- **Docs leak internals.** Samples pasted from engineering notes can include engine names or internal hostnames. The denylist check and a review step catch this.
+- **Docs leak secrets or customer data.** Samples pasted from engineering notes can include keys or internal hostnames. The secret check and a review step catch this. Engine names are fine.
 - **Docs promise coverage we do not have.** Framework pages must say what is and is not tested; they are generated from the capability registry and gap list ([16-coverage-gaps.md](16-coverage-gaps.md)), not written from memory.
 - **Remediation advice ages.** Each remediation page has an owner and a review date, and is flagged when it is more than 12 months old.

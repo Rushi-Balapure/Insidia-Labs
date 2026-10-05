@@ -1,0 +1,74 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script>if (location.search.includes("light")) document.documentElement.classList.add("light");</script>
+<link rel="stylesheet" href="base.css">
+<style>
+  .canvas { width: 1280px; height: 520px; padding: 44px 56px; }
+  .row { display: grid; grid-template-columns: 230px 40px 230px 40px 350px 40px 230px; align-items: stretch; }
+  .node { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 22px 22px 20px; }
+  .step { font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--orange); }
+  .node h3 { margin-top: 10px; font-size: 20px; font-weight: 600; line-height: 1.25; }
+  .node p { margin-top: 10px; font-size: 14px; line-height: 1.55; color: var(--muted); }
+  .node code { font-family: var(--mono); font-size: 13px; color: var(--text); }
+  .arrow { display: flex; align-items: center; justify-content: center; }
+  .arrow svg { width: 34px; height: 14px; }
+  .lane { margin-top: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); }
+  .lane .t { font-size: 12px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .lane .e { margin-top: 4px; font-size: 13px; color: var(--muted); }
+  .cloud {
+    position: relative; margin: 26px 0 0 540px; width: 350px; padding: 16px 20px; border-radius: 16px;
+    border: 1.5px dashed var(--magenta); background: color-mix(in srgb, var(--magenta) 7%, var(--bg));
+  }
+  .cloud .t { font-size: 14px; font-weight: 600; } .cloud .t span { color: var(--magenta); }
+  .cloud p { margin-top: 6px; font-size: 13px; line-height: 1.5; color: var(--muted); }
+  .cloud::before { content: ""; position: absolute; left: 50%; top: -27px; height: 26px; border-left: 1.5px dashed var(--magenta); }
+  .legend { position: absolute; left: 56px; bottom: 44px; max-width: 440px; font-size: 13px; line-height: 1.55; color: var(--muted); }
+  .legend b { color: var(--text); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <div class="glow" style="width:420px;height:300px;right:-140px;bottom:-200px;background:#E33D86;opacity:.16"></div>
+  <div class="glow" style="width:420px;height:300px;left:-160px;top:-200px;background:#ED7B39;opacity:.14"></div>
+  <svg width="0" height="0" style="position:absolute"><defs>
+    <linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#ED7B39"/><stop offset="1" stop-color="#E33D86"/></linearGradient>
+  </defs></svg>
+
+  <div class="row" style="position:relative">
+    <div class="node">
+      <div class="step">01 · Ask</div>
+      <h3>You or your coding agent</h3>
+      <p>Agent skill, MCP server, or the plain CLI. You confirm which hosts are in scope.</p>
+    </div>
+    <div class="arrow"><svg viewBox="0 0 34 14"><path d="M0 7h28M22 1l7 6-7 6" fill="none" stroke="url(#g)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div class="node">
+      <div class="step">02 · Plan</div>
+      <h3><code style="font-size:18px">insidia scan</code></h3>
+      <p>Loads the Insidia Benchmark policy (L1, L2, or L3) and picks the engines that cover each control.</p>
+    </div>
+    <div class="arrow"><svg viewBox="0 0 34 14"><path d="M0 7h28M22 1l7 6-7 6" fill="none" stroke="url(#g)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div class="node">
+      <div class="step">03 · Attack, on your machine</div>
+      <div class="lane"><div class="t"><span class="dot"></span>AI layer</div><div class="e">garak · promptfoo · PyRIT · DeepTeam</div></div>
+      <div class="lane"><div class="t"><span class="dot m"></span>App layer</div><div class="e">ZAP · Nuclei · Dalfox · Trivy · gitleaks</div></div>
+      <div class="lane"><div class="t"><span class="dot" style="background:var(--sunburst)"></span>Insidia gap modules</div><div class="e">indirect injection · RAG bleed · chains</div></div>
+    </div>
+    <div class="arrow"><svg viewBox="0 0 34 14"><path d="M0 7h28M22 1l7 6-7 6" fill="none" stroke="url(#g)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div class="node">
+      <div class="step">04 · Report</div>
+      <h3>One HTML file</h3>
+      <p>Benchmark score, every finding with its evidence and fix, plus <code>SARIF</code> and <code>JSON</code> for CI and agents.</p>
+    </div>
+  </div>
+
+  <div class="cloud">
+    <div class="t"><span>Optional</span> · Insidia Cloud</div>
+    <p>Hosted uncensored attacker and judge for custom, multi-turn attacks and the AI pentest agent.</p>
+  </div>
+
+  <div class="legend"><b>Free:</b> everything that runs on your machine or CI, with any model you bring.<br><b>Paid:</b> anything that runs on our GPUs.</div>
+</div>
+</body>
+</html>

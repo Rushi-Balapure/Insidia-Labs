@@ -1,10 +1,12 @@
-# Phase 10 — Enterprise
+# Phase 4 — Enterprise
 
-Depends on: Phases 0–3 at minimum for a private deployment; Phases 4–9 for a full one. The deployment track can start once compose is production-shaped.
+> **v6.** Self-hosting Insidia Cloud is allowed for anyone, because the code is Apache-2.0. This phase is what a company pays for on top: SSO, RBAC, audit export, regional and private tenants, a supported Helm install on their GPUs, and the runtime guardrails from [13-phase11-later.md](13-phase11-later.md). "Bring your own key" in this file means the customer's encryption key for their Cloud data. It does not restrict which model they use; that is already free in the CLI.
+
+Depends on: Insidia Cloud (Phase 2) for a private deployment. The deployment track can start once compose is production-shaped.
 Parent: [00-master-plan.md](00-master-plan.md).
 
 ## Goal
-A company can use Insidia Labs under their identity provider, with roles, an audit log, and a deployment that matches their data rules: our multi-tenant cloud, a regional instance, a single-tenant cloud, or the whole brain installed in their network.
+A company can use Insidia under their identity provider, with roles, an audit log, and a deployment that matches their data rules: our multi-tenant cloud, a regional instance, a single-tenant cloud, or Cloud installed in their network.
 
 ## Exit
 - SSO login via OIDC works for a test IdP. SAML works for one test IdP or is explicitly deferred with OIDC covering the pilot.
@@ -13,7 +15,7 @@ A company can use Insidia Labs under their identity provider, with roles, an aud
 - Helm chart installs API, workers, hub, egress proxy, RabbitMQ, Valkey, and the key service, and configures an external Postgres and the customer's KMS or HSM (Vault Transit or a cloud KMS). A smoke scan runs against the fixture inside the cluster.
 - Customers can bring their own master key (BYOK) in the shared cloud, and revoking it crypto-shreds their data (see [14-database-schema.md](14-database-schema.md)).
 - Staff access grants are fully self-service for customer admins: approve, revoke, set standing grant policies, and see every staff decryption in their audit log.
-- Admin console ([20-admin-console.md](20-admin-console.md)): monthly SOC 2 staff access-review export (the security hardening and full two-person rule already ship in Phase 2), and a reduced operator console in the Helm chart for on-prem and private tenants (health, queues, runners, kill switches, settings; engines shown as Insidia Labs Engine modules).
+- Admin console ([20-admin-console.md](20-admin-console.md)): monthly SOC 2 staff access-review export (the security hardening and full two-person rule ship with the console in Phase 2C), and a reduced operator console in the Helm chart for self-hosted and private tenants (health, queues, runners, kill switches, settings, engines named).
 - On-prem install guide includes `THIRD_PARTY_NOTICES.md` generation for images that are actually shipped. Legal review is a checklist item before the first on-prem customer, not a code task.
 - Air-gapped profile: attacker and judge models point at an in-cluster model service (vLLM + AWQ, Stage 1 spec from [19-model-hosting.md](19-model-hosting.md): at least one 48 GB GPU the customer provides, weights shipped with pinned SHA-256); no calls to our SaaS control plane; image pulls from their registry.
 - Owned matrix cells are green ([17-test-suite.md](17-test-suite.md)). Phase 10 does not own cells.
@@ -42,8 +44,8 @@ Images: api, worker-ai, worker-classic, worker-static, worker-agent, worker-insi
 - Taxonomy data is baked into the image so the install does not fetch OWASP or MITRE at runtime.
 - Interactsh runs inside their cluster for blind bugs, bound to their scan network, not to our cloud.
 
-## Notices and confidentiality
-On-prem **is** distribution. The chart build writes `THIRD_PARTY_NOTICES.md` into each image from the lockfiles. It is not shown in the product UI. Marketing pages still do not name the engines. Counsel reviews the notice file before shipment. Attribution-forced dependencies stay excluded (AI-Infra-Guard).
+## Notices
+A self-hosted install **is** distribution. The chart build writes `THIRD_PARTY_NOTICES.md` into each image from the lockfiles, and the docs name the engines. Counsel reviews the notice file before the first supported install. Tencent AI-Infra-Guard can be reconsidered, since public attribution is no longer a reason to exclude it; it still needs a license review before it is bundled.
 
 ## SOC 2 readiness (Insidia Labs the company)
 Not a feature. A checklist next to this phase: access reviews, audit log, encryption at rest (Postgres and object storage), TLS everywhere, backup restore drill, vulnerability process for our own images. Implementation work that is purely policy stays out of the repo except internal docs in `internal/security/`. The customer-facing security and trust pages live in `docs/`.

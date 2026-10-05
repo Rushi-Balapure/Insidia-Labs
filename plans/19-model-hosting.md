@@ -1,16 +1,16 @@
-# Model hosting: attacker and judge models
+# Phase 2A — Model hosting: attacker and judge
 
-Internal plan. Names models and runtimes; never copy model names onto customer surfaces (they are part of "Confidentiality of the stack" in the master plan).
+> **v6. Public.** This is the Insidia Cloud model service. Model names and runtimes are documented. The CLI does not require it: a user points the `attacker` and `judge` roles at any provider, and Insidia Cloud is one of them (`provider: insidia-cloud` after `insidia login`). Calls are metered per org. No prompt logging.
 
-## Why we self-host uncensored models
-- Commercial model APIs refuse attack generation and often refuse to grade harmful transcripts. Iterative attacks (TAP, PAIR, Crescendo, the M-A11 attack generator) and the Phase 5 pentest agent need a model that does not refuse.
-- We run open-weight, uncensored (abliterated) models in our own cluster. No customer data leaves our cloud to a model vendor.
-- Customers never bring their own model (see "No free/local/BYOK mode" in the master plan).
+## Why we host uncensored models
+- Commercial model APIs often refuse attack generation and often refuse to grade harmful transcripts. Iterative attacks (TAP, PAIR, Crescendo, the M-A11 attack generator) and the Phase 2B pentest agent work better on a model that does not refuse.
+- We run open-weight, uncensored (abliterated) models on our GPUs. A Cloud customer's prompts are not sent to a third-party model vendor.
+- A user can still bring their own model, local or hosted, for free. Cloud is the option that does not refuse and that we operate.
 
 ## Roles
 | Role | Used by | Needs uncensored? |
 |---|---|---|
-| `attacker` | PyRIT/DeepTeam attacker targets, M-A11 generator, M-A2 converters that paraphrase, Phase 5 agent | Yes |
+| `attacker` | PyRIT/DeepTeam attacker targets, M-A11 generator, M-A2 converters that paraphrase, Phase 2B agent | Yes |
 | `judge` | `policy_judge` oracle only | Preferred. Deterministic oracles (canary, tool-trace, ACL, goal-diff) run first and carry most verdicts, so judge load is small |
 
 Callers ask `engine/models` for a role, never for a model name. The role-to-model mapping is config.
@@ -104,11 +104,11 @@ The candidates publish GGUF only. For Stage 1 we need safetensors:
 5. Pin the output by SHA-256 in `engine/models/manifest.yaml`.
 
 ## Security and isolation
-- Model servers run in-cluster only. No internet egress, no ingress from outside the cluster. Only engine workers and the Phase 5 agent can call them (network policy).
+- Model servers run in-cluster only. No internet egress, no ingress from outside the cluster. Workers and the Phase 2B agent call them. The CLI calls the public metered API, not the model server directly.
 - Weights are pulled once into our registry or bucket and verified by SHA-256; pods never download from Hugging Face at runtime.
 - Prompts can contain customer context (gray-box system prompts, tool schemas). Model servers do not log prompts or completions; request logging is off and verified by a test.
 - Uncensored output is treated as attack payload: it is only sent to the verified target through the relay, tunnel, or egress proxy, and stored only as encrypted evidence.
-- Model and runtime names never appear on customer surfaces; the denylist CI in [15-customer-docs.md](15-customer-docs.md) includes them.
+- Model and runtime names are public. The docs say which model a Cloud scan used. Prompts and weights are not: prompts are not logged, and weights are not published from the cluster.
 
 ## Cost tracking
 - Each model call records tokens and GPU-seconds against the scan in `usage_events` ([14-database-schema.md](14-database-schema.md)).

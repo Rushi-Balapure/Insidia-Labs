@@ -1,5 +1,7 @@
 # Validity Matrix (expanded)
 
+> **v6.** This function is current and becomes part of the public scanner benchmark in `benchmark/matrix/`. Publishing it does not change which cells are valid. The CLI does not add a connection mode.
+
 Companion to [17-test-suite.md](17-test-suite.md). This file is the human-readable version of `tests/matrix/validity.py`: the exact dimension tokens, the real validity function, and the matrix rendered as projection tables so the valid vs N/A cells are easy to read. The generator (`tests/matrix/cells.yaml`) is the machine source of truth; this doc must match it.
 
 ## Dimensions and exact tokens

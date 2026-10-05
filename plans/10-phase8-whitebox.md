@@ -1,10 +1,12 @@
-# Phase 8 — White box
+# White box — static in Phase 1B, depth in Phase 3
 
-Depends on: Phase 4 artifact upload limits, Phase 5/6 planners that can consume extra context, Phase 7 discovery patterns.
+> **v6.** gitleaks, osv-scanner, Trivy, Bandit, and gosec run locally in the free CLI (Phase 1B) against the working tree. Nothing is uploaded. Secret findings store a location and a fingerprint, never the value. The AI-BOM, the in-process SDK, and the planner that turns extracted prompts and tools into extra probes are Phase 3. Uploading an extract to Insidia Cloud is optional and paid only when a Cloud scan uses it.
+
+Depends on: Phase 1A for the local scanners. The planner hook depends on Phase 2B and Phase 3.
 Parent: [00-master-plan.md](00-master-plan.md). Coverage spec layer 9.
 
 ## Goal
-Point the runner at a repository and get static findings plus dynamic tests generated from what the code actually does (prompts, tools, sinks). The cloud receives artifacts, not a full copy of the repo, and never receives secret values.
+Point Insidia at a repository and get static findings, plus, in Phase 3, dynamic tests generated from what the code actually does. The CLI keeps the repo on the machine. Cloud receives artifacts only when the user uploads them, and never receives secret values.
 
 ## Exit
 - `insidia-runner extract --path ./app` against a fixture repo produces: prompt templates, tool schemas, an agent/tool graph, dependency manifests, and secret locations without values.

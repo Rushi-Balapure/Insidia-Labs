@@ -1,7 +1,9 @@
-# Phase T — Test harness first (permutation suite)
+# Phase T — Test harness (done) and the public scanner benchmark
 
-Depends on: Phase 0 scaffold. Blocks: the exit of every build phase (1 onward).
-Parent: [00-master-plan.md](00-master-plan.md). Targets and thresholds are shared with [16-coverage-gaps.md](16-coverage-gaps.md) and the Phase 6 benchmark ([08-phase6-engine-registry.md](08-phase6-engine-registry.md)).
+> **v6. Status: done, and now public.** The harness, the matrix, and the sandboxed targets move to `benchmark/` in Phase 1.0 and are published so anyone can score a scanner, including ours. The ownership map still uses v5 phase numbers until that move remaps it. The v6 homes are in the table below and in [00-master-plan.md](00-master-plan.md#phase-mapping-from-v5). The CLI is a driver, not a new connection mode: a local scan still uses direct, relay, tunnel, or the SDK bridge to reach the target.
+
+Depends on: Phase 0 scaffold. Blocks: the exit of every build phase.
+Parent: [00-master-plan.md](00-master-plan.md). Targets and thresholds are shared with [16-coverage-gaps.md](16-coverage-gaps.md) and the registry benchmark ([08-phase6-engine-registry.md](08-phase6-engine-registry.md)).
 
 ## Intent
 Before a feature is built, its acceptance test exists. For every valid combination of connector, box mode, attack type, and connection mode, there is a sandboxed target with a **known planted vulnerability**, the exact permutation cell it exercises, and a **pass threshold** (minimum recall and precision against ground truth). Tests are written first, run red (xfail), and must flip to green for the owning phase to exit. This is the `tdd-guide` rule applied to the whole product, and it gives us a threshold to build toward instead of a vague "does it work".
@@ -109,16 +111,23 @@ flowchart LR
   Score --> Bench[phase6_benchmark_same_cells]
 ```
 
-## Ownership by phase (initial)
-- **Phase 1:** chat black-box relay and direct; web and API black-box tunnel and direct; canary, SQLi, XSS cells at Standard and Thorough.
-- **Phase 3:** taxonomy tagging assertions on existing cells (each finding carries the expected framework id).
-- **Phase 4A:** rag, indirect injection, memory, output-sink, gray-box chat cells; multimodal converters.
-- **Phase 4B:** API access-control (BOLA/BFLA), auth/JWT, GraphQL, gRPC, injection-depth, SAST (Python, JS/TS) cells.
-- **Phase 5:** the chained AI-to-classic exploit is that phase's own exit test. It is not a separate matrix attack; output-sink cells are owned by Phase 4A.
-- **Phase 7:** agent, multi-agent/A2A, MCP, sandbox, approval cells.
-- **Phase 8:** white-box cells (SAST remaining languages, extract, embedding exposure).
-- **Phase 9:** race-condition cells and `api_ws`. Chat transports, including `chat_ws`, stay with the chat phases (1, 4A, 8).
-- **Phase 11:** predictive-ML, smuggling, client-side cells.
+## Ownership by phase
+`ownership.yaml` keeps the v5 numbers until Phase 1.0 remaps it. Read the v5 number, then use this table.
+
+| v5 owner in `ownership.yaml` | v6 owner |
+| --- | --- |
+| Phase 1: chat black-box, web and API black-box, canary, SQLi, XSS | 1B |
+| Phase 3: taxonomy tags on existing cells | 1D |
+| Phase 4A deterministic: RAG, indirect injection, memory, output sinks | 1C |
+| Phase 4A model-driven: generated multi-turn variants | 2B |
+| Phase 4B: BOLA/BFLA, JWT, GraphQL, gRPC, SAST for Python and JS/TS | 1B and 1C |
+| Phase 5: the chained AI-to-classic exploit (its own exit test, not a matrix attack) | 2B |
+| Phase 7 scripted: tool misuse on a declared tool list | 1C |
+| Phase 7 depth: honeypots, multi-agent, A2A | Phase 3 |
+| Phase 8 static scanners | 1B |
+| Phase 8 AI-BOM, SDK, embedding exposure | Phase 3 |
+| Phase 9: race conditions and `api_ws` | 1B |
+| Phase 11: predictive ML, smuggling, client-side | Phase 3 |
 
 ## Tests (of the harness itself)
 - Completeness: valid + N/A equals the full cross-product.

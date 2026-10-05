@@ -1,0 +1,27 @@
+:root {
+  --insidia-navy-900: #101028;
+  --insidia-white: #FFFFFF;
+  --insidia-sunburst: #F6C13F;
+  --insidia-amber: #F4AF3C;
+  --insidia-tangerine: #F09437;
+  --insidia-orange: #ED7B39;
+  --insidia-coral: #EA654D;
+  --insidia-rose: #E95169;
+  --insidia-magenta: #E33D86;
+  --insidia-berry: #B93486;
+  --insidia-plum: #8D307C;
+  --insidia-deep-purple: #542970;
+  --insidia-indigo-shadow: #35225B;
+  --insidia-navy-800: #181839;
+  --insidia-navy-700: #2E2E56;
+  --insidia-navy-300: #B2B2D1;
+  --insidia-navy-600: #454573;
+  --insidia-navy-50: #F6F6FB;
+  --insidia-gradient: linear-gradient(180deg, #F2A239 0%, #EF8636 14%, #EC6F42 29%, #EA5562 43%, #E73E86 57%, #D0378A 71%, #B23385 86%, #953080 100%);
+  --insidia-gradient-short: linear-gradient(135deg, #F6C13F 0%, #ED7B39 35%, #E33D86 70%, #542970 100%);
+  --insidia-bg: var(--insidia-navy-900);
+  --insidia-text: #FFFFFF;
+  --insidia-text-muted: var(--insidia-navy-300);
+  --insidia-accent: var(--insidia-orange);
+  --insidia-accent-2: var(--insidia-magenta);
+}
