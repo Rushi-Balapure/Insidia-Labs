@@ -12,8 +12,8 @@ todos:
     content: "Phase W: marketing site (built on phase-w-marketing-site); rework for open-source-first messaging and engine credits"
     status: in_progress
   - id: restructure
-    content: "Phase 1.0: restructure the repo (core/, cloud/, benchmark/, skills/), add NOTICE next to the Apache-2.0 LICENSE, remap test ownership to the new phases"
-    status: pending
+    content: "Phase 1.0 (done): engine/ is cloud/, the harness is benchmark/, ownership.yaml uses v6 phase ids, CONTRIBUTING/SECURITY/AGENTS are in the repo"
+    status: completed
   - id: phase1a
     content: "Phase 1A: insidia CLI core - config, scope guard, target adapters, model-agnostic provider layer, engine manager, findings normalizer"
     status: pending
@@ -281,10 +281,10 @@ Insidia-Labs/
   plans/
   LICENSE, NOTICE, THIRD_PARTY_NOTICES.md, CONTRIBUTING.md, SECURITY.md, AGENTS.md
 ```
-Restructure rules: use `git mv` so history follows the files; update CI paths, compose files, and the matrix CLI in the same change; keep `tests/` working until the move lands green; the ownership map in `benchmark/matrix/ownership.yaml` is remapped to v6 phases (table below). `ownership.py` only loads that file.
+Restructure rules, applied in Phase 1.0: `git mv` so history follows the files; CI paths, compose files, and the matrix CLI updated in the same change. The ownership map in `benchmark/matrix/ownership.yaml` uses v6 phase ids. `ownership.py` is the function that produces that file.
 
 ## Phase mapping from v5
-The Phase T ownership map and older plan files use v5 numbers. This table is the translation until `ownership.yaml` is remapped in Phase 1.0.
+Older plan files still mention v5 numbers. This table is how those numbers landed in `ownership.yaml`.
 
 | v5 phase | v6 home |
 | --- | --- |
@@ -313,7 +313,7 @@ Monorepo scaffold, ADRs, the security-first database (roles, RLS, envelope encry
 Static Astro site on Vercel, separate from the product; brand kit applied; looping HTML demos; waitlist. Rework for v6: lead with the open-source CLI (GitHub link and stars, the `uv tool install` line from GitHub, the agent prompt), credit the engines, remove the engine-name denylist from the site CI, add the benchmark page, and make Cloud the second call to action. Videos follow [22-website-video-scripts.md](22-website-video-scripts.md). See [21-marketing-website.md](21-marketing-website.md).
 
 ### Phase 1 - Open-source launch (free)
-- **1.0 Restructure:** the layout above, `LICENSE` and `NOTICE` (already in the repo), `CONTRIBUTING.md` with DCO, `SECURITY.md`, `AGENTS.md`, CI paths, ownership remap. Exit: CI green on the new layout with no behavior change.
+- **1.0 Restructure (done):** `cloud/` (was `engine/`), `benchmark/` (was `tests/` plus `engine/taxonomy-data/`), `LICENSE`, `NOTICE`, `CONTRIBUTING.md`, `SECURITY.md`, `AGENTS.md`, CI paths, and the v6 ownership remap. `core/` and `skills/insidia/` arrive with the CLI in 1A and 1E. Exit met when this branch's CI is green and Cloud behavior is unchanged.
 - **1A CLI core:** `insidia.yaml` schema and `init`, scope guard, target adapters (HTTP chat, OpenAI-compatible, Anthropic-style, WebSocket, MCP stdio and HTTP, web, REST/GraphQL/gRPC, local repo), the model provider layer, engine manager (local toolchains and Docker mode), capability registry v1, normalizer with cross-engine dedup, run directory format, `doctor`. Exit: `insidia scan` runs one AI probe and one web probe against the sandbox on Linux, macOS, and Windows.
 - **1B Engines:** garak, promptfoo, PyRIT (single-turn), DeepTeam, mcp-scanner, SkillSpector; ZAP, Nuclei, Dalfox, katana/httpx, Trivy, osv-scanner, gitleaks, Bandit, gosec. Exit: the v5 Phase 1, 4B static, 8 static, and 9 race/websocket cells (see mapping) are green with no model configured where the cell allows it.
 - **1C Gap modules:** the Insidia-built modules from [16-coverage-gaps.md](16-coverage-gaps.md) that do not need our hosted model: canary leakage oracle, instruction-hierarchy probes, indirect-injection fixtures (documents, web pages, tool results), RAG cross-tenant bleed, tool-trace and goal-diff oracles, output-sink checks, BOLA/BFLA, mass assignment, JWT, GraphQL depth, scripted AI-to-classic chains. Exit: the owned 4A deterministic and 4B cells are green.

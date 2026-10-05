@@ -1,6 +1,6 @@
 # Phase 0 — Foundations (done)
 
-> **v6. Status: done.** This phase built the Insidia Cloud foundation: API, workers, hub, and the security-first database. v6 keeps all of that and adds a local CLI (`core/`, Phase 1) under Apache-2.0. Three decisions below are superseded and kept here as history: ADR 0001 (no local mode), ADR 0004 (hide engine names), and ADR 0005 (stack is confidential). The replacements are in [00-master-plan.md](00-master-plan.md). `engine/` is the current path and becomes `cloud/` in Phase 1.0.
+> **v6. Status: done.** This phase built the Insidia Cloud foundation: API, workers, hub, and the security-first database. v6 keeps all of that and adds a local CLI (`core/`, Phase 1) under Apache-2.0. Three decisions below are superseded and kept here as history: ADR 0001 (no local mode), ADR 0004 (hide engine names), and ADR 0005 (stack is confidential). The replacements are in [00-master-plan.md](00-master-plan.md). `engine/` moved to `cloud/` in Phase 1.0. The layout list below is the Phase 0 tree; read `cloud/` wherever it says `engine/`.
 
 Depends on: nothing. Blocks: every later phase.
 Parent: [00-master-plan.md](00-master-plan.md).

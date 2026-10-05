@@ -22,7 +22,7 @@ jobs:
           --health-retries 20
     defaults:
       run:
-        working-directory: engine
+        working-directory: cloud
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -43,13 +43,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
       - run: uv python install 3.14
-        working-directory: engine
+        working-directory: cloud
       - run: uv sync
-        working-directory: engine
-      - run: uv run --project engine ruff check tests
-      # --project is resolved from this step's directory, so engine is ../engine.
-      - run: uv run --project ../engine python -m pytest
-        working-directory: tests
+        working-directory: cloud
+      - run: uv run --project cloud ruff check benchmark
+      # --project is resolved from this step's directory, so cloud is ../cloud.
+      - run: uv run --project ../cloud python -m pytest
+        working-directory: benchmark
 
   go:
     runs-on: ubuntu-latest
@@ -61,7 +61,7 @@ jobs:
       - run: go test ./...
         working-directory: runner
       - run: go test ./...
-        working-directory: engine/hub
+        working-directory: cloud/hub
 
   dashboard:
     runs-on: ubuntu-latest

@@ -1,6 +1,6 @@
 FROM golang:1.24 AS build
 WORKDIR /src
-COPY engine/hub /src
+COPY cloud/hub /src
 RUN CGO_ENABLED=0 go build -o /insidia-hub ./cmd/insidia-hub
 
 FROM debian:bookworm-slim
