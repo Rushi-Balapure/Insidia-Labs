@@ -2,7 +2,7 @@
 
 > **v6.** This function is current and becomes part of the public scanner benchmark in `benchmark/matrix/`. Publishing it does not change which cells are valid. The CLI does not add a connection mode.
 
-Companion to [17-test-suite.md](17-test-suite.md). This file is the human-readable version of `tests/matrix/validity.py`: the exact dimension tokens, the real validity function, and the matrix rendered as projection tables so the valid vs N/A cells are easy to read. The generator (`tests/matrix/cells.yaml`) is the machine source of truth; this doc must match it.
+Companion to [17-test-suite.md](17-test-suite.md). This file is the human-readable version of `benchmark/matrix/validity.py`: the exact dimension tokens, the real validity function, and the matrix rendered as projection tables so the valid vs N/A cells are easy to read. The generator (`benchmark/matrix/cells.yaml`) is the machine source of truth; this doc must match it.
 
 ## Dimensions and exact tokens
 
@@ -47,7 +47,7 @@ code.secrets       deps.sca           infra.cve          infra.tls
 
 ## The validity function
 ```python
-# tests/matrix/validity.py
+# benchmark/matrix/validity.py
 CHAT = {"chat_http", "chat_openai", "chat_anthropic", "chat_bedrock", "chat_azure", "chat_ws"}
 AGENTIC = {"agent", "multi_agent"}
 AI_APP = CHAT | {"rag", "agent", "multi_agent", "sdk_inproc"}
@@ -229,4 +229,4 @@ python -m tests.matrix.cells --explain-na # every N/A cell with its reason
 Keeping the count in the generator, not hand-written here, is deliberate: when a family or connector is added, the number changes and the completeness test (valid + N/A == full cross-product) is what guarantees nothing is missing.
 
 ## Keep in sync
-This doc and `tests/matrix/validity.py` must agree. A CI check renders the four projections from the code and diffs them against this file, so the tables cannot drift from the function.
+This doc and `benchmark/matrix/validity.py` must agree. A CI check renders the four projections from the code and diffs them against this file, so the tables cannot drift from the function.

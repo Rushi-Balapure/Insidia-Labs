@@ -26,7 +26,7 @@ services:
   migrate:
     build:
       context: ../..
-      dockerfile: deploy/compose/engine.Dockerfile
+      dockerfile: deploy/compose/cloud.Dockerfile
     environment: &engine_env
       INSIDIA_DEV_MODE: "true"
       INSIDIA_DEV_ENDPOINTS: "true"
@@ -47,7 +47,7 @@ services:
   api:
     build:
       context: ../..
-      dockerfile: deploy/compose/engine.Dockerfile
+      dockerfile: deploy/compose/cloud.Dockerfile
     environment: *engine_env
     command: ["uv", "run", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
     ports:
@@ -63,7 +63,7 @@ services:
   worker:
     build:
       context: ../..
-      dockerfile: deploy/compose/engine.Dockerfile
+      dockerfile: deploy/compose/cloud.Dockerfile
     environment: *engine_env
     command:
       [

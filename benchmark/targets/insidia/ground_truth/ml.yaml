@@ -1,0 +1,14 @@
+- id: plant.insidia-ml.ai_predictive_ml
+  attack: ai.predictive_ml
+  location: benchmark/targets/insidia/ml.py:predictive_ml
+  probe_id: insidia.ai.predictive_ml
+  taxonomy_id: AML.T0043
+  severity: high
+  oracle: structural
+- id: plant.insidia-ml.ai_supply_chain
+  attack: ai.supply_chain
+  location: benchmark/targets/insidia/ml.py:supply_chain
+  probe_id: insidia.ai.supply_chain
+  taxonomy_id: LLM04
+  severity: high
+  oracle: manifest

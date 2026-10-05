@@ -28,7 +28,7 @@ The matrix is a generated registry, not a hand-drawn grid, so it stays complete 
 - **Connection mode:** direct (sandboxed "public"), runner relay, runner tunnel, SDK bridge.
 
 ### Validity function (impossible cells are N/A, with a reason)
-Encoded once in `tests/matrix/validity.py`:
+Encoded once in `benchmark/matrix/validity.py`:
 - White box needs code access, so it is valid only through runner `extract`, source upload, or the SDK; N/A for direct-only hosted targets.
 - Gray box needs a context object (system prompt, tool schemas, purpose, or a whitebox bundle); N/A when none applies.
 - Attack types are scoped to compatible connectors: XSS and client-side to web; BOLA/BFLA/mass assignment to api and web; RAG poisoning to rag; tool misuse, sandbox escape, and approval bypass to agent; A2A spoof and cascade to multi-agent; SAST/secrets/SCA to code-bearing (white box) cells.
@@ -36,7 +36,7 @@ Encoded once in `tests/matrix/validity.py`:
 
 Every valid cell gets exactly one ground-truth test. Every N/A cell is recorded with its reason. A completeness test asserts the union of valid and N/A equals the full cross-product, so no permutation is silently missing. The full function and the matrix rendered as projection tables (attack x connector, connector x connection mode, box-mode support, and a worked `web` example) are in [18-validity-matrix.md](18-validity-matrix.md).
 
-## Sandboxed, local-only targets (`tests/targets/`)
+## Sandboxed, local-only targets (`benchmark/targets/`)
 OSS vulnerable apps, self-hosted and pinned by image digest:
 
 | Target | License | Covers |
@@ -47,7 +47,7 @@ OSS vulnerable apps, self-hosted and pinned by image digest:
 | Damn Vulnerable GraphQL Application | MIT | GraphQL: introspection, batching, injection, authz |
 | AgentDojo | MIT | agent: tool misuse, indirect injection, goal hijack |
 
-Our own fixtures for cells the OSS apps do not cover (`tests/targets/insidia/`):
+Our own fixtures for cells the OSS apps do not cover (`benchmark/targets/insidia/`):
 - vulnerable chatbot (canary leak, jailbreak, hidden-context extraction)
 - RAG app with a plantable corpus (poisoning, cross-doc smuggling, tenant bleed)
 - MCP agent with dangerous tools (tool-chain, sandbox sensors, approval flag)
@@ -70,9 +70,9 @@ Our own fixtures for cells the OSS apps do not cover (`tests/targets/insidia/`):
 - Oracles are deterministic wherever possible (canary, tool-trace, structural sink, ACL), per [06-phase4-depth.md](06-phase4-depth.md). Judge-only cells record confidence and cannot alone assert a critical finding.
 - Golden result files per cell provide regression detection alongside the absolute thresholds: a drop from the golden set fails even if the threshold is still met.
 
-## Harness (`tests/`)
+## Harness (`benchmark/`)
 ```
-tests/
+benchmark/
   matrix/
     cells.yaml          generated registry of every cell
     validity.py         valid vs N/A with reasons
@@ -90,12 +90,12 @@ tests/
   cells/                one test per valid cell (xfail until built)
   golden/               per-cell golden findings
 ```
-- `pytest` driver. Reuses Phase 1 fixtures (`engine/workers/ai/testdata/`) and is the single source the Phase 6 benchmark reads.
+- `pytest` driver. Reuses Phase 1 fixtures (`cloud/workers/ai/testdata/`) and is the single source the benchmark runner reads.
 - Markers per dimension (`-m "connector_web and blackbox and sqli"`) so a phase or a developer runs its slice.
 
 ## Gate mechanism
 - **Phase T deliverable:** the harness, the sandbox, the matrix registry, the validity function, the ground-truth manifests, and every cell test written and passing as xfail. No product code is required for Phase T to exit; the tests define the threshold the product must later meet.
-- **Per-phase gate:** `tests/matrix/ownership.yaml` maps each cell to the phase that builds it. A CI check fails a phase's PRs if a cell it owns is still xfail at that phase's exit. Each phase plan's Exit section gains one line: "owned matrix cells are green."
+- **Per-phase gate:** `benchmark/matrix/ownership.yaml` maps each cell to the phase that builds it. A CI check fails a phase's PRs if a cell it owns is still xfail at that phase's exit. Each phase plan's Exit section gains one line: "owned matrix cells are green."
 - **CI cadence:** the affected slice per PR; the full matrix nightly and on every engine version bump (shared with the Phase 6 benchmark run).
 
 ```mermaid

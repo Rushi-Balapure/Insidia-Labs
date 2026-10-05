@@ -12,8 +12,8 @@ todos:
     content: "Phase W: marketing site (built on phase-w-marketing-site); rework for open-source-first messaging and engine credits"
     status: in_progress
   - id: restructure
-    content: "Phase 1.0: restructure the repo (core/, cloud/, benchmark/, skills/), add NOTICE next to the Apache-2.0 LICENSE, remap test ownership to the new phases"
-    status: pending
+    content: "Phase 1.0 (done): engine/ is cloud/, the harness is benchmark/, ownership.yaml uses v6 phase ids, CONTRIBUTING/SECURITY/AGENTS are in the repo"
+    status: completed
   - id: phase1a
     content: "Phase 1A: insidia CLI core - config, scope guard, target adapters, model-agnostic provider layer, engine manager, findings normalizer"
     status: pending
@@ -51,6 +51,27 @@ isProject: false
 
 Plans are stored in both `/home/rushi/Desktop/Rushi/Insidia-Labs/plans/` and this repo's `plans/`. This file is `00-master-plan.md`. The AI attack coverage requirements live in `01-ai-redteam-coverage-spec.md`.
 
+## Status
+
+Update this table in the same change that starts or finishes a phase. The next row to build is **1A**.
+
+| Phase | Status | Where it stands |
+| --- | --- | --- |
+| 0 Foundations | Done | Merged to `main`. Cloud database, RLS, envelope encryption, CI. |
+| T Test harness | Done | Merged to `main`. Now lives in `benchmark/`. 1,235 cells, still xfail until a scanner exists. |
+| W Marketing site | Built, rework pending | Site is on `main`. Still to do: open-source-first copy, engine credits, drop the engine-name denylist, benchmark page. |
+| 1.0 Restructure | Done | Branch `phase-1.0-restructure`, commit `1a02366`. Not merged. `engine/` is `cloud/`, `tests/` is `benchmark/`, cells map to v6 phases. |
+| 1A CLI core | Next | Not started. |
+| 1B Engines | Not started | 635 cells in `ownership.yaml`. |
+| 1C Gap modules | Not started | 556 cells. |
+| 1D Benchmark and report | Not started | |
+| 1E Agents and launch | Not started | |
+| 2A Model service | Not started | |
+| 2B Custom attacks and pentest agent | Not started | |
+| 2C Hosted dashboard | Not started | |
+| 3 Depth | Not started | 44 cells (SDK, predictive ML, smuggling, client-side). |
+| 4 Enterprise | Not started | |
+
 ## What changed in v6
 v5 was a closed-source, multi-tenant SaaS with a model-free trial and every OSS engine hidden behind an "Insidia Labs Engine" label. v6 follows the pattern of developer-tool companies that grew from an open core (mem0, Supabase, PostHog, Langfuse):
 - **The code is open source under Apache-2.0**, including the Phase 2 Cloud code. The product a customer pays for is the hosted service: GPUs, our tuned uncensored attacker and judge models operated for them, uptime, the dashboard, team features, and support.
@@ -82,7 +103,7 @@ Each file has been updated for v6. Filenames keep their v5 numbers so existing l
 | [14-database-schema.md](14-database-schema.md) | Insidia Cloud database | Updated; schema unchanged |
 | [15-customer-docs.md](15-customer-docs.md) | Docs; the agent skill goes first | Updated |
 | [16-coverage-gaps.md](16-coverage-gaps.md) | Gap modules, Phase 1C and 2B | Updated; no longer internal |
-| [17-test-suite.md](17-test-suite.md) | Public scanner benchmark and phase gate | Updated; ownership remap is still Phase 1.0 work |
+| [17-test-suite.md](17-test-suite.md) | Public scanner benchmark and phase gate | Updated; ownership remap landed in Phase 1.0 |
 | [18-validity-matrix.md](18-validity-matrix.md) | Matrix validity function | Updated; function unchanged |
 | [19-model-hosting.md](19-model-hosting.md) | Cloud model service, Phase 2A | Updated; no longer internal |
 | [20-admin-console.md](20-admin-console.md) | Staff console, Phase 2C | Updated |
@@ -251,7 +272,7 @@ The relay protocol (protobuf over gRPC/WSS) between the Cloud hub and the runner
 - **Admin console:** staff-only, internal hostname, as in [20-admin-console.md](20-admin-console.md).
 
 ## Monorepo layout (target)
-Phase 1.0 moves the repo to this shape. The whole repo is public, including `internal/`: the ADRs and the threat model ship with the code.
+Phase 1.0 moved the repo to this shape. The whole repo is public, including `internal/`: the ADRs and the threat model ship with the code.
 ```
 Insidia-Labs/
   core/                   Python package `insidia` (3.12+): CLI, config, scope guard, target adapters,
@@ -281,10 +302,10 @@ Insidia-Labs/
   plans/
   LICENSE, NOTICE, THIRD_PARTY_NOTICES.md, CONTRIBUTING.md, SECURITY.md, AGENTS.md
 ```
-Restructure rules: use `git mv` so history follows the files; update CI paths, compose files, and the matrix CLI in the same change; keep `tests/` working until the move lands green; the ownership map in `benchmark/matrix/ownership.yaml` is remapped to v6 phases (table below). `ownership.py` only loads that file.
+Restructure rules, applied in Phase 1.0: `git mv` so history follows the files; CI paths, compose files, and the matrix CLI updated in the same change. The ownership map in `benchmark/matrix/ownership.yaml` uses v6 phase ids. `ownership.py` is the function that produces that file.
 
 ## Phase mapping from v5
-The Phase T ownership map and older plan files use v5 numbers. This table is the translation until `ownership.yaml` is remapped in Phase 1.0.
+Older plan files still mention v5 numbers. This table is how those numbers landed in `ownership.yaml`.
 
 | v5 phase | v6 home |
 | --- | --- |
@@ -313,7 +334,7 @@ Monorepo scaffold, ADRs, the security-first database (roles, RLS, envelope encry
 Static Astro site on Vercel, separate from the product; brand kit applied; looping HTML demos; waitlist. Rework for v6: lead with the open-source CLI (GitHub link and stars, the `uv tool install` line from GitHub, the agent prompt), credit the engines, remove the engine-name denylist from the site CI, add the benchmark page, and make Cloud the second call to action. Videos follow [22-website-video-scripts.md](22-website-video-scripts.md). See [21-marketing-website.md](21-marketing-website.md).
 
 ### Phase 1 - Open-source launch (free)
-- **1.0 Restructure:** the layout above, `LICENSE` and `NOTICE` (already in the repo), `CONTRIBUTING.md` with DCO, `SECURITY.md`, `AGENTS.md`, CI paths, ownership remap. Exit: CI green on the new layout with no behavior change.
+- **1.0 Restructure (done, on `phase-1.0-restructure`):** `cloud/` (was `engine/`), `benchmark/` (was `tests/` plus `engine/taxonomy-data/`), `LICENSE`, `NOTICE`, `CONTRIBUTING.md`, `SECURITY.md`, `AGENTS.md`, CI paths, and the v6 ownership remap. `core/` and `skills/insidia/` arrive with the CLI in 1A and 1E. Local Ruff, mypy, Cloud unit tests, and the benchmark suite passed. The first GitHub run failed because the license check still opened `engine/pyproject.toml`; that path is `cloud/pyproject.toml` now.
 - **1A CLI core:** `insidia.yaml` schema and `init`, scope guard, target adapters (HTTP chat, OpenAI-compatible, Anthropic-style, WebSocket, MCP stdio and HTTP, web, REST/GraphQL/gRPC, local repo), the model provider layer, engine manager (local toolchains and Docker mode), capability registry v1, normalizer with cross-engine dedup, run directory format, `doctor`. Exit: `insidia scan` runs one AI probe and one web probe against the sandbox on Linux, macOS, and Windows.
 - **1B Engines:** garak, promptfoo, PyRIT (single-turn), DeepTeam, mcp-scanner, SkillSpector; ZAP, Nuclei, Dalfox, katana/httpx, Trivy, osv-scanner, gitleaks, Bandit, gosec. Exit: the v5 Phase 1, 4B static, 8 static, and 9 race/websocket cells (see mapping) are green with no model configured where the cell allows it.
 - **1C Gap modules:** the Insidia-built modules from [16-coverage-gaps.md](16-coverage-gaps.md) that do not need our hosted model: canary leakage oracle, instruction-hierarchy probes, indirect-injection fixtures (documents, web pages, tool results), RAG cross-tenant bleed, tool-trace and goal-diff oracles, output-sink checks, BOLA/BFLA, mass assignment, JWT, GraphQL depth, scripted AI-to-classic chains. Exit: the owned 4A deterministic and 4B cells are green.

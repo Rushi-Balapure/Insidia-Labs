@@ -202,7 +202,7 @@ General-purpose models often refuse to write attacks. The report counts those re
 | [`brand/`](brand/README.md) | Brand kit: logo, lockups, colors, favicons, fonts, README artwork |
 | [`docs/`](docs), [`shared/`](shared), [`deploy/`](deploy), [`plans/`](plans) | Docs, protocol and SDK, deployment templates, roadmap |
 
-The repo is moving to this layout now. Until it lands, `cloud/` is `engine/`, and `benchmark/` lives in `tests/` and `engine/taxonomy-data/`.
+`cloud/` is the Insidia Cloud service. `benchmark/` is the scanner benchmark and the framework mappings.
 
 <details>
 <summary><b>Development</b></summary>
@@ -217,7 +217,7 @@ docker compose -f deploy/compose/docker-compose.yml up --build
 
 The API answers `http://127.0.0.1:8000/healthz`. The dashboard is `http://127.0.0.1:5173`. Dev endpoints and the dev master key exist only when `INSIDIA_DEV_MODE=true`.
 
-Without Docker, from `engine/`:
+Without Docker, from `cloud/`:
 
 ```bash
 uv sync
