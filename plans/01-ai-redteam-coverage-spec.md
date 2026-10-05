@@ -1,5 +1,7 @@
 # AI Red-Team Coverage Spec (Requirements Spine)
 
+> **v6.** This spine is current and applies to both the free CLI and Insidia Cloud ([00-master-plan.md](00-master-plan.md)). Deterministic layers (1–3, 5–7) ship in Phase 1B and 1C. Model-generated and multi-turn attacks ship in Phase 2B. Multi-agent honeypots, white box, and predictive ML ship in Phase 3. The "definition of done for v1" below is the Phase 1 CLI exit, run on the user's machine. Reports name the engine that produced each finding.
+
 Source: product owner, 2026-09-29. Frameworks pinned: OWASP GenAI LLM Top 10 2026 (published 2026-08-04), OWASP Top 10 for Agentic Applications 2026 (ASI01-ASI10), MITRE ATLAS (content v2026.06). Related mappings in the LLM Top 10 2026 appendix: MITRE ATT&CK v19.1, CWE 4.20, NIST AI 600-1, NIST AI RMF, CSA AICM v1.1, OWASP AIVSS v0.8, OWASP DSGAI 2026.
 
 Principle: attack every place untrusted text, tools, memory, models, or humans touch the system, and detect failures with oracles rather than impressions.
@@ -81,7 +83,7 @@ Findings must carry OWASP LLM + ASI IDs, ATLAS technique IDs, severity (AIVSS), 
 - Safety-content packs carry legal/abuse risk; gate behind auth, allowlists, contracts.
 - White-box finds auth/tool-graph bugs black-box never sees; requires code-access trust.
 
-## 7. Definition of done for v1 (on a customer staging system)
+## 7. Definition of done for Phase 1 (the free CLI, on a system the user is allowed to test)
 - Run direct + indirect prompt injection with canary oracles
 - Enumerate tools and attempt misuse / chain exfil with tool-trace oracles
 - Plant and retrieve poisoned RAG docs

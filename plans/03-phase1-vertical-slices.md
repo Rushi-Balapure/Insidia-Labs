@@ -1,25 +1,24 @@
-# Phase 1 — Vertical slices (AI relay + classic tunnel)
+# Vertical slices — local engines (Phase 1B) and Cloud connections (Phase 2C)
 
-Depends on: Phase 0. Blocks: Phase 2 and everything that scans.
+> **v6.** This file splits. The engine adapters, the normalizer, the capability registry, and the fixtures are **Phase 1A and 1B**: they run as local subprocesses inside the `insidia` CLI, on the user's machine, with no account. The hub, relay, tunnel, egress proxy, ownership verification, fairness, and encrypted Cloud storage are **Phase 2C**: they exist so Insidia Cloud can scan public and internal targets. Findings name the engine (`garak`, `ZAP`, or an Insidia module id). Secret masking stays. Probe ids stay stable (`insidia.llm.jailbreak.dan`) and the report also shows the upstream probe name.
+
+Depends on: Phase 0 for the Cloud half. The CLI half depends on Phase 1.0 (the `core/` package).
 Parent: [00-master-plan.md](00-master-plan.md). Coverage: layers 1 and the start of classic DAST in [01-ai-redteam-coverage-spec.md](01-ai-redteam-coverage-spec.md).
 
 ## Goal
-One shared brain can run many customers' scans at once. A Go runner either relays chat attempts (track A) or tunnels raw HTTP (track B), or, for public targets, the brain connects directly with no runner (track C). Findings come back through the API with tenant isolation, encrypted at rest, and without upstream engine names.
-
-Tracks 1A, 1B, and 1C are parallel after the shared contracts land. Fair scheduling and capability registry v1 are part of this phase, not a follow-up.
+The CLI runs an AI probe and a web probe against a local fixture and writes findings that name the engine. Insidia Cloud, later, runs the same `core` package for many orgs at once: a Go runner relays chat (track A) or tunnels raw HTTP (track B), and public targets are scanned directly (track C). Cloud findings are tenant-isolated and encrypted at rest.
 
 ## Exit
-- **1A.** Runner enrolled to org A relays a scan of a localhost OpenAI-compatible chatbot. Findings are stored and readable only by org A. A second org's scan runs at the same time and cannot see org A's data or steal its runner.
-- **1B.** Same runner (tunnel mode) lets a cloud worker reach a localhost web app. At least one SQLi or XSS-class finding is produced from our own fixture app, confirmed with the hosted callback server when the bug is blind.
-- **Fairness.** With org A queued for 1,000 tasks and org B for 10, org B's tasks start before org A finishes. Per-org concurrency cap is enforced.
-- **1C.** A verified public fixture (chatbot and web app) is scanned for AI and web findings with no runner installed. An unverified host and a redirect to `169.254.169.254` are both refused by the egress proxy.
-- **Registry.** The same AI family runs in Standard mode (one engine) and Thorough mode (two engines), and Thorough merges duplicates into one cross-validated finding.
-- Customer-visible JSON uses Insidia Labs probe ids only. The engine link lives only in internal tables (`scan_tasks.engine_id`, `finding_sources`) and never in API responses.
-- A `pg_dump` after the exit scans contains no planted canary value: target names, URLs, hosts, payloads, responses, or credentials.
+- **Phase 1B, local.** `insidia scan` on Linux, macOS, and Windows runs garak (or promptfoo) and ZAP (or Nuclei) against the sandbox fixtures, with engines named in `findings.json`. Standard runs one engine per family; Thorough runs two and merges a cross-validated finding. No model is required for the canary cells.
+- **Phase 2C, relay.** A runner enrolled to org A relays a scan of a localhost OpenAI-compatible chatbot. Findings are readable only by org A. A second org's scan runs at the same time and cannot see org A's data or steal its runner.
+- **Phase 2C, tunnel.** The same runner lets a Cloud worker reach a localhost web app. A planted SQLi or XSS is confirmed with the hosted callback server when the bug is blind.
+- **Fairness (2C).** With org A queued for 1,000 tasks and org B for 10, org B's tasks start before org A finishes.
+- **Phase 2C, direct.** A verified public fixture is scanned with no runner. An unverified host and a redirect to `169.254.169.254` are refused by the egress proxy.
+- A `pg_dump` of the Cloud database after the exit scans contains no planted canary value.
 - Owned matrix cells are green ([17-test-suite.md](17-test-suite.md)).
 
 ## Out of scope
-Dashboard UX (Phase 2), full OWASP catalogs (Phase 3), multi-turn adaptive attacks (Phase 4), the pentest agent (Phase 5).
+The hosted dashboard (Phase 2C, [04-phase2-dashboard.md](04-phase2-dashboard.md)), the benchmark report format (Phase 1D), multi-turn adaptive attacks (Phase 2B), the pentest agent (Phase 2B).
 
 ## Shared contracts (do these first)
 
@@ -38,7 +37,7 @@ The tables, columns, and encryption rules are defined in [14-database-schema.md]
 - `targets` with `connection` (`direct` or `runner`); names, URLs, hosts, templates, selectors, and secret references are all encrypted. `target_verifications` and write-only `target_credentials` for direct mode.
 - `engines`, `attack_families`, `capability_map`, `probes`, `probe_upstream_map` (registry v1).
 - `scans` (with `coverage_mode`), `scan_tasks` (internal `engine_id`).
-- `findings` with encrypted evidence, `evidence_bidx` for cross-engine dedup, `cross_validated`, and no engine column; `finding_sources` (internal); `evidence_objects`.
+- `findings` with encrypted evidence, `evidence_bidx` for cross-engine dedup, and `cross_validated`. `finding_sources` records the engine and upstream probe, and both are public. `evidence_objects` holds raw output, encrypted.
 - `usage_events`: org, scan, kind (`attempt`, `model_token`, `tunnel_byte`, `egress_byte`), amount.
 - Object storage keys: `org/{org_id}/scans/{scan_id}/{uuid}`, with every object encrypted by the org data key before upload.
 
@@ -68,7 +67,7 @@ Celery will drain whichever queue is hottest. Do not rely on that.
 - Dispatcher on `control`: round-robin across orgs that have queued scan work when fanning out the chord, so a 1,000-task org does not occupy the broker head-of-line alone.
 - Budgets on the scan row: `max_attempts`, `max_tokens`, `max_wall_clock`. The lease check pauses the scan (state `paused_budget`) instead of killing the worker.
 
-## Track 1A — AI relay
+## Relay — AI targets through the runner
 
 ### Runner commands that must work
 - `enroll --token` exchanges a one-time token for a client cert, stores it in the OS user config dir (not the cloud).
@@ -86,10 +85,10 @@ A small regex pack (API keys, emails) runs on the response before it is returned
 
 ### Workers (own images, not Python 3.14 if the upstream package is not ready)
 - **garak image.** Custom generator `RelayGenerator` calls the hub instead of an HTTP model. Point detectors at our judge endpoint only if garak's built-in detectors are enough for the slice; otherwise a simple string/canary detector is acceptable for exit. Raise generator parallelism so relay RTT is hidden.
-- **promptfoo image (Node).** Provider `callApi` does the same hub call. Env: `PROMPTFOO_DISABLE_REMOTE_GENERATION=true`, `PROMPTFOO_DISABLE_TELEMETRY=1`, `PROMPTFOO_DISABLE_SHARING=1`, `PROMPTFOO_DISABLE_UPDATE=1`. Attacker and grader models are our cloud model service, even if Phase 1 uses one commercial judge key we operate (not the customer's).
+- **promptfoo image (Node).** Provider `callApi` does the same hub call. Env: `PROMPTFOO_DISABLE_REMOTE_GENERATION=true`, `PROMPTFOO_DISABLE_TELEMETRY=1`, `PROMPTFOO_DISABLE_SHARING=1`, `PROMPTFOO_DISABLE_UPDATE=1`. Attacker and grader models are whatever the user configured (local, any API, or Insidia Cloud). With no model configured, the probe runs its static corpus and the canary detector only.
 
 ### Normalizer
-Map raw results to `Finding`. Translate upstream probe names through `probe_upstream_map` (`dan.Dan_11_0` -> `insidia.llm.jailbreak.dan`). An unmapped upstream probe is a configuration error: its output is rejected and alerted to staff, never stored under an upstream name. Normalize the evidence, run the secret redactor, compute `evidence_bidx`, and merge on `(org_id, target_id, attack_family_id, evidence_bidx)`. A merge across two engines sets `cross_validated`.
+Map raw results to `Finding`. Keep the upstream probe name (`garak`, `dan.Dan_11_0`) on the finding and also store the stable Insidia probe id (`insidia.llm.jailbreak.dan`) from `probe_upstream_map`. An unmapped upstream probe is stored with its upstream name and flagged `unmapped` so the registry can be updated; it is not dropped and not relabeled. Normalize the evidence, run the secret redactor, compute `evidence_bidx`, and merge on `(org_id, target_id, attack_family_id, evidence_bidx)`. A merge across two engines sets `cross_validated`.
 
 ### Canary oracle (module M-A3, first slice)
 Every AI probe in the Phase 1 profiles carries a per-attempt canary. A finding needs the canary to appear (leak) or be obeyed (injection), so Phase 1 findings are deterministic, not judged. See [16-coverage-gaps.md](16-coverage-gaps.md).
@@ -97,7 +96,7 @@ Every AI probe in the Phase 1 profiles carries a per-attempt canary. A finding n
 ### Fixture
 A 50-line OpenAI-compatible Python app that leaks a canary if the user says "ignore previous instructions". CI runs the scan against it through the runner on localhost.
 
-## Track 1B — classic tunnel
+## Tunnel — raw HTTP through the runner
 
 ### Runner
 Tunnel mode uses wireguard-go (userspace, no root). On hello, the runner advertises allowlist hosts. Dial to any other host is refused and audited locally.
@@ -114,9 +113,9 @@ Host interactsh (MIT) in our cloud, one correlation id per scan. Blind hits atta
 A tiny app we own (planted SQLi and reflected XSS). Do not depend on a GPL scanner. CI must not scan third-party sites.
 
 ### Fingerprints
-User-Agent and Server banners from scanners are rewritten at the CONNECT proxy to `Insidia LabsLabs`. Nuclei template ids are mapped to `insidia.web.*` through `probe_upstream_map` before the finding is saved, same as 1A.
+User-Agent is `Insidia Labs` plus the engine name and version, so a target owner can see what scanned them. Nuclei template ids are stored as-is and also mapped to `insidia.web.*` through `probe_upstream_map`.
 
-## Track 1C — direct mode (no runner)
+## Direct — public targets, no runner
 
 ### Ownership verification
 - Methods: DNS TXT record, `/.well-known/insidia-verify.txt`, or an HTML meta tag. The challenge token is shown once and stored only as an HMAC.
@@ -126,7 +125,7 @@ User-Agent and Server banners from scanners are rewritten at the CONNECT proxy t
 ### Egress proxy (`engine/egress/`)
 - A fixed set of public egress IPs, published in the dashboard and docs so customers can allowlist them.
 - Allows only hosts that are verified targets of the scan's org. Resolves DNS itself and refuses private, loopback, link-local, and IPv6 ULA addresses, including after redirects and DNS rebinding (the resolved IP is pinned for the connection).
-- Applies the target's rate limit, the kill switch, and User-Agent rewriting to `Insidia LabsLabs`.
+- Applies the target's rate limit, the kill switch, and a User-Agent of `Insidia Labs` plus the engine name and version.
 - Acts as the direct relay transport for AI targets, so engines use the same RelayTarget plugins as runner mode, and as the HTTP proxy for classic scanners.
 - The only process that decrypts direct-mode credentials, for the running scan only.
 
@@ -139,7 +138,7 @@ Public fixtures we host on a domain we own (chatbot and web app), verified by DN
 ## Capability registry v1
 - Seed `engines`, `attack_families`, `capability_map`, and `probe_upstream_map` for the Phase 1 engines.
 - Standard mode picks priority 1 per family; Thorough runs every enabled entry.
-- The planner records which entries ran for each family, so the dashboard can show "2 Insidia Labs Engine modules ran".
+- The planner records which engines ran for each family, and the report names them.
 
 ## Engine isolation
 Engine containers get no internet egress except the hub, the egress proxy, and our model service. A CI test runs each engine image behind a sniffing proxy and fails on any other outbound connection (telemetry, update checks, remote generation).
@@ -154,10 +153,10 @@ Engine containers get no internet egress except the hub, the egress proxy, and o
 - Hub rejects an attempt whose `org_id` does not match the runner's org.
 - Runner refuses a tunnel dial to a host not on the allowlist.
 - Fairness test: org B makes progress while org A holds a large backlog.
-- API finding payload snapshot has no upstream product names.
+- API finding payload names the engine and the upstream probe.
 - Token from `secret_ref` is absent from hub and worker logs.
 
 ## Risks
 - WG-in-userspace plus CONNECT proxy is the riskiest new code. Build the CONNECT proxy and allowlist first; add WireGuard once relay mode is green. Do not ship a raw L3 route into the customer LAN.
 - Long probes will blow the 10-minute task limit. Split by probe in the planner; do not raise the limit to "however long garak takes".
-- Commercial judge APIs refuse attack prompts. Phase 1 uses a deterministic canary detector for the fixture. Stand up the Stage 0 model service ([19-model-hosting.md](19-model-hosting.md): one 20 GB GPU, llama.cpp + GGUF) in this phase for garak/promptfoo generators that need a model, but do not block 1A on it; Phase 4A moves to Stage 1.
+- Commercial judge APIs often refuse attack prompts. The CLI uses a deterministic canary detector for the fixture and does not block on a model. The Stage 0 model service ([19-model-hosting.md](19-model-hosting.md): one 20 GB GPU, llama.cpp + GGUF) is Phase 2A, and it does not block the relay track. Phase 2B moves that service to Stage 1.

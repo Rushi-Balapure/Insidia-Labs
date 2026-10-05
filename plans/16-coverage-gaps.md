@@ -1,6 +1,7 @@
 # Coverage Gap Analysis and Insidia Labs-Built Modules
 
-**INTERNAL ONLY.** This file names upstream engines. It must never be copied into customer docs, the website, or sales material. Customer-facing coverage pages are generated from the capability registry, which shows only "Insidia Labs Engine modules".
+> **v6. Public.** This file names the engines on purpose. Reports, docs, and the website credit them. Customer-facing coverage pages are generated from the scanner benchmark and the capability registry, and each row names the engine or Insidia module that covers it. Modules that need no hosted model ship in Phase 1C (free CLI). Modules that need the hosted attacker (M-A11 and the model-driven half of the multi-turn attacks) ship in Phase 2B. The phase labels inside the module list are v5 numbers; see the [mapping](00-master-plan.md#phase-mapping-from-v5).
+
 Parent: [00-master-plan.md](00-master-plan.md). Requirements: [01-ai-redteam-coverage-spec.md](01-ai-redteam-coverage-spec.md). Registry: [08-phase6-engine-registry.md](08-phase6-engine-registry.md).
 
 ## Method
@@ -9,17 +10,17 @@ Parent: [00-master-plan.md](00-master-plan.md). Requirements: [01-ai-redteam-cov
 3. Rate it: **Covered** (an engine does it well enough to ship), **Partial** (some variants, weak oracle, or only in some connection modes), or **Gap** (nothing we can use).
 4. For every Partial or Gap, decide: **adopt** another permissively licensed tool, **build** an Insidia Labs module, or **defer**.
 
-Ratings come from each tool's documentation and our knowledge of it. They are hypotheses until the Phase 6 benchmark measures them (see [Validating this analysis](#validating-this-analysis)). Built modules plug into the same capability registry and appear to customers exactly like any other Insidia Labs Engine module.
+Ratings come from each tool's documentation and our knowledge of it. They are hypotheses until the Phase 6 benchmark measures them (see [Validating this analysis](#validating-this-analysis)). Built modules plug into the same capability registry as the engines. A finding names whichever one produced it.
 
 ## Constraints that create gaps
-- **promptfoo without remote generation.** We must keep `PROMPTFOO_DISABLE_REMOTE_GENERATION=true`; otherwise customer prompts go to promptfoo's servers, and our use of it becomes visible to them. Per promptfoo's own data-handling docs, this disables:
+- **promptfoo without remote generation.** We keep `PROMPTFOO_DISABLE_REMOTE_GENERATION=true` so a user's prompts never go to promptfoo's servers. Per promptfoo's own data-handling docs, this disables:
   - plugins: all `harmful:*`, all `bias:*`, domain packs (medical, financial, insurance, pharmacy, ecommerce), `ssrf`, `bola`, `bfla`, `indirect-prompt-injection`, `ascii-smuggling`, `competitors`, `hijacking`, `off-topic`, `system-prompt-override`
   - strategies: `goat`, `gcg`, `citation`, `audio`, `jailbreak:composite`, `jailbreak:goblin`, `jailbreak:hydra`, `jailbreak:likert`, `jailbreak:meta`
 
   Plugins that still work locally include `prompt-extraction`, `excessive-agency`, `pii`, `rbac`, `debug-access`, `shell-injection`, `sql-injection`, `hallucination`, `overreliance`, `imitation`, `contracts`, `policy`, `intent`, and the RAG, memory, and MCP plugins that use our configured provider. promptfoo also warns that local-generation quality depends heavily on the model, so our attacker models matter.
 - **Disabling remote generation is not network isolation.** promptfoo says it does not turn off telemetry, license checks, or sharing. We set `PROMPTFOO_DISABLE_TELEMETRY=1` and `PROMPTFOO_DISABLE_SHARING=1` as well, and engine containers get **no internet egress** except to the target path (relay, tunnel, or direct egress proxy) and our model service. A CI test runs each engine image with a sniffing proxy and fails on any other outbound connection.
 - **Licenses exclude the usual classic tools:** sqlmap (GPLv2), commix, tplmap, Nikto, Wapiti, testssl.sh (GPL), nmap (NPSL), Semgrep registry rules, CodeQL (not licensed for commercial scanning of third-party code), trufflehog (AGPL). Each leaves a hole.
-- **Commercial model APIs refuse attack generation.** Iterative attacks (TAP, PAIR, Crescendo, GOAT-style) need our self-hosted uncensored attacker models ([19-model-hosting.md](19-model-hosting.md)).
+- **Commercial model APIs often refuse attack generation.** Iterative attacks (TAP, PAIR, Crescendo, GOAT-style) run best on an uncensored model. The CLI accepts any model the user points at and reports refusals per family. Insidia Cloud ([19-model-hosting.md](19-model-hosting.md)) is the hosted option.
 - **Direct mode reaches only public endpoints.** Anything needing the customer's internal network, tool traces, or code needs the runner or the SDK.
 
 ## AI and agent coverage (spec section 3)
@@ -122,7 +123,7 @@ These close gaps with little work. All are permissively licensed, run in the clo
 Open decision: **opengrep** (the community fork of the Semgrep engine) is LGPL-2.1. Run unmodified as a separate process in our cloud, it may be acceptable, and it would shorten M-C9 a lot. It is not on the current allowlist, so legal review decides before Phase 8. Semgrep's registry rules stay excluded either way; all rules would be ours.
 
 ## Modules to build
-Each module is Insidia Labs's own code in `engine/workers/insidia/<module>/`, registered in the capability registry like any engine, and shown to customers as an Insidia Labs Engine module. Size: S is up to 2 engineer-weeks, M is 2 to 6, L is more than 6.
+Each module is our own code in `core/insidia/modules/<module>/`, so the CLI and the Cloud workers share it. It registers in the capability registry like any engine, and the report names it (for example "Insidia module: indirect-injection"). Size: S is up to 2 engineer-weeks, M is 2 to 6, L is more than 6.
 
 **Clean-room rule.** For gaps left by GPL tools (sqlmap, commix, tplmap, testssl.sh, trufflehog), engineers must not copy their code or their payload and rule files. We write modules from public specifications, papers, and our own research. Reviewers check this on every pull request in these modules.
 

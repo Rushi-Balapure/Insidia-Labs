@@ -1,18 +1,19 @@
-# Phase 3 — Taxonomy and compliance
+# Phase 1D — Insidia Benchmark, taxonomy, and reports
 
-Depends on: Phase 1 findings, Phase 2 UI shell. Blocks: sales-facing reports.
+> **v6.** This is Phase 1D of the free CLI, not a later Cloud phase. The policy files and mappings live in `benchmark/` (moved from `engine/taxonomy-data/`). The CLI writes the HTML report, SARIF, JSON, and `benchmark.json` with no account. The executive PDF and the evidence-pack zip are Insidia Cloud exports (Phase 2C). Reports name the engine. There is no engine-name denylist. Wording stays "compliance-ready evidence", not certification.
+
+Depends on: Phase 1B findings. The Cloud download buttons depend on Phase 2C.
 Parent: [00-master-plan.md](00-master-plan.md). IDs from [01-ai-redteam-coverage-spec.md](01-ai-redteam-coverage-spec.md).
 
 ## Goal
-Every finding can be pivoted by framework. A scan profile is a set of probes selected by those tags. One scan can emit an OWASP LLM 2026 report, an OWASP Web report, and an EU AI Act Art. 15 evidence pack. Wording is "compliance-ready evidence", not certification.
+Every finding can be pivoted by framework. A benchmark policy (L1, L2, L3, or a team's own file) is a set of controls, each tested by probes. One scan emits a score per framework. 
 
 ## Exit
-- `engine/taxonomy-data/` loads into the database on boot and in CI.
-- The Phase 1 fixtures produce findings tagged at least `owasp-llm:LLM01` (canary leak) and `owasp-web:A03` or `A05` (injected fixture).
-- PDF, HTML, SARIF, and JSON exports download from the dashboard. SARIF has no upstream tool names.
-- Coverage matrix shows which controls were tested vs not tested (not the same as passed).
-- ATLAS heatmap renders tactics for the AI findings.
-- Owned matrix cells are green ([17-test-suite.md](17-test-suite.md)). Phase 3 adds taxonomy tags to cells other phases own; it does not own cells of its own.
+- `benchmark/mappings/` loads in CI, and into the Cloud database on boot.
+- The sandbox fixtures produce findings tagged at least `owasp-llm:LLM01` (canary leak) and `owasp-web:A03` or `A05` (injected fixture).
+- `insidia scan` writes `report.html` (works offline, summary readable with JavaScript off), `results.sarif`, `findings.json`, and `benchmark.json`. SARIF `tool.driver.name` is `Insidia` and each result names the engine in a property.
+- The report's coverage matrix shows which controls were tested, which passed, and which were not tested.
+- Owned matrix cells are green ([17-test-suite.md](17-test-suite.md)). This phase adds taxonomy tags to cells other phases own; it does not own cells of its own.
 
 ## Tag prefixes
 `owasp-llm` (2026 LLM01–LLM10), `owasp-asi` (ASI01–ASI10), `owasp-web` (2021 or current Top 10), `owasp-api` (API Security Top 10), `atlas`, `attack`, `cwe`, `cvss`, `aivss`, `nist-rmf`, `nist-600-1`, `eu-ai-act`, `iso-42001`, `aicm`, `pci`, `dsgai`.
@@ -20,7 +21,7 @@ Every finding can be pivoted by framework. A scan profile is a set of probes sel
 ## Data
 YAML files, one framework per directory, reviewed in PR:
 ```
-engine/taxonomy-data/
+benchmark/mappings/
   owasp-llm-2026.yaml      # id, title (short paraphrase we write), summary we write
   owasp-asi-2026.yaml
   owasp-web.yaml
@@ -36,27 +37,27 @@ engine/taxonomy-data/
 ```
 OWASP documents are CC BY-SA. Store ids and our own one-paragraph explanations. Do not paste their guide text into the repo or the PDF.
 
-Seed `probes.yaml` from promptfoo's MIT mapping files where the mapping is a table of ids, then rename probes to Insidia Labs ids. Keep the MIT copyright header on that seed file in-tree only.
+Seed `probes.yaml` from promptfoo's MIT mapping files where the mapping is a table of ids. Keep promptfoo's probe ids alongside the Insidia ids, and keep the MIT copyright header on that seed file.
 
-## Profiles
-A profile is a named list of probe ids plus budgets. Ship:
-- AI chat baseline (LLM01, LLM02, LLM08) — already partially run in Phase 1.
-- OWASP LLM Top 10 2026 (all ten, depth grows in Phase 4; unmapped items show as "not covered" rather than fake passes).
-- Web baseline and OWASP Web Top 10.
-- EU AI Act Art. 15 robustness (points at the LLM probes that exercise robustness, with a written limitation statement).
+## Policies
+A policy is a named list of controls, the probes that test each one, and budgets. Ship L1, L2, and L3 as described in the master plan, covering:
+- AI chat baseline (LLM01, LLM02, LLM08) in L1.
+- OWASP LLM Top 10 2026 (all ten; controls the engines do not test yet show as "not covered", never as a pass).
+- OWASP Web and API Top 10.
+- EU AI Act Art. 15 robustness, with a written limitation statement.
 
-The planner from Phase 1 reads the profile and only enqueues those probes.
+`insidia scan --policy` reads the file and only runs those probes.
 
 ## Scoring
 - Classic findings: CVSS 3.1 vector stored when the probe defines one; severity derived from it.
 - AI findings: AIVSS when we have enough fields; otherwise a fixed severity on the probe plus confidence from the oracle (Phase 4 fills confidence). Do not invent a CVSS score for a jailbreak.
 
-## Reports (`engine/api` module `reports`, queue `reports`)
-- Jinja2 HTML, WeasyPrint PDF.
-- Sections: executive summary, scope and target, coverage matrix, findings grouped by framework, methodology limitations, evidence hashes.
-- Evidence pack: zip of redacted transcripts, request/response pairs, and a manifest of hashes. Raw secrets must already be redacted by the runner.
-- SARIF 2.1.0 for web and SAST-shaped findings. AI findings included with our probe id as the rule id.
-- JSON export matches the public finding schema (no `engine`).
+## Reports
+The CLI builder lives in `core/` and needs no server. Cloud reuses it and adds the PDF and the evidence pack on the `reports` queue.
+- One self-contained HTML file (Jinja2). Sections: score per framework, scope and target, coverage matrix, findings grouped by framework, the engine and probe on each finding, methodology limitations, evidence hashes.
+- SARIF 2.1.0. The rule id is the Insidia probe id; the engine name is a property.
+- JSON matches the public finding schema, including `engine`.
+- Cloud only: WeasyPrint executive PDF, and an evidence-pack zip of redacted transcripts and a hash manifest.
 
 ## UI
 - Finding drawer shows framework chips.
@@ -66,7 +67,7 @@ The planner from Phase 1 reads the profile and only enqueues those probes.
 
 ## Tests
 - Loader rejects a probe that references an unknown taxonomy id.
-- Fixture scan report contains LLM01 and a web id, and the PDF text does not contain denied upstream names (keep a denylist in the test).
+- Fixture scan report contains LLM01 and a web id, names the engine, and contains no raw secret from the fixture.
 - Cross-org download of a report id returns 403.
 - A profile that omits LLM06 shows that control as not tested, not passed.
 

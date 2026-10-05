@@ -1,10 +1,12 @@
-# Phase 9 — Continuous and developer workflow
+# Continuous scanning — CI in Phase 1E, schedules in Phase 2C, the rest in Phase 3
 
-Depends on: Phase 2 API keys and scans, Phase 3 SARIF, Phase 1 runner `run`.
+> **v6.** The free path needs no account. `insidia scan` in CI exits 0 when the policy passes, 1 when it fails, and 2 on error, and writes SARIF. The GitHub Action `Rushi-Balapure/Insidia-Labs/actions/scan` wraps that CLI; it does not call Insidia Cloud. Schedules, Slack, Jira, webhooks, and SIEM export are Phase 2C (they run in Cloud). Race and WebSocket modules that run locally are Phase 1B; the Burp extension and fleet discovery stay Phase 3 stretch goals.
+
+Depends on: the CLI (Phase 1E) for CI, and the Cloud API (Phase 2C) for schedules.
 Parent: [00-master-plan.md](00-master-plan.md).
 
 ## Goal
-Scans run without a person at the dashboard: CI on each change, a schedule, and alerts. A pilot customer can block a build on new high-severity findings. Optional Burp and fleet discovery come after the CI path is solid.
+A repository fails its own build on new high-severity findings with no account. A team that pays can schedule scans and get alerts.
 
 ## Exit
 - `insidia-runner scan --target <id> --profile <id> --wait` exits non-zero when the scan's new findings meet a threshold.
@@ -15,12 +17,10 @@ Scans run without a person at the dashboard: CI on each change, a schedule, and 
 - Burp extension and MDM fleet are specified and prototyped only if the CI exit is already met. They do not block this phase.
 - Owned matrix cells are green ([17-test-suite.md](17-test-suite.md)).
 
-## CI runner
-The same Go binary. `scan` ensures the daemon is connected (or starts a one-shot session), calls the API to create a scan, streams status, writes SARIF to a path, and exits.
-Flags: `--fail-on critical,high`, `--baseline <scan_id>`, `--sarif out.sarif`.
-API key from `INSIDIA_API_KEY`. The key cannot read other orgs (Phase 2).
+## CI
+The CLI itself. `insidia scan --policy L1 --sarif out.sarif` writes SARIF and exits 1 when the policy fails. `--baseline <run-id>` fails only on findings not in that run. No API key.
 
-GitHub Action inputs: `api-key`, `target`, `profile`, `fail-on`, `baseline`. Pin the action to a commit in docs. The action does not bundle scanner engines; it only wraps the CLI.
+The GitHub Action checks out the repo and runs that command, with inputs `policy`, `fail-on`, `baseline`, and an optional `insidia-cloud-key` for teams who want the hosted attacker. Pin the action to a release tag. The action does not bundle engines; the CLI installs them, or the job uses the GHCR image.
 
 ## Baselines
 Table `finding_fingerprints (org_id, target_id, probe_id, evidence_hash, state)`.
@@ -54,7 +54,7 @@ A runner config `discover_on_interval` for company-managed machines, using Phase
 ## Tests
 - CLI against the fixture: clean baseline exits 0; new canary exits 1.
 - Schedule fires once in a unit test with a fake clock.
-- Webhook body denylist (no upstream names, no transcript unless flagged).
+- Webhook body contains engine names and contains no transcript unless flagged, and no raw secret.
 - API key of org A cannot pass `--target` of org B.
 
 ## Risks

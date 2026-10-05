@@ -1,10 +1,12 @@
-# Phase 2 — Web dashboard and tenancy
+# Phase 2C — Hosted dashboard and tenancy
 
-Depends on: Phase 1 API (scans, findings, runners). Blocks: a non-engineer using the product.
+> **v6.** The Phase 1 "dashboard" is the single-file HTML report from `insidia report`, not this app. This file is the **paid hosted dashboard** (Phase 2C). Uploading a CLI run to view history is free. Launching or scheduling a scan from the dashboard is paid, because it runs on our hardware. The UI names engines. The v5 trial (3 model-free scans, no bring-your-own model) is replaced by Cloud credits on new accounts. Typeface is Sora, from the brand kit.
+
+Depends on: the Cloud scan API from [03-phase1-vertical-slices.md](03-phase1-vertical-slices.md) (Phase 2C connection modes) and the model service ([19-model-hosting.md](19-model-hosting.md)).
 Parent: [00-master-plan.md](00-master-plan.md).
 
 ## Goal
-A customer can sign up, create an org, enroll a runner, define a target, launch an AI or web scan, watch it live, and triage findings. One brain, many users, many scans. The UI never shows upstream engine names.
+A team can sign up, upload a CLI run for free, and then pay to launch and schedule scans, enroll a runner for internal targets, watch a scan live, and triage findings together. One brain, many users, many scans. Every finding shows the engine that produced it.
 
 ## Exit
 - New user signs up, verifies email, lands in an org.
@@ -17,25 +19,20 @@ A customer can sign up, create an org, enroll a runner, define a target, launch 
 - Owned matrix cells are green ([17-test-suite.md](17-test-suite.md)).
 
 ## Out of scope
-SSO/SAML (Phase 10), compliance PDFs (Phase 3), agent graphs (Phase 7), paid billing and payment capture (trial gating ships here; the purchase flow and invoicing are a billing milestone — this phase shows the upgrade call to action and marks the org for sales/self-serve checkout).
+SSO/SAML (Phase 4), agent attack-path graphs (Phase 3), and the payment-provider integration itself (this phase records the plan, shows usage, and routes to checkout; the provider is a billing milestone).
 
-## Trial mode
-Every new org starts on the `trial` plan. Trial lets a prospect prove value on their own target with basic scans, then upgrade. It never runs our attacker or judge models, so a trial costs us almost nothing.
+## Free account and Cloud credits
+The CLI is free forever and needs no account. A Cloud account exists so a team can keep history and, when they pay, launch scans on our hardware.
 
-**What a trial org can do**
-- **Up to 3 scans total** (`orgs.trial_scans_used`, counted at launch; the limit is a settings-registry value so staff can grant a few more). The count is shown as "2 of 3 trial scans used".
-- **Basic scans only:** black-box, Standard coverage, on a single target, one scan at a time.
-- **No AI-generated attacks.** Trial scans run only probes with `requires_attacker_model = false`: the static jailbreak and prompt-injection corpora, and the classic web/API checks (ZAP, Nuclei, Dalfox) whose findings come from deterministic oracles. Adaptive, model-driven generation (M-A11, PyRIT TAP/PAIR/Crescendo, the pentest agent) and the judge model are off. The scan summary says which families were skipped and that upgrading unlocks them.
-- Short retention (trial default in the registry, for example 14 days) and no scheduled or continuous scans.
+**Free Cloud account**
+- Upload CLI run directories and view them in history, with the same HTML report.
+- No scan launched from the dashboard, no schedule, no hosted model, no runner.
 
-**What is locked** (visible but disabled, each with an "Upgrade to unlock" affordance, never hidden, so the prospect sees the value): Thorough and Custom coverage, gray/white-box, the pentest agent, multiple targets and concurrency, integrations and exports beyond a basic report, API keys for automation, and scheduled scans.
+**New paid accounts start with credits** (a settings-registry amount, so staff can grant more). Credits pay for hosted model tokens and for scans launched on our workers. When credits run out, uploaded history stays readable and "Launch scan" asks for a plan.
 
-**Enforcement is server-side.** Entitlements come from the plan's entry in the settings registry (see [20-admin-console.md](20-admin-console.md#per-customer-settings)), resolved at scan launch into the scan's `config_snapshot`. The API rejects a trial org that exceeds a limit (HTTP 402 with an upgrade link); the disabled UI is only a convenience. A locked probe set is filtered the same way direct mode filters `requires_runner`.
+**Paid plan unlocks** (visible before purchase): launching and scheduling scans, the hosted attacker and judge, Thorough coverage on our GPUs, the pentest agent, runners for internal targets, team triage, and compliance exports.
 
-**Ending the trial**
-- When the 3rd scan is used (or the trial window ends), the org goes read-only for scanning: past findings and reports stay visible, "Launch scan" is replaced by "Upgrade".
-- **Upgrade** sets `plan` off `trial` and `converted_at`, which lifts the gates on the next scan. Phase 2 records the intent and routes to checkout or sales; the payment integration is a later billing milestone.
-- Staff can extend a trial by a bounded amount from the admin console (audited).
+**Enforcement is server-side.** Entitlements come from the plan's entry in the settings registry (see [20-admin-console.md](20-admin-console.md#per-customer-settings)), resolved at scan launch into the scan's `config_snapshot`. The API rejects a launch the plan does not allow (HTTP 402). The disabled UI is only a convenience.
 
 ## Admin console, first version
 Ships in this phase, before the first design partner, as a separate internal app (`admin/` + `engine/admin_api/`). Full plan: [20-admin-console.md](20-admin-console.md#delivery-by-phase).
@@ -72,7 +69,7 @@ All dashboard work follows the **apple-design** skill, installed in the repo at 
 - The sidebar uses a heavier material; the top bar and the scan-launch sheet use light translucent material (`backdrop-filter`) with content scrolling under it. Translucent layers are never stacked.
 - Modal tasks (launch scan, add credential) dim the background. Parallel panels (finding drawer) do not, so triage flow is not broken.
 - Severity colors sit on solid badges, never on translucent surfaces, and are always paired with a text label, never color alone.
-- Font: `system-ui` stack with size-specific tracking (headings `-0.02em`, body `0`, small labels slightly positive), spacing in `rem`, and dense but legible leading in tables. Evidence and payloads use a monospace face.
+- Font: Sora 400 and 600, self-hosted from `brand/fonts/`, with size-specific tracking (headings `-0.02em`, body `0`, small labels slightly positive), spacing in `rem`, and dense but legible leading in tables. Evidence and payloads use a monospace face. Buttons use navy text on orange.
 - Light and dark themes, with a smooth crossfade between them.
 
 **Accessibility (skill section 14, plus WCAG 2.2 AA)**
@@ -93,21 +90,21 @@ React, Vite, TypeScript, Tailwind, shadcn/ui (restyled to the design system abov
    - **No, or I want deeper tests: use a runner.** The customer picks or enrolls a runner, a mode (relay or tunnel), and a secret reference name that the runner resolves locally.
    - Both paths then set transport, request template, response selector, and rate limit. **Validate** calls Phase 1 `ValidateTarget` and shows latency and a redacted sample.
    - A side panel lists which test families are available in the chosen mode and which need a runner (from `probes.requires_runner`), with a "why use a runner" explanation.
-4. **Scans.** Pick target and profile ("AI chat baseline", "Web baseline"), then coverage: **Standard** (fastest, one Insidia Labs Engine module per attack family), **Thorough** (every module that covers the family, results cross-validated), or **Custom** (per family). The launch sheet shows estimated attempts, cost, and duration for the chosen coverage. Show state, budget, and progress counts; cancel and pause. On a trial org the sheet shows "Scan N of 3", forces black-box + Standard, marks the model-driven families as "Upgrade to unlock", and the launch call is refused server-side past the trial limit.
-5. **Live view.** WebSocket fed by the Valkey pub/sub events the workers already emit (`scan.progress`, `finding.created`). Progress is shown per attack family and per "Insidia Labs Engine module N", never by real engine name. Reconnect resumes from the scan row, not from socket memory.
-6. **Findings.** Filters: severity, track (AI vs web), status (`open`, `accepted`, `fixed`, `false_positive`), cross-validated. Detail drawer: attack, redacted response, evidence hash, taxonomy ids if present (labels can be raw ids until Phase 3). Exposed secrets appear only as masked tokens (`[AWS_ACCESS_KEY len=20 fp=3f9a1c07]`) with a "match against my key" helper that computes the fingerprint in the browser. No engine field.
+4. **Scans.** Pick target and profile ("AI chat baseline", "Web baseline"), then coverage: **Standard** (one engine per attack family), **Thorough** (every engine that covers the family, results cross-validated), or **Custom** (per family). The launch sheet shows estimated attempts, cost, and duration, and which engines will run. Show state, budget, and progress counts; cancel and pause. A free account sees the sheet and is sent to upgrade; the launch call is refused server-side.
+5. **Live view.** WebSocket fed by the Valkey pub/sub events the workers already emit (`scan.progress`, `finding.created`). Progress is shown per attack family and per engine name. Reconnect resumes from the scan row, not from socket memory.
+6. **Findings.** Filters: severity, track (AI vs web), engine, status (`open`, `accepted`, `fixed`, `false_positive`), cross-validated. Detail drawer: attack, redacted response, evidence hash, the engine and probe, taxonomy ids. Exposed secrets appear only as masked tokens (`[AWS_ACCESS_KEY len=20 fp=3f9a1c07]`) with a "match against my key" helper that computes the fingerprint in the browser.
 7. **Usage.** Charts of attempts and tokens per day per project.
 8. **Settings.** Org name, members, API keys, default redaction rules (regex list stored per org and pushed to the runner on next heartbeat).
-9. **Plan and billing.** Current plan, trial scans remaining, what each paid plan unlocks, and the **Upgrade** button. On trial it is the main conversion surface; after upgrade it shows the plan and usage against limits.
+9. **Plan and billing.** Current plan, credits remaining, usage (attempts, tokens, GPU time), what the paid plan unlocks, and the **Upgrade** button.
 
 ## API additions
 - Auth routes, membership CRUD, API keys.
 - Pagination and cursor on findings.
-- Explicit response models so `engine` cannot leak by accident. A test unmarshals the public schema and fails if `engine` or known upstream names appear.
+- Explicit response models. `engine` and the upstream probe id are public fields. A test fails if a secret or another org's data appears.
 - Audit of who launched and who changed finding status (table `audit_events`, see [14-database-schema.md](14-database-schema.md); full actor model in Phase 10).
 - Direct-mode routes: start verification, check verification, list egress IPs. A direct scan is refused unless every host is verified and unexpired.
 - Credential routes are write-only: create, replace, delete. No read route exists.
-- Plan and trial routes: read current entitlements and trial count; `POST /upgrade` records intent and (later milestone) starts checkout. Scan-launch returns 402 with an upgrade link when a trial limit is hit.
+- Plan routes: read entitlements, credits, and usage; `POST /upgrade` records intent and (later milestone) starts checkout. Scan-launch returns 402 with an upgrade link when the plan or the credits do not allow it. A free account can `POST` a CLI run upload.
 - Every page links to the matching section of the customer docs ([15-customer-docs.md](15-customer-docs.md)), so help is in context.
 
 ## Realtime
@@ -118,7 +115,7 @@ API process subscribes to `progress:{org_id}:{scan_id}` and forwards to sockets 
 - Design checks: reduced-motion, reduced-transparency, and high-contrast snapshots for every screen; keyboard-only run through the full launch-and-triage flow; axe accessibility scan with zero serious issues.
 - No secret is ever rendered: the component test plants credential canaries and asserts they never appear in the DOM.
 - API tests: viewer cannot launch; cross-org id in the path returns 403; WebSocket subscription to another org's scan fails.
-- Trial tests: a trial org's 4th scan launch is refused with 402; a trial scan runs no `requires_attacker_model` probe (planted model-driven probe is skipped and reported); Thorough, Custom, gray/white-box, and multi-target launches are refused for a trial org server-side even if the request is forged past the disabled UI; after `plan` changes off `trial`, the next scan runs the full set.
+- Plan tests: a free account can upload a CLI run and cannot launch a scan (402); a credit balance of zero refuses a hosted-model scan with 402; after the plan changes to paid, the next launch runs.
 - Validate flow against the Phase 1 fixtures.
 
 ## Risks

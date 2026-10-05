@@ -1,6 +1,7 @@
-# Admin console (internal)
+# Phase 2C — Admin console (staff only)
 
-Internal plan. The admin console names engines and models; it is never shown to customers.
+> **v6.** The console stays staff-only, on an internal hostname. Engine names are no longer a reason for that: customers see them in the product. The console stays private because it sees every org's operations, grants, and health. The v5 trial fields below become Cloud credits and plan entitlements. It ships with the hosted dashboard, before the first design partner.
+
 Parent: [00-master-plan.md](00-master-plan.md). Tables: [14-database-schema.md](14-database-schema.md). Engine registry: [08-phase6-engine-registry.md](08-phase6-engine-registry.md). Models: [19-model-hosting.md](19-model-hosting.md).
 
 ## Goal
@@ -128,8 +129,8 @@ The "customizability per customer". Every setting comes from a typed registry in
 
 | Group | Examples |
 |---|---|
-| Plan and limits | Plan tier (`trial` or paid); trial scan allowance and window; max concurrent scans; max targets and runners; attempts, tokens, and wall-clock per scan; monthly model-token and GPU-second budget |
-| Entitlements | What each plan unlocks, as typed flags: attacker-model attacks, Thorough coverage, gray/white box, pentest agent, scheduled/continuous scans, integrations, exports, API automation. Trial sets these off; staff can grant a bounded trial extension (audited) |
+| Plan and limits | Plan tier (free upload, credits, paid); credit balance; max concurrent scans; max targets and runners; attempts, tokens, and wall-clock per scan; monthly model-token and GPU-second budget |
+| Entitlements | What each plan unlocks, as typed flags: hosted attacker, scans launched from the dashboard, Thorough coverage on our GPUs, pentest agent, scheduled scans, integrations, exports. Staff can grant credits (audited) |
 | Features | Feature flags per org: direct mode, Thorough coverage, pentest agent, white box, beta Insidia Labs modules |
 | Coverage | Default coverage mode; attack families or modules disabled for this org (for example, a module that breaks their target); Standard-mode pin per family |
 | Safety | Per-target rate-limit ceiling, scan windows (hours scans may run), destructive-check opt-in. A floor exists that only the two-person rule can lower |
@@ -200,7 +201,7 @@ New tables are in [14-database-schema.md](14-database-schema.md#admin-console-ta
 | 9 | Scheduling settings group with dedicated pools; schedule and CI-scan views |
 | 10 | SOC 2 access review export; on-prem operator console |
 
-**On-prem and private tenants:** the customer's operators get a reduced operator console (platform health, queues, runners, kill switches, settings) with engines shown as Insidia Labs Engine modules. The full admin console stays in our SaaS.
+**Self-hosted and private tenants:** the customer's operators get a reduced operator console (platform health, queues, runners, kill switches, settings, engines named). The full staff console stays in our SaaS.
 
 ## Tests
 - Isolation: no customer session, API key, or runner cert can reach any admin route, and the admin hostname does not resolve or route from the public internet.

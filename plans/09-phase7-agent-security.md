@@ -1,6 +1,8 @@
-# Phase 7 — Agent security
+# Phase 3 — Agent security
 
-Depends on: Phase 4 oracles (tool_trace, canary, acl, manifest_drift), Phase 5 tool loop optional but the honeypot must work without it, Phase 6 probe ids.
+> **v6.** Scripted agent checks (tool-trace oracle on a declared tool list, poisoned-description rules, hash pins) ship in the free CLI as part of Phase 1C where they need no server. The hosted honeypot MCP, the poisoned-content host, and the attack-path graph are Phase 3, and the hosted parts are paid because they run on our hardware. mcp-scanner and SkillSpector are named. The same free-versus-paid rule as the rest of the product applies: local is free, our hardware is paid.
+
+Depends on: the oracles from [06-phase4-depth.md](06-phase4-depth.md) and the probe ids from Phase 1D.
 Parent: [00-master-plan.md](00-master-plan.md).
 Spec: coverage sections 3.3, 3.4, 3.7, 3.10 and layers 2, 3, 5, 8 in [01-ai-redteam-coverage-spec.md](01-ai-redteam-coverage-spec.md).
 
@@ -20,7 +22,7 @@ Treat agents as a first-class target: discover them, statically scan MCP servers
 Upload payload: structured JSON, secrets redacted (env values replaced with `secret_ref` names). The runner does not start unknown executables in this phase. Starting a stdio MCP server to list tools requires an explicit `--run-declared-servers` flag and is off by default, because that executes customer-configured commands.
 
 ## Static scans (cloud, queue `static`)
-- Wrap Cisco mcp-scanner and NVIDIA SkillSpector in worker images. Their CLI names never reach the API.
+- Wrap Cisco mcp-scanner and NVIDIA SkillSpector. The CLI runs them locally in Phase 1B; findings name them.
 - Independently reimplement a small rule set for tool-description poisoning, shadowing, and over-broad permissions. Do not vendor Tencent AI-Infra-Guard.
 - Tool-hash pin: store a hash of the tool schema per target. Later scans raise `manifest_drift` if the description changes (rug pull).
 
