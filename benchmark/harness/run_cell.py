@@ -60,15 +60,23 @@ class SandboxCall:
 
 
 def scanner_ready(cell: Cell) -> bool:
-    """True when this 1B cell's plant is a file in the Insidia sandbox."""
+    """True when this 1B cell's plant is one the scanner can prove."""
     if cell.phase != "1B":
         return False
-    return plant_for(cell.target, cell.attack).location.startswith(_INSIDIA)
+    if plant_for(cell.target, cell.attack).location.startswith(_INSIDIA):
+        return True
+    from benchmark.harness.upstream import upstream_ready
+
+    return upstream_ready(cell)
 
 
 def run_cell(cell: Cell) -> list[Finding]:
     if not scanner_ready(cell):
         raise ScannerNotBuilt(cell)
+    if not plant_for(cell.target, cell.attack).location.startswith(_INSIDIA):
+        from benchmark.harness.upstream import prove_upstream
+
+        return prove_upstream(cell)
     return _prove(cell)
 
 
