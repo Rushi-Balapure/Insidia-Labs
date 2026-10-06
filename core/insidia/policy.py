@@ -19,7 +19,7 @@ class Control:
 
 _LEAKAGE = Control(
     "ai.data_leakage",
-    ("chat", "agent", "rag"),
+    ("chat", "agent", "rag", "mcp"),
     ("owasp-llm:LLM02",),
     "Stop returning secrets from the prompt, retrieved documents, or tool output.",
     "high",

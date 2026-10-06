@@ -189,6 +189,13 @@ def _body(target: Target, payload: str) -> bytes | None:
     document: dict[str, object]
     if target.api == "anthropic":
         document = {"messages": [{"role": "user", "content": payload}]}
+    elif target.kind == "mcp":
+        document = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {"name": "read_file", "arguments": {"path": payload}},
+        }
     elif target.api == "graphql":
         document = {"query": payload}
     elif target.api == "openai":
