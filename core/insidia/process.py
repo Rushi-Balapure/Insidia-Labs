@@ -28,6 +28,11 @@ _ALLOW = (
     "SSL_CERT_FILE",
     "SSL_CERT_DIR",
     "REQUESTS_CA_BUNDLE",
+    "SYSTEMROOT",
+    "WINDIR",
+    "COMSPEC",
+    "PATHEXT",
+    "USERPROFILE",
 )
 _PROXIES = frozenset({"http_proxy", "https_proxy", "all_proxy", "no_proxy"})
 

@@ -610,6 +610,11 @@ def test_child_env_allowlist_drops_a_proxy() -> None:
     assert "http_proxy" not in env
 
 
+def test_child_env_keeps_the_windows_system_root(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SYSTEMROOT", r"C:\Windows")
+    assert child_env({})["SYSTEMROOT"] == r"C:\Windows"
+
+
 def test_broken_engine_leaves_builtin_probes_running(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

@@ -282,22 +282,10 @@ def _npm(stage: Path, package: str) -> None:
     npm = shutil.which("npm")
     if npm is None:
         raise CliError("npm is not installed")
-    command = [npm, "install", "--prefix", str(stage), "--no-fund", "--no-audit"]
-    if _npm_major(npm) >= 11:
-        command.append("--allow-scripts=esbuild")
-    command.append(package)
-    _checked(command, child_env({}))
-
-
-def _npm_major(npm: str) -> int:
-    result = subprocess.run(
-        [npm, "--version"],
-        capture_output=True,
-        text=True,
-        check=False,
+    _checked(
+        [npm, "install", "--prefix", str(stage), "--no-fund", "--no-audit", package],
+        child_env({}),
     )
-    major = result.stdout.strip().split(".", 1)[0]
-    return int(major) if major.isdigit() else 0
 
 
 def _checked(command: list[str], env: dict[str, str]) -> None:
