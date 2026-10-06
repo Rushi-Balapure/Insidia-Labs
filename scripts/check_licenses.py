@@ -15,6 +15,7 @@ ALLOWED_PYTHON = {
     "pydantic-settings",
     "sqlalchemy",
     "uvicorn",
+    "pyyaml",
 }
 
 DENIED_MARKERS = ("gpl", "agpl", "sspl", "elastic", "bsl-1.1", "busl")
@@ -22,10 +23,11 @@ DENIED_MARKERS = ("gpl", "agpl", "sspl", "elastic", "bsl-1.1", "busl")
 
 def main() -> None:
     root = Path(__file__).resolve().parents[1]
-    pyproject = tomllib.loads((root / "cloud" / "pyproject.toml").read_text())
-    names = set()
-    for spec in pyproject["project"]["dependencies"]:
-        names.add(spec.split("[")[0].split(">=")[0].split(">")[0].strip().lower())
+    names: set[str] = set()
+    for relative in ("cloud/pyproject.toml", "core/pyproject.toml"):
+        pyproject = tomllib.loads((root / relative).read_text())
+        for spec in pyproject["project"]["dependencies"]:
+            names.add(spec.split("[")[0].split(">=")[0].split(">")[0].strip().lower())
     unknown = names - ALLOWED_PYTHON
     if unknown:
         print("dependencies missing from the license allowlist:", ", ".join(sorted(unknown)))

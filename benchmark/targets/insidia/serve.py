@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import inspect
+import os
 from urllib.parse import parse_qs, urlparse
 
 from .state import new_state
@@ -76,7 +77,9 @@ def main() -> None:
         def log_message(self, fmt: str, *args: object) -> None:
             return
 
-    ThreadingHTTPServer(("0.0.0.0", 8080), Handler).serve_forever()
+    host = os.environ.get("INSIDIA_FIXTURE_HOST", "0.0.0.0")
+    port = int(os.environ.get("INSIDIA_FIXTURE_PORT", "8080"))
+    ThreadingHTTPServer((host, port), Handler).serve_forever()
 
 
 if __name__ == "__main__":

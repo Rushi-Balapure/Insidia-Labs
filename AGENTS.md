@@ -12,7 +12,7 @@ This file is for coding agents changing Insidia. The agent skill that *runs* a s
 
 - `cloud/` is Insidia Cloud (API, workers, hub).
 - `benchmark/` is the scanner benchmark and the framework mappings.
-- `core/` is the `insidia` CLI package. It does not exist until Phase 1A.
+- `core/` is the `insidia` CLI package (Python 3.12+).
 - `site/` is the marketing site. `dashboard/` is the hosted product UI.
 
 ## Rules
@@ -27,6 +27,8 @@ This file is for coding agents changing Insidia. The agent skill that *runs* a s
 ## Checks before you finish
 
 From `cloud/`: `uv run ruff check .`, `uv run mypy api workers`, and `uv run pytest`.
+
+From `core/`: `uv run ruff check .`, `uv run mypy insidia`, and `uv run pytest`.
 
 From the repository root: `uv run --project cloud ruff check benchmark` and `uv run --project cloud python -m pytest benchmark`.
 

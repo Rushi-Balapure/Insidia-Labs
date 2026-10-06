@@ -16,13 +16,22 @@ By signing off, you certify that you can submit the change under the Apache Lice
 
 ## What to change
 
-- The CLI and the benchmark live in `core/` (Phase 1A onward) and `benchmark/`.
+- The CLI lives in `core/`. The benchmark lives in `benchmark/`.
 - Insidia Cloud lives in `cloud/`. Python there is 3.14. The CLI package is Python 3.12+.
 - Do not add a dependency whose license is outside MIT, Apache-2.0, BSD, ISC, or a reviewed MPL-2.0. GPL, AGPL, SSPL, and Elastic-licensed code fail CI.
 - A scan must stay inside the scope in `insidia.yaml`. Do not weaken that check.
 - Credit an engine by name when a finding comes from it. Mask secrets. Do not log prompts.
 
 ## Checks
+
+From `core/`:
+
+```bash
+uv sync
+uv run ruff check .
+uv run mypy insidia
+uv run pytest
+```
 
 From `cloud/`:
 

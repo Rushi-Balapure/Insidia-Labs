@@ -46,10 +46,50 @@ jobs:
         working-directory: cloud
       - run: uv sync
         working-directory: cloud
+      - name: Clone the vulnerable apps the white-box cells read
+        run: |
+          root="../local-targets"
+          mkdir -p "$root"
+          git clone --depth 1 https://github.com/juice-shop/juice-shop.git "$root/juice-shop"
+          git clone --depth 1 https://github.com/erev0s/VAmPI.git "$root/VAmPI"
+          git clone --depth 1 https://github.com/dolevf/Damn-Vulnerable-GraphQL-Application.git "$root/dvga"
+          git clone --depth 1 https://github.com/OWASP/crAPI.git "$root/crAPI"
+          git clone --depth 1 https://github.com/ethz-spylab/agentdojo.git "$root/agentdojo"
+      - name: Pull the apps the live cells hit
+        run: |
+          docker pull bkimminich/juice-shop@sha256:73c53fbf442e8337b3ea3d98c7e8550308854701ebdfce4cc39768f36b75430e
+          docker pull erev0s/vampi@sha256:0a5a224b6e14ae7da6a6ea265178ff71286ff903aec74adee98f660bb0e4ca12
+          docker compose -f ../local-targets/crAPI/deploy/docker/docker-compose.yml pull
+      - name: Install Chrome for the Juice Shop page check
+        run: |
+          curl -fsSL -o /tmp/google-chrome-stable_current_amd64.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo apt-get update
+          sudo apt-get install -y /tmp/google-chrome-stable_current_amd64.deb
       - run: uv run --project cloud ruff check benchmark
       # --project is resolved from this step's directory, so cloud is ../cloud.
       - run: uv run --project ../cloud python -m pytest
         working-directory: benchmark
+
+  core:
+    name: core (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: core
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv python install 3.12
+      - run: uv sync
+      - run: uv run ruff check .
+        if: runner.os == 'Linux'
+      - run: uv run mypy insidia
+        if: runner.os == 'Linux'
+      - run: uv run pytest
 
   go:
     runs-on: ubuntu-latest
