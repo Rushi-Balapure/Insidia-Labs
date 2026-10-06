@@ -1,10 +1,10 @@
-"""Each valid cell fails until the phase that owns it ships a scanner."""
+"""Each valid cell meets ground truth once the scanner can prove it. The rest stay xfail."""
 
 from __future__ import annotations
 
 import pytest
 
-from benchmark.harness.run_cell import run_cell
+from benchmark.harness.run_cell import run_cell, scanner_ready
 from benchmark.harness.score import golden_dropped, meets_threshold, score_findings
 from benchmark.matrix.plants import plant_for
 from benchmark.matrix.registry import Cell, valid_cells
@@ -14,12 +14,13 @@ def _parameters() -> list[object]:
     parameters: list[object] = []
     for cell in valid_cells():
         marks = [getattr(pytest.mark, name) for name in cell.marker_names()]
-        marks.append(
-            pytest.mark.xfail(
-                strict=True,
-                reason=f"phase {cell.phase} scanner is not built",
+        if not scanner_ready(cell):
+            marks.append(
+                pytest.mark.xfail(
+                    strict=True,
+                    reason=f"phase {cell.phase} scanner is not built",
+                )
             )
-        )
         parameters.append(pytest.param(cell, id=cell.cell_id, marks=marks))
     return parameters
 

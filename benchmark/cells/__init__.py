@@ -1,1 +1,1 @@
-"""One xfail test per valid matrix cell."""
+"""One test per valid matrix cell. Cells the scanner cannot prove stay xfail."""
