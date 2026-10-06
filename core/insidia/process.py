@@ -50,13 +50,39 @@ def child_env(extra: Mapping[str, str]) -> dict[str, str]:
     return env
 
 
+def _command_argv(program: str, args: tuple[str, ...]) -> list[str]:
+    """Run a Windows console script with the venv interpreter.
+
+    uv stamps ``garak.exe`` with the interpreter path from the staging
+    directory. Publishing renames that directory, so the stamp no longer
+    exists and the launcher exits before the probe runs. The sibling
+    ``python.exe`` still points at the base interpreter, and it executes
+    the script zip appended to the launcher.
+    """
+    return _argv_for(os.name, program, args)
+
+
+def _argv_for(system: str, program: str, args: tuple[str, ...]) -> list[str]:
+    path = Path(program)
+    if system != "nt" or path.suffix.lower() != ".exe":
+        return [program, *args]
+    if path.name.lower() in {"python.exe", "pythonw.exe"}:
+        return [program, *args]
+    python = path.with_name("python.exe")
+    if not python.is_file():
+        return [program, *args]
+    return [str(python), program, *args]
+
+
 def run_command(
     argv: list[str],
     *,
     cwd: Path | None,
     env: Mapping[str, str],
     timeout: float,
-) -> int:
+    name: str | None = None,
+) -> tuple[int, str]:
+    label = name or Path(argv[0]).name
     proc = subprocess.Popen(
         argv,
         cwd=cwd,
@@ -67,12 +93,13 @@ def run_command(
         stderr=subprocess.PIPE,
     )
     try:
-        proc.communicate(timeout=timeout)
+        _stdout, stderr = proc.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
         _kill_tree(proc)
-        raise EngineFailed(f"{Path(argv[0]).name} timed out") from None
+        raise EngineFailed(f"{label} timed out") from None
     code = proc.returncode
-    return 1 if code is None else code
+    detail = stderr.decode("utf-8", errors="replace").strip()
+    return (1 if code is None else code), detail[-400:]
 
 
 def launch_installed(invocation: object, workspace: Path) -> None:
@@ -84,17 +111,19 @@ def launch_installed(invocation: object, workspace: Path) -> None:
     if not program.is_file():
         raise EngineFailed(f"{program.name} is not installed")
     try:
-        code = run_command(
-            [invocation.program, *invocation.args],
+        code, detail = run_command(
+            _command_argv(invocation.program, invocation.args),
             cwd=workspace,
             env=invocation.env,
             timeout=invocation.timeout,
+            name=program.name,
         )
     except OSError as exc:
         raise EngineFailed(f"{program.name}: {exc}") from exc
     report = workspace / invocation.report
     if code != 0 and not report.is_file():
-        raise EngineFailed(f"{program.name} exited {code}")
+        extra = f": {detail}" if detail else ""
+        raise EngineFailed(f"{program.name} exited {code}{extra}")
 
 
 def _blocked(key: str) -> bool:

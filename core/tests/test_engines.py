@@ -23,7 +23,7 @@ from insidia.engines import _github, _publish, install
 from insidia.errors import EngineFailed
 from insidia.policy import get_policy
 from insidia.probes import run
-from insidia.process import child_env, launch_installed
+from insidia.process import _argv_for, child_env, launch_installed
 from insidia.registry import capabilities, select
 from insidia.scope import ScopeHost
 from tests.support import start_fixture, stop_fixture, target
@@ -615,6 +615,34 @@ def test_child_env_keeps_the_windows_system_root(monkeypatch: pytest.MonkeyPatch
     assert child_env({})["SYSTEMROOT"] == r"C:\Windows"
 
 
+def test_windows_script_launcher_uses_the_venv_python(tmp_path: Path) -> None:
+    scripts = tmp_path / "Scripts"
+    scripts.mkdir()
+    python = scripts / "python.exe"
+    garak = scripts / "garak.exe"
+    python.write_bytes(b"")
+    garak.write_bytes(b"")
+    assert _argv_for("nt", str(garak), ("--probe", "test.Blank")) == [
+        str(python),
+        str(garak),
+        "--probe",
+        "test.Blank",
+    ]
+    assert _argv_for("nt", str(python), ("-c", "pass")) == [str(python), "-c", "pass"]
+    nuclei = tmp_path / "nuclei.exe"
+    nuclei.write_bytes(b"")
+    assert _argv_for("nt", str(nuclei), ("-u", "http://127.0.0.1")) == [
+        str(nuclei),
+        "-u",
+        "http://127.0.0.1",
+    ]
+    assert _argv_for("posix", str(garak), ("--probe", "test.Blank")) == [
+        str(garak),
+        "--probe",
+        "test.Blank",
+    ]
+
+
 def test_broken_engine_leaves_builtin_probes_running(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -693,7 +721,7 @@ def test_thorough_scan_cross_validates_without_a_model(tmp_path: Path) -> None:
     web = next(item for item in document if item["attack"] == "web.ssti")
     assert leak["engine"] == "insidia"
     assert leak["cross_validated"] is True, outcome.skips
-    assert set(leak["engines"]) >= {"insidia", "garak", "promptfoo"}
+    assert set(leak["engines"]) >= {"insidia", "garak", "promptfoo"}, outcome.skips
     assert web["engine"] == "insidia"
     assert web["cross_validated"] is True, outcome.skips
     assert "insidia" in web["engines"]
