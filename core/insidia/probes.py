@@ -94,6 +94,13 @@ def run(
     ]
 
 
+_REPO_SOURCE = {
+    "code.sast_sinks": "sinks.py",
+    "code.secrets": "sinks.py",
+    "deps.sca": "requirements.txt",
+}
+
+
 def _judge(
     adapter: BuiltIn,
     spec: ProbeSpec,
@@ -102,12 +109,30 @@ def _judge(
     root: Path,
 ) -> list[EngineHit]:
     oracle = ORACLES[spec.family]
+    if target.kind == "repo":
+        return _judge_repo(adapter, spec, target, root)
     hits: list[EngineHit] = []
     for payload in adapter.corpus[spec]:
         response = exchange(target, payload, scope, root)
         evidence = oracle(payload, response, target)
         if evidence is not None:
             hits.append(EngineHit(spec.upstream, payload, response, evidence))
+    return hits
+
+
+def _judge_repo(
+    adapter: BuiltIn,
+    spec: ProbeSpec,
+    target: Target,
+    root: Path,
+) -> list[EngineHit]:
+    text = (repo_path(target, root) / _REPO_SOURCE[spec.family]).read_text(encoding="utf-8")
+    oracle = ORACLES[spec.family]
+    hits: list[EngineHit] = []
+    for payload in adapter.corpus[spec]:
+        evidence = oracle(payload, text, target)
+        if evidence is not None:
+            hits.append(EngineHit(spec.upstream, payload, text, evidence))
     return hits
 
 

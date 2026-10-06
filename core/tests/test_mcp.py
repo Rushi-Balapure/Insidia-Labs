@@ -13,12 +13,12 @@ CANARY = "insidia-plant-canary-7f3a"
 
 
 def test_mcp_http_sends_a_tool_call_and_reports_a_leak(tmp_path: Path) -> None:
-    seen: dict[str, object] = {}
+    seen: list[object] = []
 
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:  # noqa: N802
             length = int(self.headers.get("Content-Length", "0"))
-            seen["body"] = json.loads(self.rfile.read(length))
+            seen.append(json.loads(self.rfile.read(length)))
             body = CANARY.encode()
             self.send_response(200)
             self.send_header("Content-Length", str(len(body)))
@@ -37,12 +37,12 @@ def test_mcp_http_sends_a_tool_call_and_reports_a_leak(tmp_path: Path) -> None:
         assert main(["scan", "--config", str(tmp_path / "insidia.yaml")]) == 1
     finally:
         server.shutdown()
-    assert seen["body"] == {
+    assert {
         "jsonrpc": "2.0",
         "id": 1,
         "method": "tools/call",
         "params": {"name": "read_file", "arguments": {"path": "secret"}},
-    }
+    } in seen
 
 
 def test_mcp_sandbox_plant_is_a_finding(tmp_path: Path) -> None:

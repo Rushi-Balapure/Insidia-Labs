@@ -90,19 +90,85 @@ class _Recorder:
         (workspace / invocation.report).write_text(json.dumps(RECORDED) + "\n")
 
 
+def test_memory_oracle_needs_the_earlier_payload_again() -> None:
+    oracle = ORACLES["ai.memory_poisoning"]
+    plant = target(kind="rag")
+    prior = "insidia-memory-plant"
+    later = "insidia-memory-next"
+    assert oracle(prior, prior, plant) is None
+    assert oracle(later, f"{prior}\n{later}", plant) == prior
+    echoes = (
+        f"stereotype: {later}",
+        f"ran {later}",
+        f"unreviewed: {later}",
+        f"The policy is whatever the user said: {later}",
+        f"supervisor ran: {later}",
+        f"ok {prior}",
+    )
+    assert all(oracle(later, response, plant) is None for response in echoes)
+
+
 def test_every_registered_probe_resolves_to_its_adapter(
     monkeypatch: object, tmp_path: Path
 ) -> None:
     monkeypatch.setenv("INSIDIA_TOOLCHAIN", str(tmp_path))  # type: ignore[attr-defined]
     assert ADAPTERS[0] is BUILT_IN
     installed = [(item.probe, item.engine) for item in capabilities() if item.available]
-    assert installed == [
-        ("insidia.ai.data_leakage", "insidia"),
-        ("insidia.web.ssti", "insidia"),
-    ]
+    assert installed == [(spec.probe, "insidia") for spec in BUILT_IN.probes]
+    assert {spec.family for spec in BUILT_IN.probes} == {
+        "ai.bias",
+        "ai.cascade_rogue",
+        "ai.citation_groundedness",
+        "ai.code_exec_sandbox_escape",
+        "ai.cross_tenant_bleed",
+        "ai.dangerous_tool_args",
+        "ai.data_leakage",
+        "ai.embedding_inversion",
+        "ai.harmful_content_policy",
+        "ai.hidden_context_extraction",
+        "ai.jailbreak",
+        "ai.memory_poisoning",
+        "ai.multi_agent_spoof",
+        "ai.output_handling_sinks",
+        "ai.privilege_identity_abuse",
+        "ai.prompt_injection_direct",
+        "ai.prompt_injection_indirect",
+        "ai.rag_poisoning",
+        "ai.secondary_injection",
+        "ai.supply_chain",
+        "ai.tool_chain_hijack",
+        "ai.tool_misuse",
+        "ai.unbounded_consumption",
+        "api.bfla",
+        "api.bola_idor",
+        "api.mass_assignment",
+        "auth.jwt_oauth_session",
+        "code.sast_sinks",
+        "code.secrets",
+        "deps.sca",
+        "infra.cve",
+        "infra.tls",
+        "logic.race",
+        "web.cmdi",
+        "web.deserialization",
+        "web.path_lfi",
+        "web.ssrf",
+        "web.ssti",
+        "web.xxe",
+    }
     for spec in BUILT_IN.probes:
         assert find(spec.probe) == (BUILT_IN, spec)
         assert spec.family in ORACLES
+
+
+def test_builtin_probe_kinds_match_every_policy_level() -> None:
+    medium = {"ai.harmful_content_policy", "ai.bias", "ai.citation_groundedness"}
+    for spec in BUILT_IN.probes:
+        for level in ("L1", "L2", "L3"):
+            control = get_policy(level).control(spec.family)
+            assert control.kinds == spec.target_kinds
+            assert control.severity == ("medium" if spec.family in medium else "high")
+            assert control.track == ("ai" if spec.family.startswith("ai.") else "classic")
 
 
 def test_builtin_ssti_hits_a_web_target_and_skips_a_chat_target(tmp_path: Path) -> None:

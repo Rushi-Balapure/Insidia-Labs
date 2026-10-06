@@ -7,12 +7,12 @@ from insidia.cli import main
 
 
 def test_graphql_target_sends_the_query_and_reports_ssti(tmp_path: Path) -> None:
-    seen: dict[str, object] = {}
+    seen: list[object] = []
 
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:  # noqa: N802
             length = int(self.headers.get("Content-Length", "0"))
-            seen["body"] = json.loads(self.rfile.read(length))
+            seen.append(json.loads(self.rfile.read(length)))
             body = b"49"
             self.send_response(200)
             self.send_header("Content-Length", str(len(body)))
@@ -48,7 +48,7 @@ targets:
         assert main(["scan", "--config", str(config)]) == 1
     finally:
         server.shutdown()
-    assert seen["body"] == {"query": "{{7*7}}"}
+    assert {"query": "{{7*7}}"} in seen
     findings = json.loads(_findings(tmp_path).read_text())
     assert findings[0]["attack"] == "web.ssti"
 

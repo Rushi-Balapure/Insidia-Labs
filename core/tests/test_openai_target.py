@@ -9,12 +9,12 @@ CANARY = "insidia-plant-canary-7f3a"
 
 
 def test_openai_chat_target_uses_the_message_selector(tmp_path: Path) -> None:
-    seen: dict[str, object] = {}
+    seen: list[object] = []
 
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:  # noqa: N802
             length = int(self.headers.get("Content-Length", "0"))
-            seen["body"] = json.loads(self.rfile.read(length))
+            seen.append(json.loads(self.rfile.read(length)))
             body = json.dumps({"choices": [{"message": {"content": CANARY}}]}).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -52,7 +52,7 @@ targets:
         assert main(["scan", "--config", str(config)]) == 1
     finally:
         server.shutdown()
-    assert seen["body"] == {"messages": [{"role": "user", "content": "secret"}]}
+    assert {"messages": [{"role": "user", "content": "secret"}]} in seen
     findings = json.loads(_findings(tmp_path).read_text())
     assert findings[0]["response"] == CANARY
     assert findings[0]["engine"] == "insidia"

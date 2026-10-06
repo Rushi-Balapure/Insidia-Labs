@@ -191,9 +191,14 @@ def test_scan_finds_the_sandbox_plants_and_passes_a_clean_target(tmp_path: Path)
         assert "insidia.ai.data_leakage" in report
         assert "<table>" in report
 
-        _write(tmp_path, port, "jailbreak", "cve")
-        passed = main(["scan", "--config", str(tmp_path / "insidia.yaml")])
-        assert passed == 0
+        clean = ThreadingHTTPServer(("127.0.0.1", 0), _Ok)
+        threading.Thread(target=clean.serve_forever, daemon=True).start()
+        try:
+            _write(tmp_path, int(clean.server_address[1]), "data_leakage", "ssti")
+            assert main(["scan", "--config", str(tmp_path / "insidia.yaml")]) == 0
+        finally:
+            clean.shutdown()
+            clean.server_close()
     finally:
         stop_fixture(process)
 
@@ -216,6 +221,18 @@ targets:
     )
     code = main(["scan", "--config", str(config)])
     assert code == 2
+
+
+class _Ok(BaseHTTPRequestHandler):
+    def do_GET(self) -> None:  # noqa: N802
+        body = b"ok"
+        self.send_response(200)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, fmt: str, *args: object) -> None:
+        return
 
 
 def _write(root: Path, port: int, chat_fn: str, web_fn: str) -> None:

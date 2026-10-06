@@ -9,24 +9,32 @@ CANARY = "insidia-plant-canary-7f3a"
 
 
 def test_websocket_chat_leak_is_a_finding(tmp_path: Path) -> None:
-    seen: dict[str, str] = {}
+    seen: list[str] = []
     listener = socket.socket()
     listener.bind(("127.0.0.1", 0))
-    listener.listen(1)
+    listener.listen(8)
     port = listener.getsockname()[1]
 
     def serve() -> None:
-        connection, _ = listener.accept()
-        try:
-            data = b""
-            while b"\r\n\r\n" not in data:
-                data += connection.recv(4096)
-            connection.sendall(b"HTTP/1.1 101 Switching Protocols\r\n\r\n")
-            seen["payload"] = _read_client_text(connection)
-            body = CANARY.encode()
-            connection.sendall(bytes([0x81, len(body)]) + body)
-        finally:
-            connection.close()
+        while True:
+            try:
+                connection, _ = listener.accept()
+            except OSError:
+                return
+            try:
+                data = b""
+                while b"\r\n\r\n" not in data:
+                    chunk = connection.recv(4096)
+                    if not chunk:
+                        break
+                    data += chunk
+                connection.sendall(b"HTTP/1.1 101 Switching Protocols\r\n\r\n")
+                payload = _read_client_text(connection)
+                seen.append(payload)
+                body = CANARY.encode() if payload == "secret" else b"ok"
+                connection.sendall(bytes([0x81, len(body)]) + body)
+            finally:
+                connection.close()
 
     thread = threading.Thread(target=serve, daemon=True)
     thread.start()
@@ -52,7 +60,7 @@ targets:
     finally:
         listener.close()
         thread.join(timeout=5)
-    assert seen["payload"] == "secret"
+    assert "secret" in seen
     findings = json.loads(_findings(tmp_path).read_text())
     assert findings[0]["attack"] == "ai.data_leakage"
     assert findings[0]["engine"] == "insidia"
