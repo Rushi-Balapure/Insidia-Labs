@@ -52,7 +52,12 @@ jobs:
         working-directory: benchmark
 
   core:
-    runs-on: ubuntu-latest
+    name: core (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     defaults:
       run:
         working-directory: core
@@ -62,7 +67,9 @@ jobs:
       - run: uv python install 3.12
       - run: uv sync
       - run: uv run ruff check .
+        if: runner.os == 'Linux'
       - run: uv run mypy insidia
+        if: runner.os == 'Linux'
       - run: uv run pytest
 
   go:
