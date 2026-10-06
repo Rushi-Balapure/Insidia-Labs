@@ -47,7 +47,7 @@ def normalize(hits: list[ProbeHit]) -> list[Finding]:
             hit.target,
             hit.taxonomy,
             hit.remediation,
-            _evidence_hash(response),
+            _evidence_hash(mask(hit.evidence) if hit.evidence else response),
             False,
             hit.target,
         )

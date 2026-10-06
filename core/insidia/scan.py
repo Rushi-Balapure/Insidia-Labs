@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from insidia.adapters import find
 from insidia.config import Project, Target
 from insidia.errors import CliError
 from insidia.findings import Finding, normalize
@@ -63,10 +64,10 @@ def execute(
                 continue
             failed = False
             for capability in chosen:
-                hit = run(capability, target, project, root, policy.control(family))
-                if hit is not None:
-                    hits.append(hit)
-                    failed = True
+                adapter, spec = find(capability.probe)
+                found = run(adapter, spec, target, project, root, policy.control(family))
+                hits.extend(found)
+                failed = failed or bool(found)
             result = "fail" if failed else "pass"
             controls.append({"id": family, "target": target.name, "result": result})
     if not any(item["result"] != "skipped" for item in controls):

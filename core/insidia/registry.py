@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from insidia.adapters import ADAPTERS, BuiltIn
 from insidia.errors import ConfigError
 
 KNOWN_ENGINES: tuple[tuple[str, str], ...] = (
@@ -35,9 +36,17 @@ class Capability:
     available: bool
 
 
-BUILT_IN: tuple[Capability, ...] = (
-    Capability("ai.data_leakage", "insidia", "insidia.ai.data_leakage", 100, False, True),
-    Capability("web.ssti", "insidia", "insidia.web.ssti", 100, False, True),
+CAPABILITIES: tuple[Capability, ...] = tuple(
+    Capability(
+        spec.family,
+        adapter.engine,
+        spec.probe,
+        spec.priority,
+        spec.requires_model,
+        isinstance(adapter, BuiltIn),
+    )
+    for adapter in ADAPTERS
+    for spec in adapter.probes
 )
 
 
@@ -46,7 +55,7 @@ def select(
     coverage: str,
     *,
     model_available: bool,
-    entries: tuple[Capability, ...] = BUILT_IN,
+    entries: tuple[Capability, ...] = CAPABILITIES,
 ) -> list[Capability]:
     if coverage not in {"standard", "thorough"}:
         raise ConfigError("coverage must be standard or thorough")
