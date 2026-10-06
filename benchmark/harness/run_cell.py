@@ -65,19 +65,29 @@ def scanner_ready(cell: Cell) -> bool:
         return False
     if plant_for(cell.target, cell.attack).location.startswith(_INSIDIA):
         return True
+    from benchmark.harness.live import live_ready
     from benchmark.harness.upstream import upstream_ready
 
-    return upstream_ready(cell)
+    return upstream_ready(cell) or live_ready(cell)
 
 
 def run_cell(cell: Cell) -> list[Finding]:
     if not scanner_ready(cell):
         raise ScannerNotBuilt(cell)
-    if not plant_for(cell.target, cell.attack).location.startswith(_INSIDIA):
-        from benchmark.harness.upstream import prove_upstream
+    if plant_for(cell.target, cell.attack).location.startswith(_INSIDIA):
+        return _prove(cell)
+    from benchmark.harness.live import live_ready, prove_live
+    from benchmark.harness.upstream import prove_upstream, upstream_ready
 
+    white = upstream_ready(cell)
+    live = live_ready(cell)
+    if white and live:
+        raise RuntimeError(f"{cell.cell_id} is both a file needle and a live hit")
+    if white:
         return prove_upstream(cell)
-    return _prove(cell)
+    if live:
+        return prove_live(cell)
+    raise ScannerNotBuilt(cell)
 
 
 def _prove(cell: Cell) -> list[Finding]:
