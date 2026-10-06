@@ -1,12 +1,12 @@
-# Vertical slices — local engines (Phase 1B) and Cloud connections (Phase 2C)
+# Engines and connections — local engines (1B) and Cloud connections (2C)
 
-> **v6.** This file splits. The engine adapters, the normalizer, the capability registry, and the fixtures are **Phase 1A and 1B**: they run as local subprocesses inside the `insidia` CLI, on the user's machine, with no account. The hub, relay, tunnel, egress proxy, ownership verification, fairness, and encrypted Cloud storage are **Phase 2C**: they exist so Insidia Cloud can scan public and internal targets. Findings name the engine (`garak`, `ZAP`, or an Insidia module id). Secret masking stays. Probe ids stay stable (`insidia.llm.jailbreak.dan`) and the report also shows the upstream probe name.
+> Covers the engine adapters, the normalizer, the capability registry, and the fixtures (Phases 1A and 1B), which run as local subprocesses inside the `insidia` CLI on the user's machine with no account. Also covers the hub, relay, tunnel, egress proxy, ownership verification, fairness, and encrypted Cloud storage (Phase 2C), which let Insidia Cloud scan public and internal targets. Findings name the engine (`garak`, `ZAP`, or an Insidia module id). Secrets are masked. Probe ids are stable (`insidia.llm.jailbreak.dan`) and the report also shows the upstream probe name.
 
-Depends on: Phase 0 for the Cloud half. The CLI half depends on Phase 1.0 (the `core/` package).
+Depends on: Phase 0 for the Cloud half. The CLI half depends on Phase 1A (the `core/` package).
 Parent: [00-master-plan.md](00-master-plan.md). Coverage: layers 1 and the start of classic DAST in [01-ai-redteam-coverage-spec.md](01-ai-redteam-coverage-spec.md).
 
 ## Goal
-The CLI runs an AI probe and a web probe against a local fixture and writes findings that name the engine. Insidia Cloud, later, runs the same `core` package for many orgs at once: a Go runner relays chat (track A) or tunnels raw HTTP (track B), and public targets are scanned directly (track C). Cloud findings are tenant-isolated and encrypted at rest.
+The CLI runs an AI probe and a web probe against a local fixture and writes findings that name the engine. Insidia Cloud runs the same `core` package for many orgs at once: a Go runner relays chat (track A) or tunnels raw HTTP (track B), and public targets are scanned directly (track C). Cloud findings are tenant-isolated and encrypted at rest.
 
 ## Exit
 - **Phase 1B, local.** `insidia scan` on Linux, macOS, and Windows runs garak (or promptfoo) and ZAP (or Nuclei) against the sandbox fixtures, with engines named in `findings.json`. Standard runs one engine per family; Thorough runs two and merges a cross-validated finding. No model is required for the canary cells.
@@ -18,7 +18,7 @@ The CLI runs an AI probe and a web probe against a local fixture and writes find
 - Owned matrix cells are green ([17-test-suite.md](17-test-suite.md)).
 
 ## Out of scope
-The hosted dashboard (Phase 2C, [04-phase2-dashboard.md](04-phase2-dashboard.md)), the benchmark report format (Phase 1D), multi-turn adaptive attacks (Phase 2B), the pentest agent (Phase 2B).
+The hosted dashboard (Phase 2C, [04-hosted-dashboard.md](04-hosted-dashboard.md)), the benchmark report format (Phase 1D), multi-turn adaptive attacks (Phase 2B), the pentest agent (Phase 2B).
 
 ## Shared contracts (do these first)
 
@@ -31,8 +31,8 @@ Version the package `insidia.relay.v1`.
 Generate Go (runner + hub) and Python (workers). Contract test: a golden binary payload decodes the same in both.
 
 ### Data model (Alembic, forced RLS on every tenant table)
-The tables, columns, and encryption rules are defined in [14-database-schema.md](14-database-schema.md); Phase 1 implements the Phase 1 tables from it. Highlights:
-- `users` minimal (encrypted email plus blind index). Real login is Phase 2. Phase 1 authenticates API calls with an org-scoped service token stored only as an HMAC.
+The tables, columns, and encryption rules are defined in [14-database-schema.md](14-database-schema.md); Phase 2C implements the Cloud tables from it. Highlights:
+- `users` minimal (encrypted email plus blind index). Real login arrives with the hosted dashboard ([04-hosted-dashboard.md](04-hosted-dashboard.md)). Cloud API calls authenticate with an org-scoped service token stored only as an HMAC.
 - `runners`, `runner_enrollment_tokens` (single use, short TTL, HMAC only), `runner_certs`.
 - `targets` with `connection` (`direct` or `runner`); names, URLs, hosts, templates, selectors, and secret references are all encrypted. `target_verifications` and write-only `target_credentials` for direct mode.
 - `engines`, `attack_families`, `capability_map`, `probes`, `probe_upstream_map` (registry v1).
@@ -42,9 +42,9 @@ The tables, columns, and encryption rules are defined in [14-database-schema.md]
 - Object storage keys: `org/{org_id}/scans/{scan_id}/{uuid}`, with every object encrypted by the org data key before upload.
 
 ### Secret redaction before storage
-Before any evidence is persisted, the redactor in `engine/api/crypto/` replaces detected secrets with masked tokens (type, length, fingerprint), drops `Authorization`, `Cookie`, and similar headers from stored HTTP pairs, and masks PII by default. See [14-database-schema.md](14-database-schema.md#secrets-found-in-evidence).
+Before any evidence is persisted, the redactor in `cloud/api/crypto/` replaces detected secrets with masked tokens (type, length, fingerprint), drops `Authorization`, `Cookie`, and similar headers from stored HTTP pairs, and masks PII by default. See [14-database-schema.md](14-database-schema.md#secrets-found-in-evidence).
 
-### Hub (`engine/hub`)
+### Hub (`cloud/hub`)
 Long-lived process. Runners connect outbound (mTLS). Dev compose may use a shared CA minted by the hub.
 - Connection registry in Valkey: `runner_id -> hub instance`, last heartbeat, org_id. Ids only; the allowlist is loaded from Postgres (decrypted in the hub's memory), never cached in Valkey.
 - **Relay RPC:** worker calls hub `POST /internal/attempts`. Hub forwards to the runner and waits up to `timeout_ms`. Unknown runner, wrong org, or host outside the allowlist returns an error. No cross-org routing.
@@ -61,7 +61,7 @@ Task time limit 10 minutes, soft limit 8. Retries on runner disconnect (max 3). 
 
 ### Fairness
 Celery will drain whichever queue is hottest. Do not rely on that.
-- Before a worker executes, `engine/workers/common/fairness.py` takes a Valkey token-bucket lease keyed by `org_id` and queue. No lease: retry the task after a jittered delay (`countdown`), do not busy-loop.
+- Before a worker executes, `cloud/workers/common/fairness.py` takes a Valkey token-bucket lease keyed by `org_id` and queue. No lease: retry the task after a jittered delay (`countdown`), do not busy-loop.
 - Caps: default 4 concurrent tasks per org per queue, overridable per org.
 - RabbitMQ priorities (`x-max-priority`): interactive dashboard scans outrank scheduled and CI scans.
 - Dispatcher on `control`: round-robin across orgs that have queued scan work when fanning out the chord, so a 1,000-task org does not occupy the broker head-of-line alone.
@@ -75,13 +75,13 @@ Celery will drain whichever queue is hottest. Do not rely on that.
 - `validate --target` sends one benign prompt through the template.
 
 ### Relay transports (minimum for exit)
-HTTP JSON template + response JSONPath, and OpenAI-compatible chat completions. Session modes: stateless, cookie jar per `session_id`, and a body field for a conversation id. Anthropic, Bedrock, and Azure adapters are stubs with tests skipped, filled in Phase 4 if not needed sooner.
+HTTP JSON template + response JSONPath, and OpenAI-compatible chat completions. Session modes: stateless, cookie jar per `session_id`, and a body field for a conversation id. Anthropic, Bedrock, and Azure adapters are stubs with tests skipped, filled in Phase 2C when a customer needs them.
 
 ### Secrets
 `secret_ref: env:SUPPORT_BOT_TOKEN` resolves in the runner process environment. The cloud stores the ref string only. Tests assert the token never appears in hub logs or the Celery result.
 
 ### Redaction
-A small regex pack (API keys, emails) runs on the response before it is returned. The response flag `redacted=true` is stored. Customer-editable rules come in Phase 2 settings; Phase 1 ships defaults.
+A small regex pack (API keys, emails) runs on the response before it is returned. The response flag `redacted=true` is stored. Customer-editable rules arrive with the Phase 2C dashboard settings; the default pack ships with the relay.
 
 ### Workers (own images, not Python 3.14 if the upstream package is not ready)
 - **garak image.** Custom generator `RelayGenerator` calls the hub instead of an HTTP model. Point detectors at our judge endpoint only if garak's built-in detectors are enough for the slice; otherwise a simple string/canary detector is acceptable for exit. Raise generator parallelism so relay RTT is hidden.
@@ -91,7 +91,7 @@ A small regex pack (API keys, emails) runs on the response before it is returned
 Map raw results to `Finding`. Keep the upstream probe name (`garak`, `dan.Dan_11_0`) on the finding and also store the stable Insidia probe id (`insidia.llm.jailbreak.dan`) from `probe_upstream_map`. An unmapped upstream probe is stored with its upstream name and flagged `unmapped` so the registry can be updated; it is not dropped and not relabeled. Normalize the evidence, run the secret redactor, compute `evidence_bidx`, and merge on `(org_id, target_id, attack_family_id, evidence_bidx)`. A merge across two engines sets `cross_validated`.
 
 ### Canary oracle (module M-A3, first slice)
-Every AI probe in the Phase 1 profiles carries a per-attempt canary. A finding needs the canary to appear (leak) or be obeyed (injection), so Phase 1 findings are deterministic, not judged. See [16-coverage-gaps.md](16-coverage-gaps.md).
+Every AI probe in the Phase 1B and 1C profiles carries a per-attempt canary. A finding needs the canary to appear (leak) or be obeyed (injection), so these findings are deterministic and need no judge model. See [16-coverage-gaps.md](16-coverage-gaps.md).
 
 ### Fixture
 A 50-line OpenAI-compatible Python app that leaks a canary if the user says "ignore previous instructions". CI runs the scan against it through the runner on localhost.
@@ -122,7 +122,7 @@ User-Agent is `Insidia Labs` plus the engine name and version, so a target owner
 - Every host in the target's host list must be verified. Verification expires after 30 days and is re-checked before each scan.
 - Unverified targets cannot run active tests.
 
-### Egress proxy (`engine/egress/`)
+### Egress proxy (`cloud/egress/`)
 - A fixed set of public egress IPs, published in the dashboard and docs so customers can allowlist them.
 - Allows only hosts that are verified targets of the scan's org. Resolves DNS itself and refuses private, loopback, link-local, and IPv6 ULA addresses, including after redirects and DNS rebinding (the resolved IP is pinned for the connection).
 - Applies the target's rate limit, the kill switch, and a User-Agent of `Insidia Labs` plus the engine name and version.
@@ -130,13 +130,13 @@ User-Agent is `Insidia Labs` plus the engine name and version, so a target owner
 - The only process that decrypts direct-mode credentials, for the running scan only.
 
 ### Credentials
-Direct targets use the [customer secrets](14-database-schema.md#customer-secrets) options: cloud secret manager reference, OAuth client with per-scan minted tokens, or a stored write-only value. Phase 1 ships stored write-only values and OAuth client credentials; the cloud secret manager reference lands in Phase 2.
+Direct targets use the [customer secrets](14-database-schema.md#customer-secrets) options: cloud secret manager reference, OAuth client with per-scan minted tokens, or a stored write-only value. Phase 2C ships stored write-only values and OAuth client credentials first, then the cloud secret manager reference.
 
 ### Fixture
 Public fixtures we host on a domain we own (chatbot and web app), verified by DNS TXT in CI.
 
 ## Capability registry v1
-- Seed `engines`, `attack_families`, `capability_map`, and `probe_upstream_map` for the Phase 1 engines.
+- Seed `engines`, `attack_families`, `capability_map`, and `probe_upstream_map` for the Phase 1B engines.
 - Standard mode picks priority 1 per family; Thorough runs every enabled entry.
 - The planner records which engines ran for each family, and the report names them.
 

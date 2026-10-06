@@ -1,18 +1,25 @@
 # Phase W — Marketing website
 
-> **v6. Built, rework pending.** The Astro site on `phase-w-marketing-site` is live as a brochure: brand kit applied, HTML demos, waitlist. Rework it for the open-core plan before the repo is the public face of the project. Lead with the CLI (`uv tool install` from GitHub), the agent prompt, and the benchmark. Credit the engines. Make Insidia Cloud the second call to action. Remove the engine-name denylist from `site/scripts/denylist.mjs` and from CI; keep the secret and real-data checks. Videos follow [22-website-video-scripts.md](22-website-video-scripts.md).
+> Phase W is the Astro marketing site on Vercel. The brochure is built: brand kit applied, HTML demos, waitlist. Videos follow [22-website-video-scripts.md](22-website-video-scripts.md).
+
+## Next work on the site
+- Lead with the open-source CLI (`uv tool install` from GitHub), the agent prompt, and the benchmark.
+- Credit the engines by name, with links.
+- Add a benchmark page.
+- Make Insidia Cloud the second call to action.
+- Remove `site/scripts/denylist.mjs` and its CI step; the site CI keeps the secret and real-data checks.
 
 Depends on: nothing in the build tracks.
-Parent: [00-master-plan.md](00-master-plan.md). Related: [04-phase2-dashboard.md](04-phase2-dashboard.md) (the hosted dashboard), [15-customer-docs.md](15-customer-docs.md).
+Parent: [00-master-plan.md](00-master-plan.md). Related: [04-hosted-dashboard.md](04-hosted-dashboard.md) (the hosted dashboard), [15-customer-docs.md](15-customer-docs.md).
 
 ## Why this exists
-The CLI is not shipped yet. The site explains the problem, shows the open-source install that is coming, and collects design partners. It is a brochure with a lead form, not the application. No scanning runs here and no customer account exists here.
+The CLI ships in Phases 1A to 1E. The site explains the problem, shows the open-source install, and collects design partners. It is a brochure with a lead form, not the application. No scanning runs here and no customer account exists here.
 
 ## Reference
 Model the structure and motion on [arguslabs.in](https://www.arguslabs.in/): a dark, technical landing page with an animated data-flow hero, a strip of "works with" logos, inline product-UI mockups, a three-step "what it does" story, a security section, a changelog, an FAQ accordion, and a final call to action. We copy the **shape and the feel**, not the copy, and our product story is AI-plus-classic security, not agent observability.
 
 ## Hard constraints
-- **Credit the engines.** garak, promptfoo, PyRIT, ZAP, Nuclei, and the rest are named where the product story needs them, with links. The architecture graphic shows the engines, the Insidia gap modules, and Insidia Cloud as an optional box. The old engine-name denylist is removed. A check still fails the build if a planted secret or a real customer string appears.
+- **Credit the engines.** garak, promptfoo, PyRIT, ZAP, Nuclei, and the rest are named where the product story needs them, with links. The architecture graphic shows the engines, the Insidia gap modules, and Insidia Cloud as an optional box. Engine names are allowed everywhere on the site. A check fails the build if a planted secret or a real customer string appears.
 - **Honest claims only.** Pre-product, we do not invent customer testimonials, logos, or metrics. Argus's "by the numbers" counters and tweet wall are illustrative; ours either stay empty until real, or are framed as the industry problem with cited sources, not as our results. A "design partner" quote appears only once we have a real one and they consent.
 - **apple-design and the brand kit.** The site follows `.agents/skills/apple-design/SKILL.md`: Motion (MIT), critically damped springs, `transform`/`opacity` only, `prefers-reduced-motion` and `prefers-reduced-transparency` honored, light and dark themes. Type is Sora from the kit.
 - **Lead data is customer-derived.** An email typed into the waitlist is PII. Do not store it in plaintext in our product database. Use a dedicated mechanism (see "Lead capture") that keeps marketing leads out of the tenant database entirely.
@@ -61,7 +68,7 @@ site/
 6. **Security section.** Three cards matching our real posture: runs in our cloud with per-org envelope encryption, secrets redacted before storage, your findings are never training data. Links to a short security page.
 7. **Changelog.** Markdown-driven, starts with "Private beta open" style entries that are true.
 8. **FAQ accordion.** What it tests, direct vs runner connection, data handling, pricing model, timeline to access.
-9. **Final CTA + footer.** Waitlist, book a call, docs, and the legal "Open-source licenses" link counsel may require (licenses only, no component descriptions; see [00-master-plan.md](00-master-plan.md#attribution-register)).
+9. **Final CTA + footer.** Waitlist, book a call, docs, and an "Open-source licenses" link to `THIRD_PARTY_NOTICES.md` (see [00-master-plan.md](00-master-plan.md#attribution)).
 
 ## The data-flow animation
 A looping, reduced-motion-aware diagram that tells the differentiator in one glance:
@@ -70,12 +77,12 @@ A looping, reduced-motion-aware diagram that tells the differentiator in one gla
 - Only `transform` and `opacity` animate. Under `prefers-reduced-motion` it becomes a static labeled diagram with a single fade. Under `prefers-reduced-transparency` the node materials are solid.
 - Built with Motion in a single React island (`DataFlowHero.tsx`). Engine names are allowed on labels.
 
-## Product demo mockups (HTML, based on the Phase 2 dashboard)
+## Product demo mockups (HTML, based on the Phase 2C dashboard)
 The user wants Argus-style product screenshots generated in HTML from how the dashboard will look. These are **presentational mockups**, not the real app:
 - Live HTML/CSS components under `site/src/components/MockDashboard/`, styled with the shared apple-design tokens so they match the eventual product and restyle automatically when the branding kit lands.
-- Screens to mock: the **CLI report** (Phase 1), then the hosted dashboard from [04-phase2-dashboard.md](04-phase2-dashboard.md): the **scan launcher**, the **live view** (per-family progress, engine names), the **findings triage**, the **attack-path graph**, and a **benchmark score**.
+- Screens to mock: the **CLI report** (Phase 1D), then the hosted dashboard from [04-hosted-dashboard.md](04-hosted-dashboard.md): the **scan launcher**, the **live view** (per-family progress, engine names), the **findings triage**, the **attack-path graph**, and a **benchmark score**.
 - Evidence shown is synthetic, with secrets rendered only as masked tokens (`[AWS_ACCESS_KEY len=20 fp=3f9a1c07]`). Engines are named.
-- Because they share tokens with `dashboard/src/design/`, these mockups double as an early visual prototype for Phase 2. They are static (no API, no data fetching) and carry a clear "representative UI" note so we are not implying a shipped product.
+- Because they share tokens with `dashboard/src/design/`, these mockups double as an early visual prototype for Phase 2C. They are static (no API, no data fetching) and carry a clear "representative UI" note so we are not implying a shipped product.
 
 ## Lead capture
 - **Waitlist:** email plus optional company and role. **Book a call:** a scheduling link (Cal.com, AGPL-free hosted, or a simple mailto fallback) — no scheduler code in our stack.
@@ -84,9 +91,9 @@ The user wants Argus-style product screenshots generated in HTML from how the da
 - No third-party marketing trackers that leak visitor data; if analytics are needed, use a privacy-respecting, cookieless option and disclose it.
 
 ## Hosting and the deployment split
-Your understanding is right, and it is a deliberate separation:
+The separation is deliberate:
 - **Marketing site (`site/`, this phase): Vercel.** It is a static Astro bundle with no brain, no scanners, no tenant database, and no customer accounts. The only server interaction is the lead form, which posts to a hosted form/CRM endpoint (see "Lead capture"), not to our product backend. It can go live immediately and scale on Vercel's CDN while the product is still being built.
-- **Product dashboard + brain (`dashboard/` + `engine/`, Phases 1–2 onward): our own server cluster.** The brain (FastAPI control plane, Celery workers, RabbitMQ, Valkey, Postgres, hub, egress proxy, model service) runs on Kubernetes in our cloud, as in [00-master-plan.md](00-master-plan.md#stack-and-deployment). The dashboard SPA is served alongside the brain on `app.` and talks to that API. It is **not** on Vercel, because it needs to sit next to the brain, the encrypted tenant database, and the fixed egress IPs, and because customer vulnerability data never transits a third-party platform.
+- **Product dashboard + brain (`dashboard/` + `cloud/`, Phase 2C onward): our own server cluster.** The brain (FastAPI control plane, Celery workers, RabbitMQ, Valkey, Postgres, hub, egress proxy, model service) runs on Kubernetes in our cloud, as in [00-master-plan.md](00-master-plan.md#architecture). The dashboard SPA is served alongside the brain on `app.` and talks to that API. It is **not** on Vercel, because it needs to sit next to the brain, the encrypted tenant database, and the fixed egress IPs, and because customer vulnerability data never transits a third-party platform.
 - **Three hosts, three jobs:** the apex domain is the Vercel marketing site, `app.` is the dashboard on our cluster, and `docs.` is the Starlight docs (static, can also be on Vercel or our CDN). The site links out to `app.` and `docs.`; it never embeds the app or calls the brain.
 - **Why the split matters:** keeping the lead-gen site off our product infrastructure means a public, high-traffic, frequently-changed marketing surface shares nothing with the system that holds customers' unfixed vulnerabilities. A compromise or misconfiguration of the Vercel site cannot reach the brain, the tenant database, or any customer data.
 
@@ -96,7 +103,7 @@ Your understanding is right, and it is a deliberate separation:
 - WCAG 2.2 AA: keyboard-operable nav and FAQ, visible focus, contrast from the kit verified, the animation pausable/escapable.
 
 ## Out of scope
-Sign-up, login, real scans, billing/checkout (pricing shows "request access" tiers only), the admin console, and any live product data. Those are Phases 2 and 10. This site hands a warm lead to a human.
+Sign-up, login, real scans, billing/checkout (pricing shows "request access" tiers only), the admin console, and any live product data. Those belong to Phase 2C (and Phase 4 for enterprise features). This site hands a warm lead to a human.
 
 ## Tests
 - **Secrets:** a check over the built `site/` output fails on a planted secret or a real customer string. Engine names pass.
@@ -110,7 +117,7 @@ Sign-up, login, real scans, billing/checkout (pricing shows "request access" tie
 - The animated data-flow hero runs and degrades correctly under reduced motion and transparency.
 - The HTML demos render the CLI report and, where they show the hosted dashboard, name the engines. Secrets stay masked.
 - Waitlist and book-a-call both work and keep leads out of the tenant database.
-- The secret check, accessibility, and Lighthouse checks pass in CI. The engine-name denylist is gone.
+- The secret and real-data check, accessibility, and Lighthouse checks pass in CI, and the site CI has no engine-name denylist step.
 - The branding kit (colors + logo) is applied through tokens and the logo slot.
 
 ## Risks

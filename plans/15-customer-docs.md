@@ -1,6 +1,6 @@
 # Documentation
 
-> **v6.** The docs open with the agent skill, then the CLI, then the benchmark, then Insidia Cloud. Engines are named and linked. The v5 engine-name denylist is removed from the docs CI; the secret and real-data checks stay. There is no PyPI page: install is from GitHub, as in the master plan.
+> The docs open with the agent skill, then the CLI, then the benchmark, then Insidia Cloud. Engines are named and linked. Docs CI runs link-check plus secret and real-data checks. Install is from GitHub, as in the master plan.
 
 Cross-cutting. The docs site is scaffolded in Phase 0, and every later phase ships the docs for its own features as part of its exit criteria.
 Parent: [00-master-plan.md](00-master-plan.md).
@@ -17,8 +17,8 @@ A person, or their coding agent, can go from nothing to a first report without h
 - **Plain language.** Short sentences, and the same terms as the CLI and the dashboard. Written for a reader who is competent but new to AI security.
 
 ## Tooling
-- **Starlight** (Astro, MIT) in a new top-level `docs/` folder, docs-as-code in the same repo, so a feature pull request includes its docs change.
-- Styled with the brand kit (Sora, navy, orange, magenta) and the apple-design skill (see [04-phase2-dashboard.md](04-phase2-dashboard.md#design-system-apple-design-skill)): reduced-motion support, light and dark themes.
+- **Starlight** (Astro, MIT) in the top-level `docs/` folder, docs-as-code in the same repo, so a feature pull request includes its docs change.
+- Styled with the brand kit (Sora, navy, orange, magenta) and the apple-design skill (see [04-hosted-dashboard.md](04-hosted-dashboard.md#design-system-apple-design-skill)): reduced-motion support, light and dark themes.
 - Full-text search built into the static site (Pagefind, MIT), with no third-party search service receiving customer queries.
 - Hosted as a static site at `docs.<our domain>`. Public by default. On-prem and enterprise-only pages sit behind sign-in.
 - The dashboard links to the matching docs page from every screen, and error messages carry a stable code that links to a troubleshooting entry (`INS-RUN-003` goes to `/troubleshooting/INS-RUN-003`).
@@ -68,12 +68,12 @@ A person, or their coding agent, can go from nothing to a first report without h
    - **Remediation guides, one per attack family:** what the issue is, why it matters, how to fix it in common stacks, and how to verify the fix with a rescan. These are generated from probe metadata plus hand-written guidance, and they are the pages customers use most.
    - Baselines and regression tracking
 7. **Compliance and reports**
-   - Framework pages: OWASP LLM 2026, OWASP Agentic, OWASP Web and API, MITRE ATLAS and ATT&CK, NIST AI RMF and AI 600-1, EU AI Act, ISO/IEC 42001, PCI DSS. Each explains which Insidia Labs tests map to which controls (generated from `taxonomy-data/`) and what Insidia Labs cannot prove on its own.
+   - Framework pages: OWASP LLM 2026, OWASP Agentic, OWASP Web and API, MITRE ATLAS and ATT&CK, NIST AI RMF and AI 600-1, EU AI Act, ISO/IEC 42001, PCI DSS. Each explains which Insidia Labs tests map to which controls (generated from `benchmark/mappings/`) and what Insidia Labs cannot prove on its own.
    - Report types (executive PDF, technical HTML, evidence pack, SARIF, JSON, AI-BOM) and how to share them with auditors
 8. **Integrations**
    - CI: GitHub Actions, GitLab, generic CLI; failing a build on severity
    - Jira, Slack, webhooks (with signature verification), SIEM export
-   - Burp extension (Phase 9)
+   - Burp extension (Phase 3)
 9. **API and CLI reference**
    - Authentication, API key scopes, rate limits, pagination, errors, webhooks
    - Generated endpoint reference with request and response examples
@@ -86,7 +86,7 @@ A person, or their coding agent, can go from nothing to a first report without h
     - Regions, subprocessors, and egress IP list
     - Authorized testing policy: only test systems you own or are permitted to test
     - Vulnerability disclosure for Insidia Labs itself
-11. **Administration** (Phase 10)
+11. **Administration** (Phase 4)
     - SSO (SAML, OIDC), SCIM, roles and custom permissions, audit log export
     - Private tenant and on-prem installation, upgrades, backups, air-gapped model setup
 12. **Troubleshooting and FAQ**, one entry per error code

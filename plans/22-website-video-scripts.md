@@ -1,9 +1,9 @@
 # 22 - Website video scripts
 
-Scripts for the short videos on the marketing site ([21-marketing-website.md](21-marketing-website.md)). They follow the v6 open-core plan ([00-master-plan.md](00-master-plan.md)): the free CLI and agent skill lead, Insidia Cloud follows.
+Scripts for the short videos on the marketing site ([21-marketing-website.md](21-marketing-website.md)). They follow the open-core plan ([00-master-plan.md](00-master-plan.md)): the free CLI and agent skill lead, Insidia Cloud follows.
 
 ## Rules for every video
-- **Format.** HTML/CSS animated players like the current `DemoReel.astro` (no mp4 on the page), or a screen recording of the real CLI once Phase 1 ships. Loop silently, start muted, show captions on screen, have a pause button, and show the final frame when the visitor prefers reduced motion.
+- **Format.** HTML/CSS animated players like the current `DemoReel.astro` (no mp4 on the page), or a screen recording of the real CLI once the CLI ships (Phase 1A). Loop silently, start muted, show captions on screen, have a pause button, and show the final frame when the visitor prefers reduced motion.
 - **Length.** 12-30 seconds each. The hero loop is under 15 seconds.
 - **Honesty.** Until the CLI exists, label each video "Representative demo". Every command, flag, and file name must match the master plan. Show only targets we own (the sandbox apps, `localhost`, `staging.example.com`). Findings shown must be classes the benchmark covers. No customer names, no invented metrics, no real keys; masked secrets use the `[AWS_ACCESS_KEY len=20 fp=3f9a1c07]` form.
 - **Brand.** Navy `#101028` background, Sora, orange `#ED7B39` primary accent, magenta `#E33D86` secondary. Severity colors from `tokens.css`. Navy text on orange buttons. Terminal text in a monospace font on Navy 800 `#181839`.

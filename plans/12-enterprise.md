@@ -1,8 +1,8 @@
 # Phase 4 — Enterprise
 
-> **v6.** Self-hosting Insidia Cloud is allowed for anyone, because the code is Apache-2.0. This phase is what a company pays for on top: SSO, RBAC, audit export, regional and private tenants, a supported Helm install on their GPUs, and the runtime guardrails from [13-phase11-later.md](13-phase11-later.md). "Bring your own key" in this file means the customer's encryption key for their Cloud data. It does not restrict which model they use; that is already free in the CLI.
+> This file covers Phase 4. Self-hosting Insidia Cloud is open to anyone, because the code is Apache-2.0. Phase 4 is what a company pays for on top: SSO, RBAC, audit export, regional and private tenants, a supported Helm install on their GPUs, and the runtime guardrails from [13-runtime-guardrails.md](13-runtime-guardrails.md). "Bring your own key" in this file means the customer's encryption key for their Cloud data. Model choice is free in the CLI.
 
-Depends on: Insidia Cloud (Phase 2) for a private deployment. The deployment track can start once compose is production-shaped.
+Depends on: Insidia Cloud (Phase 2C) for a private deployment. The deployment track can start once compose is production-shaped.
 Parent: [00-master-plan.md](00-master-plan.md).
 
 ## Goal
@@ -10,7 +10,7 @@ A company can use Insidia under their identity provider, with roles, an audit lo
 
 ## Exit
 - SSO login via OIDC works for a test IdP. SAML works for one test IdP or is explicitly deferred with OIDC covering the pilot.
-- Roles beyond Phase 2: `owner`, `admin`, `member`, `viewer`, plus a custom role that is a set of permissions (`scan:launch`, `finding:read_raw`, `report:export`, `runner:enroll`, `baseline:write`, `audit:read`).
+- Roles beyond the Phase 2C set: `owner`, `admin`, `member`, `viewer`, plus a custom role that is a set of permissions (`scan:launch`, `finding:read_raw`, `report:export`, `runner:enroll`, `baseline:write`, `audit:read`).
 - Audit log is append-only for those actions and is exportable by an admin of that org.
 - Helm chart installs API, workers, hub, egress proxy, RabbitMQ, Valkey, and the key service, and configures an external Postgres and the customer's KMS or HSM (Vault Transit or a cloud KMS). A smoke scan runs against the fixture inside the cluster.
 - Customers can bring their own master key (BYOK) in the shared cloud, and revoking it crypto-shreds their data (see [14-database-schema.md](14-database-schema.md)).
@@ -18,20 +18,20 @@ A company can use Insidia under their identity provider, with roles, an audit lo
 - Admin console ([20-admin-console.md](20-admin-console.md)): monthly SOC 2 staff access-review export (the security hardening and full two-person rule ship with the console in Phase 2C), and a reduced operator console in the Helm chart for self-hosted and private tenants (health, queues, runners, kill switches, settings, engines named).
 - On-prem install guide includes `THIRD_PARTY_NOTICES.md` generation for images that are actually shipped. Legal review is a checklist item before the first on-prem customer, not a code task.
 - Air-gapped profile: attacker and judge models point at an in-cluster model service (vLLM + AWQ, Stage 1 spec from [19-model-hosting.md](19-model-hosting.md): at least one 48 GB GPU the customer provides, weights shipped with pinned SHA-256); no calls to our SaaS control plane; image pulls from their registry.
-- Owned matrix cells are green ([17-test-suite.md](17-test-suite.md)). Phase 10 does not own cells.
+- Phase 4 does not own matrix cells; the cells owned by earlier phases stay green inside a private deployment ([17-test-suite.md](17-test-suite.md)).
 
 ## Identity
 - OIDC authorization code flow on the dashboard. Map IdP groups to org roles.
 - SAML 2.0 if the pilot IdP cannot do OIDC. Do not build both to full depth if one unblocks the contract.
 - Break-glass local admin stored hashed, disabled when SSO is required.
-- Session and API key behavior from Phase 2 stays. SSO users can still create API keys if their role allows.
+- Session and API key behavior from Phase 2C applies to SSO users. SSO users can still create API keys if their role allows.
 
 ## Audit
-Table `audit_events` as defined in [14-database-schema.md](14-database-schema.md): hash-chained, metadata and IPs encrypted with the org key, inserted only through the `app_audit` role by the API, not by workers guessing. Workers emit scan lifecycle events the API records. Phase 10 adds admin export (decrypted for the requesting org only), SIEM streaming, and the chain-verification report.
+Table `audit_events` as defined in [14-database-schema.md](14-database-schema.md): hash-chained, metadata and IPs encrypted with the org key, inserted only through the `app_audit` role by the API, not by workers guessing. Workers emit scan lifecycle events the API records. Phase 4 adds admin export (decrypted for the requesting org only), SIEM streaming, and the chain-verification report.
 No updates or deletes. Retention is a per-org setting (default 365 days) enforced by a scheduled job that deletes only past the retention window. Export to object storage before delete if the org enables archive.
 
 ## Deployment units
-- **Shared cloud (default):** one brain, many orgs, fairness from Phase 1. Region is a deployment choice (separate cluster per region), not a column that magically splits data. An org is pinned to one region.
+- **Shared cloud (default):** one brain, many orgs, fairness from Phase 2C. Region is a deployment choice (a separate cluster per region). An org is pinned to one region.
 - **Private tenant:** same Helm values, dedicated cluster, dedicated Postgres. Org id still on every row so the code path does not fork.
 - **On-prem:** customer runs Helm. We do not receive heartbeats unless they enable a phone-home flag, default off. License key (signed token) gates features if we need a contract check; the key does not contain customer scan data.
 
@@ -39,16 +39,16 @@ Images: api, worker-ai, worker-classic, worker-static, worker-agent, worker-insi
 
 ## Air gap
 - No telemetry.
-- Remote-generation, telemetry, and sharing disables are already in worker images; recheck every image for outbound calls in a CI test that uses a deny-all network except Postgres, RabbitMQ, Valkey, the hub, the key service, and the model.
+- Remote-generation, telemetry, and sharing disables are set in worker images; recheck every image for outbound calls in a CI test that uses a deny-all network except Postgres, RabbitMQ, Valkey, the hub, the key service, and the model.
 - On-prem customer docs (install, upgrade, backup, air-gapped models) ship versioned with the release, per [15-customer-docs.md](15-customer-docs.md).
 - Taxonomy data is baked into the image so the install does not fetch OWASP or MITRE at runtime.
 - Interactsh runs inside their cluster for blind bugs, bound to their scan network, not to our cloud.
 
 ## Notices
-A self-hosted install **is** distribution. The chart build writes `THIRD_PARTY_NOTICES.md` into each image from the lockfiles, and the docs name the engines. Counsel reviews the notice file before the first supported install. Tencent AI-Infra-Guard can be reconsidered, since public attribution is no longer a reason to exclude it; it still needs a license review before it is bundled.
+A self-hosted install **is** distribution. The chart build writes `THIRD_PARTY_NOTICES.md` into each image from the lockfiles, and the docs name the engines. Counsel reviews the notice file before the first supported install. Tencent AI-Infra-Guard needs a license review before it is bundled.
 
 ## SOC 2 readiness (Insidia Labs the company)
-Not a feature. A checklist next to this phase: access reviews, audit log, encryption at rest (Postgres and object storage), TLS everywhere, backup restore drill, vulnerability process for our own images. Implementation work that is purely policy stays out of the repo except internal docs in `internal/security/`. The customer-facing security and trust pages live in `docs/`.
+SOC 2 readiness is a checklist next to this phase: access reviews, audit log, encryption at rest (Postgres and object storage), TLS everywhere, backup restore drill, vulnerability process for our own images. Implementation work that is purely policy stays out of the repo except internal docs in `internal/security/`. The customer-facing security and trust pages live in `docs/`.
 
 ## Tests
 - OIDC login against a local test IdP (for example Keycloak in compose).

@@ -1,12 +1,12 @@
 # AI Red-Team Coverage Spec (Requirements Spine)
 
-> **v6.** This spine is current and applies to both the free CLI and Insidia Cloud ([00-master-plan.md](00-master-plan.md)). Deterministic layers (1–3, 5–7) ship in Phase 1B and 1C. Model-generated and multi-turn attacks ship in Phase 2B. Multi-agent honeypots, white box, and predictive ML ship in Phase 3. The "definition of done for v1" below is the Phase 1 CLI exit, run on the user's machine. Reports name the engine that produced each finding.
+> Requirements spine for both the free CLI and Insidia Cloud ([00-master-plan.md](00-master-plan.md)). Deterministic layers (1–3, 5–7) ship in Phases 1B and 1C. Model-generated and multi-turn attacks ship in Phase 2B. Multi-agent honeypots, white box, and predictive ML ship in Phase 3. Reports name the engine that produced each finding.
 
 Source: product owner, 2026-09-29. Frameworks pinned: OWASP GenAI LLM Top 10 2026 (published 2026-08-04), OWASP Top 10 for Agentic Applications 2026 (ASI01-ASI10), MITRE ATLAS (content v2026.06). Related mappings in the LLM Top 10 2026 appendix: MITRE ATT&CK v19.1, CWE 4.20, NIST AI 600-1, NIST AI RMF, CSA AICM v1.1, OWASP AIVSS v0.8, OWASP DSGAI 2026.
 
 Principle: attack every place untrusted text, tools, memory, models, or humans touch the system, and detect failures with oracles rather than impressions.
 
-## OWASP LLM Top 10 2026 reference (numbering changed from 2025)
+## OWASP LLM Top 10 2026 reference
 - LLM01 Prompt Injection
 - LLM02 Sensitive Information Disclosure
 - LLM03 Excessive Agency
@@ -14,7 +14,7 @@ Principle: attack every place untrusted text, tools, memory, models, or humans t
 - LLM05 Data and Model Poisoning
 - LLM06 Unbounded Consumption
 - LLM07 Misinformation
-- LLM08 Hidden Context Exposure (was System Prompt Leakage in 2025, now broader)
+- LLM08 Hidden Context Exposure
 - LLM09 Vector and Embedding Weaknesses
 - LLM10 Improper Output Handling
 
@@ -84,10 +84,11 @@ Findings must carry OWASP LLM + ASI IDs, ATLAS technique IDs, severity (AIVSS), 
 - White-box finds auth/tool-graph bugs black-box never sees; requires code-access trust.
 
 ## 7. Definition of done for Phase 1 (the free CLI, on a system the user is allowed to test)
+This is the exit for Phases 1B and 1C, run on the user's machine:
 - Run direct + indirect prompt injection with canary oracles
 - Enumerate tools and attempt misuse / chain exfil with tool-trace oracles
 - Plant and retrieve poisoned RAG docs
 - Attempt hidden-context and secret exfil
 - Measure unbounded consumption
 - Emit a report mapped to LLM01-10 and ASI01-10, with ATLAS tags
-- v2+: full ATLAS predictive matrix, live multi-agent chaos, continuous CI gates
+- After this exit: full ATLAS predictive matrix and live multi-agent chaos (Phase 3); continuous CI gates (GitHub Action in Phase 1E, schedules in Phase 2C)

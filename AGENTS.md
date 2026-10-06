@@ -4,14 +4,14 @@ This file is for coding agents changing Insidia. The agent skill that *runs* a s
 
 ## Read first
 
-- [plans/00-master-plan.md](plans/00-master-plan.md) is the current plan. Phase ids there are v6.
+- [plans/00-master-plan.md](plans/00-master-plan.md) is the current plan.
 - [README.md](README.md) is what users see.
 - [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md) are the contribution and disclosure rules.
 
 ## Layout
 
-- `cloud/` is Insidia Cloud (API, workers, hub). It was `engine/`.
-- `benchmark/` is the scanner benchmark and the framework mappings. It was `tests/` plus `engine/taxonomy-data/`.
+- `cloud/` is Insidia Cloud (API, workers, hub).
+- `benchmark/` is the scanner benchmark and the framework mappings.
 - `core/` is the `insidia` CLI package. It does not exist until Phase 1A.
 - `site/` is the marketing site. `dashboard/` is the hosted product UI.
 
