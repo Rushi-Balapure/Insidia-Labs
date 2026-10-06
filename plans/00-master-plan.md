@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: phase1a
     content: "Phase 1A: insidia CLI core - config, scope guard, target adapters, model-agnostic provider layer, engine manager, findings normalizer"
-    status: pending
+    status: in_progress
   - id: phase1b
     content: "Phase 1B: AI engines (garak, promptfoo, PyRIT, DeepTeam, mcp-scanner) and classic engines (ZAP, Nuclei, Dalfox, Trivy, osv-scanner, gitleaks) run locally"
     status: pending
@@ -61,7 +61,7 @@ Update this table in the same change that starts or finishes a phase. The next r
 | T Test harness | Done | Merged to `main`. Lives in `benchmark/`. 1,235 cells, xfail until a scanner exists. |
 | W Marketing site | Built, next work pending | Site is on `main`. Next: open-source-first copy, engine credits, remove the engine-name denylist, benchmark page. |
 | 1.0 Restructure | Done | Branch `phase-1.0-restructure`, not merged. Cloud lives in `cloud/`, the scanner benchmark in `benchmark/`, and every cell has an owning phase. |
-| 1A CLI core | Next | Not started. |
+| 1A CLI core | In progress | Branch `phase-1a-cli-core`. `insidia scan` runs one AI probe and one web probe against the sandbox on Linux. macOS and Windows remain part of the exit. |
 | 1B Engines | Not started | 635 cells in `ownership.yaml`. |
 | 1C Gap modules | Not started | 556 cells. |
 | 1D Benchmark and report | Not started | |
