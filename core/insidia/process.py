@@ -99,8 +99,11 @@ def _blocked(key: str) -> bool:
 
 def _kill_tree(proc: subprocess.Popen[bytes]) -> None:
     try:
-        os.killpg(proc.pid, signal.SIGKILL)
-    except ProcessLookupError:
+        if os.name == "nt":
+            proc.kill()
+        else:
+            os.killpg(proc.pid, signal.SIGKILL)
+    except OSError:
         proc.kill()
     try:
         proc.wait(timeout=5)

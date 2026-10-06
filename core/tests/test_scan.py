@@ -17,11 +17,11 @@ from tests.support import start_fixture, stop_fixture, target
 
 
 def test_rate_limiter_spaces_calls() -> None:
-    limiter = RateLimiter(50)
+    limiter = RateLimiter(10)
     started = time.monotonic()
     limiter.wait()
     limiter.wait()
-    assert time.monotonic() - started >= 0.015
+    assert time.monotonic() - started >= 0.05
 
 
 def test_repo_path_outside_the_project_is_rejected(tmp_path: Path) -> None:

@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import json
+import os
 import platform
 import shutil
 import subprocess
+import sys
 import tarfile
 import urllib.request
 import zipfile
@@ -17,6 +19,32 @@ from insidia.errors import CliError
 from insidia.process import child_env
 
 _CPU_TORCH = "https://download.pytorch.org/whl/cpu"
+
+
+def _venv_python(stage: Path) -> Path:
+    folder = "Scripts" if os.name == "nt" else "bin"
+    name = "python.exe" if os.name == "nt" else "python"
+    return stage / "venv" / folder / name
+
+
+def _venv_script(name: str) -> str:
+    if os.name == "nt":
+        return f"venv/Scripts/{name}.exe"
+    return f"venv/bin/{name}"
+
+
+def _npm_script(name: str) -> str:
+    if os.name == "nt":
+        return f"node_modules/.bin/{name}.cmd"
+    return f"node_modules/.bin/{name}"
+
+
+def _release_os() -> str:
+    if sys.platform == "darwin":
+        return "macOS"
+    if sys.platform == "win32":
+        return "windows"
+    return "linux"
 
 
 def toolchain_root() -> Path:
@@ -173,21 +201,21 @@ def _stage(spec: EngineSpec, stage: Path) -> str:
             extra_index=_CPU_TORCH,
             strategy="unsafe-best-match",
         )
-        return _require(stage, "venv/bin/garak")
+        return _require(stage, _venv_script("garak"))
     if spec.name in {"pyrit", "deepteam", "bandit"}:
         _venv(stage, [spec.package])
         if spec.name == "bandit":
-            return _require(stage, "venv/bin/bandit")
-        return _require(stage, "venv/bin/python")
+            return _require(stage, _venv_script("bandit"))
+        return _require(stage, _venv_script("python"))
     if spec.name == "mcp-scanner":
         _venv(stage, [spec.package])
-        return _require(stage, "venv/bin/mcp-scanner")
+        return _require(stage, _venv_script("mcp-scanner"))
     if spec.name == "skillspector":
         _venv(stage, [spec.package])
-        return _require(stage, "venv/bin/skillspector")
+        return _require(stage, _venv_script("skillspector"))
     if spec.name == "promptfoo":
         _npm(stage, spec.package)
-        return _require(stage, "node_modules/.bin/promptfoo")
+        return _require(stage, _npm_script("promptfoo"))
     if spec.name == "zap":
         return _fetch_zap(spec, stage)
     if spec.name == "osv-scanner":
@@ -202,7 +230,7 @@ def _require(stage: Path, relative: str) -> str:
 
 
 def _installed_version(stage: Path, package: str) -> str:
-    python = stage / "venv" / "bin" / "python"
+    python = _venv_python(stage)
     try:
         result = subprocess.run(
             [
@@ -235,7 +263,7 @@ def _venv(
     if uv is None:
         raise CliError("uv is not installed")
     venv = stage / "venv"
-    python = venv / "bin" / "python"
+    python = _venv_python(stage)
     env = child_env({})
     if not python.is_file():
         _checked([uv, "venv", "--python", "3.12", str(venv)], env)
@@ -254,10 +282,22 @@ def _npm(stage: Path, package: str) -> None:
     npm = shutil.which("npm")
     if npm is None:
         raise CliError("npm is not installed")
-    _checked(
-        [npm, "install", "--prefix", str(stage), "--no-fund", "--no-audit", package],
-        child_env({}),
+    command = [npm, "install", "--prefix", str(stage), "--no-fund", "--no-audit"]
+    if _npm_major(npm) >= 11:
+        command.append("--allow-scripts=esbuild")
+    command.append(package)
+    _checked(command, child_env({}))
+
+
+def _npm_major(npm: str) -> int:
+    result = subprocess.run(
+        [npm, "--version"],
+        capture_output=True,
+        text=True,
+        check=False,
     )
+    major = result.stdout.strip().split(".", 1)[0]
+    return int(major) if major.isdigit() else 0
 
 
 def _checked(command: list[str], env: dict[str, str]) -> None:
@@ -271,7 +311,7 @@ def _fetch_binary(spec: EngineSpec, stage: Path, *, raw: bool) -> str:
     url = _github(spec)
     archive = stage / "download"
     _download(url, archive)
-    binary = spec.package
+    binary = f"{spec.package}.exe" if sys.platform == "win32" else spec.package
     if raw:
         destination = stage / "bin" / binary
         destination.parent.mkdir()
@@ -328,8 +368,8 @@ def _download(url: str, destination: Path) -> None:
 
 
 def _github(spec: EngineSpec) -> str:
-    machine = platform.machine()
-    if machine == "x86_64":
+    machine = platform.machine().lower()
+    if machine in {"x86_64", "amd64"}:
         arch, x64, gnu = "amd64", "x64", "x86_64"
         trivy = "64bit"
     elif machine in {"aarch64", "arm64"}:
@@ -341,7 +381,7 @@ def _github(spec: EngineSpec) -> str:
     urls = {
         "nuclei": (
             "https://github.com/projectdiscovery/nuclei/releases/download/"
-            f"v{version}/nuclei_{version}_linux_{arch}.zip"
+            f"v{version}/nuclei_{version}_{_release_os()}_{arch}.zip"
         ),
         "dalfox": (
             "https://github.com/hahwul/dalfox/releases/download/"

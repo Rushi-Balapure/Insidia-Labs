@@ -1,4 +1,5 @@
 import json
+import platform
 import socket
 import sys
 import time
@@ -18,7 +19,7 @@ from insidia.adapters import (
 )
 from insidia.catalog import SPECS
 from insidia.config import Project, load_project
-from insidia.engines import _publish, install
+from insidia.engines import _github, _publish, install
 from insidia.errors import EngineFailed
 from insidia.policy import get_policy
 from insidia.probes import run
@@ -657,6 +658,19 @@ def test_thorough_without_tools_still_runs_the_builtin(
     assert {item.attack for item in outcome.findings} == {"ai.data_leakage", "web.ssti"}
 
 
+def test_nuclei_archive_follows_the_host(monkeypatch: pytest.MonkeyPatch) -> None:
+    spec = next(item for item in SPECS if item.name == "nuclei")
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(platform, "machine", lambda: "x86_64")
+    assert _github(spec).endswith("nuclei_3.11.1_linux_amd64.zip")
+    monkeypatch.setattr(sys, "platform", "darwin")
+    monkeypatch.setattr(platform, "machine", lambda: "arm64")
+    assert _github(spec).endswith("nuclei_3.11.1_macOS_arm64.zip")
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(platform, "machine", lambda: "AMD64")
+    assert _github(spec).endswith("nuclei_3.11.1_windows_amd64.zip")
+
+
 def test_thorough_scan_cross_validates_without_a_model(tmp_path: Path) -> None:
     install(("garak", "promptfoo", "nuclei"))
     port = _free_port()
@@ -673,10 +687,10 @@ def test_thorough_scan_cross_validates_without_a_model(tmp_path: Path) -> None:
     leak = next(item for item in document if item["attack"] == "ai.data_leakage")
     web = next(item for item in document if item["attack"] == "web.ssti")
     assert leak["engine"] == "insidia"
-    assert leak["cross_validated"] is True
+    assert leak["cross_validated"] is True, outcome.skips
     assert set(leak["engines"]) >= {"insidia", "garak", "promptfoo"}
     assert web["engine"] == "insidia"
-    assert web["cross_validated"] is True
+    assert web["cross_validated"] is True, outcome.skips
     assert "insidia" in web["engines"]
     assert "nuclei" in web["engines"] or "zap" in web["engines"]
 
