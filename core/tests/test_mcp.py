@@ -1,8 +1,5 @@
 import json
-import os
 import socket
-import subprocess
-import sys
 import threading
 import time
 import urllib.request
@@ -10,9 +7,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from insidia.cli import main
+from tests.support import start_fixture, stop_fixture
 
 CANARY = "insidia-plant-canary-7f3a"
-REPO = Path(__file__).resolve().parents[2]
 
 
 def test_mcp_http_sends_a_tool_call_and_reports_a_leak(tmp_path: Path) -> None:
@@ -50,18 +47,7 @@ def test_mcp_http_sends_a_tool_call_and_reports_a_leak(tmp_path: Path) -> None:
 
 def test_mcp_sandbox_plant_is_a_finding(tmp_path: Path) -> None:
     port = _free_port()
-    process = subprocess.Popen(
-        [sys.executable, "-m", "benchmark.targets.insidia.serve"],
-        cwd=REPO,
-        env={
-            **os.environ,
-            "PYTHONPATH": str(REPO),
-            "INSIDIA_FIXTURE_HOST": "127.0.0.1",
-            "INSIDIA_FIXTURE_PORT": str(port),
-        },
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-    )
+    process = start_fixture(port)
     try:
         _wait(f"http://127.0.0.1:{port}/healthz")
         _write(
@@ -75,8 +61,7 @@ def test_mcp_sandbox_plant_is_a_finding(tmp_path: Path) -> None:
         assert findings[0]["attack"] == "ai.data_leakage"
         assert CANARY in findings[0]["response"]
     finally:
-        process.terminate()
-        process.wait(timeout=5)
+        stop_fixture(process)
 
 
 def _write(root: Path, url: str, method: str, query: dict[str, str]) -> None:

@@ -1,7 +1,5 @@
 import json
-import os
 import socket
-import subprocess
 import sys
 import threading
 import time
@@ -15,9 +13,7 @@ from insidia.errors import CliError, ScopeError
 from insidia.providers import build_provider
 from insidia.scope import ScopeHost
 from insidia.transport import RateLimiter, exchange
-from tests.support import target
-
-REPO = Path(__file__).resolve().parents[2]
+from tests.support import start_fixture, stop_fixture, target
 
 
 def test_rate_limiter_spaces_calls() -> None:
@@ -180,18 +176,7 @@ def test_openai_provider_sends_the_prompt_and_returns_content() -> None:
 
 def test_scan_finds_the_sandbox_plants_and_passes_a_clean_target(tmp_path: Path) -> None:
     port = _free_port()
-    process = subprocess.Popen(
-        [sys.executable, "-m", "benchmark.targets.insidia.serve"],
-        cwd=REPO,
-        env={
-            **os.environ,
-            "PYTHONPATH": str(REPO),
-            "INSIDIA_FIXTURE_HOST": "127.0.0.1",
-            "INSIDIA_FIXTURE_PORT": str(port),
-        },
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-    )
+    process = start_fixture(port)
     try:
         _wait(f"http://127.0.0.1:{port}/healthz")
         _write(tmp_path, port, "data_leakage", "ssti")
@@ -210,8 +195,7 @@ def test_scan_finds_the_sandbox_plants_and_passes_a_clean_target(tmp_path: Path)
         passed = main(["scan", "--config", str(tmp_path / "insidia.yaml")])
         assert passed == 0
     finally:
-        process.terminate()
-        process.wait(timeout=5)
+        stop_fixture(process)
 
 
 def test_scan_refuses_a_remote_host_without_yes(tmp_path: Path) -> None:
