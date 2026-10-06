@@ -17,6 +17,7 @@ GPL, AGPL, SSPL, Elastic, and BUSL are denied.
 | Component | License |
 | --- | --- |
 | FastAPI, Starlette, Uvicorn, Pydantic, Alembic, cryptography, psycopg | MIT or Apache-2.0 or BSD, as published by each project |
+| PyYAML | MIT | The CLI reads `insidia.yaml` with PyYAML. Keep its copyright and license notice. |
 
 The runner and the hub use only the Go standard library in Phase 0.
 The dashboard uses React and Vite (MIT).

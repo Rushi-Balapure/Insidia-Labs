@@ -51,6 +51,20 @@ jobs:
       - run: uv run --project ../cloud python -m pytest
         working-directory: benchmark
 
+  core:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: core
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv python install 3.12
+      - run: uv sync
+      - run: uv run ruff check .
+      - run: uv run mypy insidia
+      - run: uv run pytest
+
   go:
     runs-on: ubuntu-latest
     steps:
