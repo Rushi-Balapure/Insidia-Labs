@@ -1,6 +1,6 @@
 # Phase 2A — Model hosting: attacker and judge
 
-> **v6. Public.** This is the Insidia Cloud model service. Model names and runtimes are documented. The CLI does not require it: a user points the `attacker` and `judge` roles at any provider, and Insidia Cloud is one of them (`provider: insidia-cloud` after `insidia login`). Calls are metered per org. No prompt logging.
+> **Public.** This is the Insidia Cloud model service (Phase 2A); the model harness and judge calibration belong to Phases 2A and 2B. Model names and runtimes are documented. A user points the `attacker` and `judge` roles of the CLI at any provider, and Insidia Cloud is one of them (`provider: insidia-cloud` after `insidia login`). Calls are metered per org. No prompt logging.
 
 ## Why we host uncensored models
 - Commercial model APIs often refuse attack generation and often refuse to grade harmful transcripts. Iterative attacks (TAP, PAIR, Crescendo, the M-A11 attack generator) and the Phase 2B pentest agent work better on a model that does not refuse.
@@ -13,7 +13,7 @@
 | `attacker` | PyRIT/DeepTeam attacker targets, M-A11 generator, M-A2 converters that paraphrase, Phase 2B agent | Yes |
 | `judge` | `policy_judge` oracle only | Preferred. Deterministic oracles (canary, tool-trace, ACL, goal-diff) run first and carry most verdicts, so judge load is small |
 
-Callers ask `engine/models` for a role, never for a model name. The role-to-model mapping is config.
+Callers ask `cloud/models` for a role, never for a model name. The role-to-model mapping is config.
 
 ## Candidate models
 All three are Qwen3.8-27B derivatives, Apache-2.0 (passes our license gate), GGUF-only as published.
@@ -26,21 +26,21 @@ All three are Qwen3.8-27B derivatives, Apache-2.0 (passes our license gate), GGU
 
 Selection is decided by the Phase T benchmark, not by the model cards:
 - Attack success rate on the sandboxed AI fixtures ([17-test-suite.md](17-test-suite.md)), per attack family.
-- Judge precision and recall on the calibration set (Phase 4 nightly test).
+- Judge precision and recall on the calibration set (Phase 2B nightly test).
 - Refusal rate on our attack-prompt set (target: near zero).
 - Measured tokens per second on the actual stage hardware.
 
 Every candidate passes the internal model review before use: license, provenance (pin SHA-256 of each file), known issues on the card, and the benchmark above. Record the decision as an ADR in `internal/adr/`.
 
 ## One interface, two runtimes
-`engine/models` exposes a single internal OpenAI-compatible endpoint per role. Both runtimes we use speak that API, so moving between stages is a config change, not a code change.
+`cloud/models` exposes a single internal OpenAI-compatible endpoint per role. Both runtimes we use speak that API, so moving between stages is a config change, not a code change.
 
 - **llama.cpp `llama-server`** (MIT) serves GGUF. Good single-stream speed, fits small GPUs, weak batched throughput.
 - **vLLM** (Apache-2.0) serves AWQ/GPTQ/FP16 weights. Continuous batching and PagedAttention give far higher throughput under concurrency, but only with enough free VRAM for the KV-cache pool. We do not serve GGUF on vLLM: its GGUF path is experimental and loses the throughput advantage.
 - SGLang (Apache-2.0) is an acceptable drop-in for vLLM if benchmarks favor it.
 
-## Model harness (`engine/models/harness`)
-A thin layer we write ourselves, shared by PyRIT targets, M-A11, and the Phase 5 agent. No agent framework (LangGraph and similar): PyRIT and Strix already run their own loops, and a second framework adds dependencies and license review for little gain.
+## Model harness (`cloud/models/harness`)
+A thin layer we write ourselves, shared by PyRIT targets, M-A11, and the Phase 2B agent. No agent framework (LangGraph and similar): PyRIT and Strix already run their own loops, and a second framework adds dependencies and license review for little gain.
 
 ### Shared pieces
 - **Role client.** `attacker` or `judge`, with structured output enforced at decode time (llama.cpp grammars in Stage 0, vLLM guided decoding in Stage 1), so parsing never depends on the model behaving.
@@ -60,15 +60,15 @@ A thin layer we write ourselves, shared by PyRIT targets, M-A11, and the Phase 5
 | Level | Example | Loop |
 |---|---|---|
 | Single-shot | New jailbreak variants, custom-policy attack sets (M-A11) | None: one structured call |
-| Iterative | TAP, PAIR, Crescendo (PyRIT); GOAT-style and the lost promptfoo strategies (M-A11) | Attack, send to target, score, refine |
-| Agent with tools | Chaining a prompt injection into a classic exploit (Phase 5) | Strix-based tool loop, sandboxed, proof-oriented stop |
+| Iterative | TAP, PAIR, Crescendo (PyRIT); GOAT-style and the promptfoo remote-only strategies (M-A11) | Attack, send to target, score, refine |
+| Agent with tools | Chaining a prompt injection into a classic exploit (Phase 2B) | Strix-based tool loop, sandboxed, proof-oriented stop |
 
-The harness provides the iterative loop runner M-A11 uses. It stops on the first of: an oracle fires, max turns reached, or the scan budget is exhausted. PyRIT keeps its own orchestrators and only calls the role client; the Phase 5 agent keeps its own tool loop and calls the role client and metering.
+The harness provides the iterative loop runner M-A11 uses. It stops on the first of: an oracle fires, max turns reached, or the scan budget is exhausted. PyRIT keeps its own orchestrators and only calls the role client; the Phase 2B agent keeps its own tool loop and calls the role client and metering.
 
 ## Stages
 Hardware follows scan volume. We move up a stage when a measured trigger fires, not on a date.
 
-### Stage 0: cheapest (Phase 0 to Phase 3, dev and first design partners)
+### Stage 0: cheapest (Phase 2A, dev and first design partners)
 - **GPU:** 1x NVIDIA RTX 4000 Ada (20 GB), bought or rented; or rent one 24 GB L4 or A10 to avoid buying before the benchmark is done.
 - **Host:** 8+ CPU cores, 64 GB RAM, 1 TB NVMe, Ubuntu 24.04, current NVIDIA driver and CUDA 12.x.
 - **Runtime:** `llama-server`, stock upstream build (no FastMTP patch), full GPU offload, `--no-mmap`, flash attention on, embedded MTP (`--spec-type draft-mtp`), `--parallel 2` to `4`.
@@ -77,14 +77,14 @@ Hardware follows scan volume. We move up a stage when a measured trigger fires, 
 - **Expect:** roughly 20 to 35 tokens per second single-stream (estimate from the cards' RTX 6000 Ada numbers scaled by memory bandwidth; measure on arrival). Low concurrency. Fine for development, Phase T, and a few design partners; not for many parallel scans.
 - **Two models do not fit on 20 GB.** If we must split attacker and judge in this stage, add a second 20 GB card rather than squeezing.
 
-### Stage 1: production throughput (from Phase 4A)
+### Stage 1: production throughput (from Phase 2B)
 - **GPU:** 1x 48 GB card per node (RTX 6000 Ada, L40S, or A6000).
 - **Runtime:** vLLM with an AWQ or GPTQ 4-bit build of the chosen model (see "Building vLLM weights").
 - **Layout:** attacker 27B (~16 GB weights) plus ~25 to 30 GB of KV pool on one card. Judge is either the same model or a separate 8B-class model on its own card, decided by the calibration benchmark.
 - **Expect:** dozens of concurrent generations per card. This is where vLLM's throughput advantage over llama.cpp appears.
 - **Stage 0 stays** as the dev and CI model server.
 
-### Stage 2: scale (Phase 9 onward)
+### Stage 2: scale (Phase 2C onward)
 - Multiple Stage 1 nodes behind the role endpoint, autoscaled on `ai.heavy` queue depth.
 - Per-org fairness and token budgets from the master plan apply to model calls too.
 - H100-class GPUs only if benchmarks show the cost per scan is lower.
@@ -93,7 +93,7 @@ Hardware follows scan volume. We move up a stage when a measured trigger fires, 
 Any one of these, measured for a week:
 - p95 wait for a model call on `ai.heavy` above 30 seconds.
 - A design partner's Standard scan exceeds its wall-clock budget because of model time.
-- Phase 4A iterative attacks enabled in a default profile.
+- Phase 2B iterative attacks enabled in a default profile.
 
 ## Building vLLM weights
 The candidates publish GGUF only. For Stage 1 we need safetensors:
@@ -101,7 +101,7 @@ The candidates publish GGUF only. For Stage 1 we need safetensors:
 2. Otherwise reproduce abliteration ourselves on the base Qwen3.8-27B, with the method and script recorded in `internal/`.
 3. Quantize to AWQ or W4A16 with llm-compressor (Apache-2.0).
 4. Verify against the GGUF build: refusal rate, perplexity, and the Phase T attack-success benchmark must be no worse beyond tolerance.
-5. Pin the output by SHA-256 in `engine/models/manifest.yaml`.
+5. Pin the output by SHA-256 in `cloud/models/manifest.yaml`.
 
 ## Security and isolation
 - Model servers run in-cluster only. No internet egress, no ingress from outside the cluster. Workers and the Phase 2B agent call them. The CLI calls the public metered API, not the model server directly.

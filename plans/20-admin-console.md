@@ -1,8 +1,8 @@
 # Phase 2C — Admin console (staff only)
 
-> **v6.** The console stays staff-only, on an internal hostname. Engine names are no longer a reason for that: customers see them in the product. The console stays private because it sees every org's operations, grants, and health. The v5 trial fields below become Cloud credits and plan entitlements. It ships with the hosted dashboard, before the first design partner.
+> The admin console is staff-only, on an internal hostname, because it sees every org's operations, grants, and health. Plans use Cloud credits and plan entitlements. It ships in Phase 2C with the hosted dashboard, before the first design partner.
 
-Parent: [00-master-plan.md](00-master-plan.md). Tables: [14-database-schema.md](14-database-schema.md). Engine registry: [08-phase6-engine-registry.md](08-phase6-engine-registry.md). Models: [19-model-hosting.md](19-model-hosting.md).
+Parent: [00-master-plan.md](00-master-plan.md). Tables: [14-database-schema.md](14-database-schema.md). Engine registry: [08-engine-registry.md](08-engine-registry.md). Models: [19-model-hosting.md](19-model-hosting.md).
 
 ## Goal
 One internal app where Insidia Labs staff can:
@@ -10,7 +10,7 @@ One internal app where Insidia Labs staff can:
 2. **Debug** a scan, runner, engine, or model call without reading customer data they have not been granted.
 3. **Customize** each customer within safe bounds: plan limits, feature flags, coverage defaults, rate limits, model budget, retention, worker priority.
 
-It replaces the "staff-only engine console" from the earlier plan; the engine registry becomes one section of it.
+The engine registry is one section of it.
 
 ## Not in scope
 - **No impersonation.** Staff cannot log in as a customer. "View as customer" renders metadata only; content needs a grant (below).
@@ -18,7 +18,7 @@ It replaces the "staff-only engine console" from the earlier plan; the engine re
 - **Not for customer admins.** Customers change their own settings in the customer dashboard. Some of those settings have bounds that staff set here (for example, retention can be 30 to 365 days on this plan).
 
 ## Access and isolation
-- **Separate app and service.** Web app in `admin/` (React, Vite, TypeScript; same component library and apple-design rules as the dashboard, tuned for density). API in `engine/admin_api/`, a separate FastAPI deployment. The customer API has no admin routes, and the admin API is not on the customer ingress.
+- **Separate app and service.** Web app in `admin/` (React, Vite, TypeScript; same component library and apple-design rules as the dashboard, tuned for density). API in `cloud/admin_api/`, a separate FastAPI deployment. The customer API has no admin routes, and the admin API is not on the customer ingress.
 - **Separate network path.** Hostname on our internal domain, reachable only through the zero-trust proxy or VPN. Not on the public load balancer.
 - **Separate identity.** Staff accounts live in `staff_users`, not `users`. Login is our staff SSO (OIDC), then a 6-digit code from an authenticator app (TOTP, RFC 6238: Google Authenticator, Microsoft Authenticator, 1Password, Authy, or similar).
   - Enrollment: a QR code shown once at first login, confirmed by entering a valid code. The TOTP secret is stored encrypted as C3 with the platform secrets key and is never shown again.
@@ -51,10 +51,10 @@ It replaces the "staff-only engine console" from the earlier plan; the engine re
 | C2 | Findings content, transcripts, requests and responses, evidence | Active `evidence` grant from the customer |
 | C3 | Credentials, tokens, keys | Never, for anyone. Fingerprints only |
 
-Grants come from the customer: a customer owner or admin approves a staff request in the dashboard ("Insidia Labs support requests evidence access for scan X, 24 hours"). Maximum 72 hours, revocable, and every staff decryption appears in the customer's audit log. Phase 2 ships the approve and revoke flow; Phase 10 adds self-service grant policies.
+Grants come from the customer: a customer owner or admin approves a staff request in the dashboard ("Insidia Labs support requests evidence access for scan X, 24 hours"). Maximum 72 hours, revocable, and every staff decryption appears in the customer's audit log. Phase 2C ships the approve and revoke flow; Phase 4 adds self-service grant policies.
 
 ## Security hardening
-The admin console sees every org, so it gets stronger controls than the customer dashboard. Each layer below assumes the one before it has failed. All of it ships in Phase 2, because the console holds real data from its first day.
+The admin console sees every org, so it gets stronger controls than the customer dashboard. Each layer below assumes the one before it has failed. All of it ships in Phase 2C, because the console holds real data from its first day.
 
 ### 1. Network: only reachable from where it should be
 - **Identity-aware proxy in front of everything.** Staff reach the console only through a zero-trust proxy (Pomerium, Apache-2.0, self-hosted; or the cloud provider's identity-aware proxy) that checks SSO identity and device certificate before any packet reaches the admin app. A VPN alone is not enough.
@@ -78,7 +78,7 @@ The admin console sees every org, so it gets stronger controls than the customer
 ### 4. Authorization: least privilege, just in time
 - **Only `support` is standing.** `ops`, `engineer`, `admin`, and `security` are *eligible* roles. A staff user elevates for up to 4 hours with a reason and a ticket id; the elevation expires on its own. Elevating to `admin` or `security` needs a second staff approval (two-person rule).
 - **Deny by default.** Every admin API route declares its required role and whether it needs step-up; a CI test fails on any route without a declaration. The UI hides what a role cannot do, but the API enforces it.
-- **Two-person rule** applies from Phase 2 to every guarded action listed above, not only some.
+- **Two-person rule** applies from Phase 2C to every guarded action listed above, not only some.
 - **Break-glass account:** one offline emergency account whose credentials are split between two founders and stored sealed. Using it pages everyone in `security`, and it is reviewed after every use.
 
 ### 5. Customer content is hostile
@@ -106,7 +106,7 @@ Insidia Labs stores attack transcripts, injected payloads, and responses from ta
 - Monthly review of every staff decryption, signed off by `security`.
 
 ### 8. Supply chain and change control
-- `admin/` and `engine/admin_api/` are protected by code owners; a change needs two reviewers, one from `security`.
+- `admin/` and `cloud/admin_api/` are protected by code owners; a change needs two reviewers, one from `security`.
 - Minimal dependencies, pinned with lockfiles, scanned in CI (osv-scanner, Trivy). New dependencies need review.
 - Images are built in CI, signed (Sigstore cosign), and an admission controller runs only signed images in the admin namespace.
 - Deploys to the admin namespace need two approvals and run from CI only; no one has `kubectl exec` there in production.
@@ -125,7 +125,7 @@ Insidia Labs stores attack transcripts, injected payloads, and responses from ta
 - Org detail: overview, members (counts and roles; emails need a grant), runners, targets (kind, connection mode, verification status; names need a grant), scans, usage and cost, settings, staff activity, grants.
 
 ### Per-customer settings
-The "customizability per customer". Every setting comes from a typed registry in code (`engine/admin_api/settings_registry.py`) with a type, bounds, a default per plan, and whether the customer can change it themselves within those bounds.
+The "customizability per customer". Every setting comes from a typed registry in code (`cloud/admin_api/settings_registry.py`) with a type, bounds, a default per plan, and whether the customer can change it themselves within those bounds.
 
 | Group | Examples |
 |---|---|
@@ -134,8 +134,8 @@ The "customizability per customer". Every setting comes from a typed registry in
 | Features | Feature flags per org: direct mode, Thorough coverage, pentest agent, white box, beta Insidia Labs modules |
 | Coverage | Default coverage mode; attack families or modules disabled for this org (for example, a module that breaks their target); Standard-mode pin per family |
 | Safety | Per-target rate-limit ceiling, scan windows (hours scans may run), destructive-check opt-in. A floor exists that only the two-person rule can lower |
-| Scheduling | Priority tier on the RabbitMQ queues; pin to a dedicated worker pool (Phase 9 and 10) |
-| Models | Per-org model budget; judge confidence threshold within a bounded range; model tier (Stage 0 or Stage 1) during the migration |
+| Scheduling | Priority tier on the RabbitMQ queues; pin to a dedicated worker pool (Phase 4) |
+| Models | Per-org model budget; judge confidence threshold within a bounded range; model tier (Stage 0 or Stage 1) |
 | Data | Retention days within the plan's range; region is read-only after creation |
 | Reports | Default frameworks for reports; report branding (logo and company name are customer data, so encrypted) |
 
@@ -144,7 +144,7 @@ How settings resolve:
 - Resolved **once at scan launch** and stored on the scan as a snapshot with a hash, so a running scan never changes mid-way and every scan is reproducible.
 - A setting change affects new scans only.
 - Every change records who, what, before and after, and why, in `staff_audit_events`. A change that affects the customer also writes a customer-visible `audit_events` row ("Insidia Labs changed your concurrent scan limit from 2 to 5").
-- Settings that name engines are stored by engine id internally. The customer dashboard shows them as module labels.
+- Settings that name engines are stored by engine id internally. The customer dashboard shows them with the engine's public name.
 
 ### Scan debugger
 - Timeline of one scan: the Celery canvas as a tree (chord, groups, tasks), each task's state, queue, worker, engine (real name), retries, durations, and Insidia Labs error code.
@@ -169,7 +169,7 @@ How settings resolve:
 - Kill switches (`ops`): global, per org, per target, per engine. A kill switch stops dispatch immediately and cancels in-flight tasks.
 
 ### Engines and modules
-Built in Phase 6 ([08-phase6-engine-registry.md](08-phase6-engine-registry.md)):
+Ships in Phase 3 ([08-engine-registry.md](08-engine-registry.md)):
 - Real engine and module names, pinned versions and image digests, licenses.
 - Benchmark results per (engine or module, attack family) from the Phase T suite, and production precision from customer triage (aggregated, never raw evidence).
 - Error and timeout rates per engine version.
@@ -190,16 +190,15 @@ Built in Phase 6 ([08-phase6-engine-registry.md](08-phase6-engine-registry.md)):
 - Monthly access review export for SOC 2.
 
 ## Data model
-New tables are in [14-database-schema.md](14-database-schema.md#admin-console-tables): `staff_users`, `staff_role_assignments`, `staff_role_elevations`, `staff_sessions`, `org_settings`, `feature_flags`, `org_feature_flags`, `staff_approvals`, `staff_audit_events`, and the `scans.config_snapshot` columns. `staff_access_grants.staff_user_id` now references `staff_users`.
+Tables are in [14-database-schema.md](14-database-schema.md#admin-console-tables): `staff_users`, `staff_role_assignments`, `staff_role_elevations`, `staff_sessions`, `org_settings`, `feature_flags`, `org_feature_flags`, `staff_approvals`, `staff_audit_events`, and the `scans.config_snapshot` columns. `staff_access_grants.staff_user_id` references `staff_users`.
 
 ## Delivery by phase
 | Phase | Admin console scope |
 |---|---|
-| 2 | First version, needed before the first design partner: customers list and org detail, settings for plan and limits plus feature flags, scan debugger (timeline, states, errors, trace links), runner fleet, platform health with kill switches, grant request and approval flow, staff audit, and every control in "Security hardening" (proxy, device certs, sessions, just-in-time roles, two-person rule, hostile-content rendering, decryption budgets, alerts, canary org, signed images, external pentest) |
-| 4 | Models section; debug capture; coverage and model settings groups |
-| 6 | Engines and modules section; registry change proposals |
-| 9 | Scheduling settings group with dedicated pools; schedule and CI-scan views |
-| 10 | SOC 2 access review export; on-prem operator console |
+| 2C (first release) | Needed before the first design partner: customers list and org detail, settings for plan and limits plus feature flags, scan debugger (timeline, states, errors, trace links), runner fleet, platform health with kill switches, grant request and approval flow, staff audit, and every control in "Security hardening" (proxy, device certs, sessions, just-in-time roles, two-person rule, hostile-content rendering, decryption budgets, alerts, canary org, signed images, external pentest) |
+| 2C (follow-on) | Models section; debug capture; coverage and model settings groups; schedule and CI-scan views |
+| 3 | Engines and modules section; registry change proposals |
+| 4 | Scheduling settings group with dedicated pools; SOC 2 access review export; on-prem operator console |
 
 **Self-hosted and private tenants:** the customer's operators get a reduced operator console (platform health, queues, runners, kill switches, settings, engines named). The full staff console stays in our SaaS.
 

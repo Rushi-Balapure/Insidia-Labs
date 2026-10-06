@@ -1,16 +1,13 @@
-"""Map each valid cell to the single v6 phase that must turn it green.
+"""Map each valid cell to the single phase that must turn it green.
 
 1A (the CLI shell) and 1D (the benchmark format) ride on cells that already
 have an owner. 2B (the pentest agent) is a separate exit test, not a cell
-here. The first matching rule wins.
-
-Phase 1.0 remapped the v5 owners without moving a cell between validity
-buckets:
-- v5 1, race and websocket (v5 9), static white-box (v5 8), and the classic
-  half of v5 4B → 1B
-- v5 4A, scripted agent cells (v5 7), GraphQL and gRPC, and the API half of
-  v5 4B → 1C
-- the in-process SDK (v5 8) and the late depth attacks (v5 11) → 3
+here. The first matching rule wins:
+- 1B: black-box chat and web/API, the classic web and infra attacks, race
+  conditions and the WebSocket API, and the static white-box scanners
+- 1C: RAG and indirect injection, scripted agent cells, GraphQL and gRPC,
+  and the API attacks
+- 3: the in-process SDK, ML models, and the late depth attacks
 """
 
 from __future__ import annotations
@@ -63,7 +60,7 @@ _PHASE_1B_CLASSIC_ATTACKS = {
 
 
 def owning_phase(connector: str, box: str, attack: str) -> str:
-    """Return the v6 phase id that must make this valid cell pass."""
+    """Return the phase id that must make this valid cell pass."""
     if attack in _PHASE_3_ATTACKS or connector == "ml_model":
         return "3"
     if attack in _PHASE_1B_RACE or connector in _PHASE_1B_CONNECTORS:

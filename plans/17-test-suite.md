@@ -1,14 +1,14 @@
 # Phase T — Test harness (done) and the public scanner benchmark
 
-> **v6. Status: done, and now public.** The harness, the matrix, and the sandboxed targets move to `benchmark/` in Phase 1.0 and are published so anyone can score a scanner, including ours. The ownership map still uses v5 phase numbers until that move remaps it. The v6 homes are in the table below and in [00-master-plan.md](00-master-plan.md#phase-mapping-from-v5). The CLI is a driver, not a new connection mode: a local scan still uses direct, relay, tunnel, or the SDK bridge to reach the target.
+> **Phase T, done.** The harness, the matrix, and the sandboxed targets live in `benchmark/` and are published so anyone can score a scanner, including ours. The CLI is a driver, not a connection mode: a local scan reaches the target through direct, relay, tunnel, or the SDK bridge.
 
 Depends on: Phase 0 scaffold. Blocks: the exit of every build phase.
-Parent: [00-master-plan.md](00-master-plan.md). Targets and thresholds are shared with [16-coverage-gaps.md](16-coverage-gaps.md) and the registry benchmark ([08-phase6-engine-registry.md](08-phase6-engine-registry.md)).
+Parent: [00-master-plan.md](00-master-plan.md). Targets and thresholds are shared with [16-coverage-gaps.md](16-coverage-gaps.md) and the registry benchmark ([08-engine-registry.md](08-engine-registry.md)).
 
 ## Intent
 Before a feature is built, its acceptance test exists. For every valid combination of connector, box mode, attack type, and connection mode, there is a sandboxed target with a **known planted vulnerability**, the exact permutation cell it exercises, and a **pass threshold** (minimum recall and precision against ground truth). Tests are written first, run red (xfail), and must flip to green for the owning phase to exit. This is the `tdd-guide` rule applied to the whole product, and it gives us a threshold to build toward instead of a vague "does it work".
 
-The same targets and ground truth power the Phase 6 benchmark and the coverage-gap validation, so there is one source of truth, not three.
+The same targets and ground truth power the registry benchmark and the coverage-gap validation, so there is one source of truth.
 
 ## The permutation matrix
 The matrix is a generated registry, not a hand-drawn grid, so it stays complete as families are added. Four dimensions:
@@ -67,7 +67,7 @@ Our own fixtures for cells the OSS apps do not cover (`benchmark/targets/insidia
   - recall: the cell must catch its planted vulnerabilities (default floor 80%, and 100% for the single planted issue in a focused cell)
   - precision: bounded false positives (default floor 90%)
   matching the bar in [16-coverage-gaps.md](16-coverage-gaps.md#validating-this-analysis).
-- Oracles are deterministic wherever possible (canary, tool-trace, structural sink, ACL), per [06-phase4-depth.md](06-phase4-depth.md). Judge-only cells record confidence and cannot alone assert a critical finding.
+- Oracles are deterministic wherever possible (canary, tool-trace, structural sink, ACL), per [06-depth-checks.md](06-depth-checks.md). Judge-only cells record confidence and cannot alone assert a critical finding.
 - Golden result files per cell provide regression detection alongside the absolute thresholds: a drop from the golden set fails even if the threshold is still met.
 
 ## Harness (`benchmark/`)
@@ -90,13 +90,13 @@ benchmark/
   cells/                one test per valid cell (xfail until built)
   golden/               per-cell golden findings
 ```
-- `pytest` driver. Reuses Phase 1 fixtures (`cloud/workers/ai/testdata/`) and is the single source the benchmark runner reads.
+- `pytest` driver. Reuses the engine-adapter fixtures from 1B and is the single source the benchmark runner reads.
 - Markers per dimension (`-m "connector_web and blackbox and sqli"`) so a phase or a developer runs its slice.
 
 ## Gate mechanism
 - **Phase T deliverable:** the harness, the sandbox, the matrix registry, the validity function, the ground-truth manifests, and every cell test written and passing as xfail. No product code is required for Phase T to exit; the tests define the threshold the product must later meet.
 - **Per-phase gate:** `benchmark/matrix/ownership.yaml` maps each cell to the phase that builds it. A CI check fails a phase's PRs if a cell it owns is still xfail at that phase's exit. Each phase plan's Exit section gains one line: "owned matrix cells are green."
-- **CI cadence:** the affected slice per PR; the full matrix nightly and on every engine version bump (shared with the Phase 6 benchmark run).
+- **CI cadence:** the affected slice per PR; the full matrix nightly and on every engine version bump (shared with the registry benchmark run).
 
 ```mermaid
 flowchart LR
@@ -108,26 +108,19 @@ flowchart LR
   Harness --> Egress[egress_deny_guard]
   Harness --> Score[recall_precision_and_golden]
   Score --> Gate[phase_exit_gate_via_ownership]
-  Score --> Bench[phase6_benchmark_same_cells]
+  Score --> Bench[registry_benchmark_same_cells]
 ```
 
 ## Ownership by phase
-`ownership.yaml` keeps the v5 numbers until Phase 1.0 remaps it. Read the v5 number, then use this table.
+`benchmark/matrix/ownership.yaml` assigns each valid cell to exactly one phase. `benchmark/matrix/ownership.py` produces it, and the first matching rule wins.
 
-| v5 owner in `ownership.yaml` | v6 owner |
-| --- | --- |
-| Phase 1: chat black-box, web and API black-box, canary, SQLi, XSS | 1B |
-| Phase 3: taxonomy tags on existing cells | 1D |
-| Phase 4A deterministic: RAG, indirect injection, memory, output sinks | 1C |
-| Phase 4A model-driven: generated multi-turn variants | 2B |
-| Phase 4B: BOLA/BFLA, JWT, GraphQL, gRPC, SAST for Python and JS/TS | 1B and 1C |
-| Phase 5: the chained AI-to-classic exploit (its own exit test, not a matrix attack) | 2B |
-| Phase 7 scripted: tool misuse on a declared tool list | 1C |
-| Phase 7 depth: honeypots, multi-agent, A2A | Phase 3 |
-| Phase 8 static scanners | 1B |
-| Phase 8 AI-BOM, SDK, embedding exposure | Phase 3 |
-| Phase 9: race conditions and `api_ws` | 1B |
-| Phase 11: predictive ML, smuggling, client-side | Phase 3 |
+| Owner | Cells | What it covers |
+| --- | --- | --- |
+| 1B | 635 | Black-box chat and web/API cells, the classic web and infra attacks (command injection, SSTI, path traversal, SSRF, deserialization, XXE, CVE, TLS), the static white-box scanners (SAST sinks, secrets, SCA), race conditions, and the WebSocket API |
+| 1C | 556 | RAG and indirect injection, memory poisoning, output sinks, cross-tenant bleed, the agent and multi-agent connectors with scripted tool misuse, gray-box chat, GraphQL and gRPC, BOLA/BFLA, mass assignment, JWT |
+| 3 | 44 | The in-process SDK, predictive ML, request smuggling and cache attacks, client-side attacks |
+
+The chained AI-to-classic exploit of the pentest agent (2B) is its own exit test, not a matrix attack. 1A, 1D, 1E, 2A, and 2C own no matrix cells; model-driven variants of the 1C cells belong to 2B and are scored with the same ground truth.
 
 ## Tests (of the harness itself)
 - Completeness: valid + N/A equals the full cross-product.

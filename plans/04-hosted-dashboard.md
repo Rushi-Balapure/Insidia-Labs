@@ -1,8 +1,8 @@
 # Phase 2C — Hosted dashboard and tenancy
 
-> **v6.** The Phase 1 "dashboard" is the single-file HTML report from `insidia report`, not this app. This file is the **paid hosted dashboard** (Phase 2C). Uploading a CLI run to view history is free. Launching or scheduling a scan from the dashboard is paid, because it runs on our hardware. The UI names engines. The v5 trial (3 model-free scans, no bring-your-own model) is replaced by Cloud credits on new accounts. Typeface is Sora, from the brand kit.
+> The hosted dashboard owned by Phase 2C. Uploading a CLI run to view history is free. Launching or scheduling a scan from the dashboard is paid, because it runs on our hardware. The UI names engines. New accounts get Cloud credits. Typeface is Sora, from the brand kit.
 
-Depends on: the Cloud scan API from [03-phase1-vertical-slices.md](03-phase1-vertical-slices.md) (Phase 2C connection modes) and the model service ([19-model-hosting.md](19-model-hosting.md)).
+Depends on: the Cloud scan API from [03-engines-and-connections.md](03-engines-and-connections.md) (Phase 2C connection modes) and the model service ([19-model-hosting.md](19-model-hosting.md)).
 Parent: [00-master-plan.md](00-master-plan.md).
 
 ## Goal
@@ -35,7 +35,7 @@ The CLI is free forever and needs no account. A Cloud account exists so a team c
 **Enforcement is server-side.** Entitlements come from the plan's entry in the settings registry (see [20-admin-console.md](20-admin-console.md#per-customer-settings)), resolved at scan launch into the scan's `config_snapshot`. The API rejects a launch the plan does not allow (HTTP 402). The disabled UI is only a convenience.
 
 ## Admin console, first version
-Ships in this phase, before the first design partner, as a separate internal app (`admin/` + `engine/admin_api/`). Full plan: [20-admin-console.md](20-admin-console.md#delivery-by-phase).
+Ships in this phase, before the first design partner, as a separate internal app (`admin/` + `cloud/admin_api/`). Full plan: [20-admin-console.md](20-admin-console.md#delivery-by-phase).
 - Customers list and org detail, plan-and-limits settings and feature flags, scan debugger, runner fleet, platform health with kill switches, staff audit.
 - The customer side of staff access: a dashboard banner where an owner or admin approves or revokes a staff grant request, and staff decryptions in the org's activity log.
 - Customer settings pages read their bounds from the same settings registry, so a customer can change only what their plan allows.
@@ -88,7 +88,7 @@ React, Vite, TypeScript, Tailwind, shadcn/ui (restyled to the design system abov
 3. **Targets.** The wizard starts with one question: **"Is this target reachable from the internet?"**
    - **Yes: connect directly (no install).** The customer enters the URL and hosts, then proves ownership with a DNS TXT record, a `/.well-known/insidia-verify.txt` file, or a meta tag. The wizard shows our fixed egress IPs to allowlist. Credentials go in through the [secrets flow](14-database-schema.md#customer-secrets): cloud secret manager reference, OAuth client, or a stored write-only value. After saving, only the kind, label, date, and fingerprint are shown.
    - **No, or I want deeper tests: use a runner.** The customer picks or enrolls a runner, a mode (relay or tunnel), and a secret reference name that the runner resolves locally.
-   - Both paths then set transport, request template, response selector, and rate limit. **Validate** calls Phase 1 `ValidateTarget` and shows latency and a redacted sample.
+   - Both paths then set transport, request template, response selector, and rate limit. **Validate** calls `ValidateTarget` (see [03-engines-and-connections.md](03-engines-and-connections.md)) and shows latency and a redacted sample.
    - A side panel lists which test families are available in the chosen mode and which need a runner (from `probes.requires_runner`), with a "why use a runner" explanation.
 4. **Scans.** Pick target and profile ("AI chat baseline", "Web baseline"), then coverage: **Standard** (one engine per attack family), **Thorough** (every engine that covers the family, results cross-validated), or **Custom** (per family). The launch sheet shows estimated attempts, cost, and duration, and which engines will run. Show state, budget, and progress counts; cancel and pause. A free account sees the sheet and is sent to upgrade; the launch call is refused server-side.
 5. **Live view.** WebSocket fed by the Valkey pub/sub events the workers already emit (`scan.progress`, `finding.created`). Progress is shown per attack family and per engine name. Reconnect resumes from the scan row, not from socket memory.
@@ -101,7 +101,7 @@ React, Vite, TypeScript, Tailwind, shadcn/ui (restyled to the design system abov
 - Auth routes, membership CRUD, API keys.
 - Pagination and cursor on findings.
 - Explicit response models. `engine` and the upstream probe id are public fields. A test fails if a secret or another org's data appears.
-- Audit of who launched and who changed finding status (table `audit_events`, see [14-database-schema.md](14-database-schema.md); full actor model in Phase 10).
+- Audit of who launched and who changed finding status (table `audit_events`, see [14-database-schema.md](14-database-schema.md); full actor model in Phase 4).
 - Direct-mode routes: start verification, check verification, list egress IPs. A direct scan is refused unless every host is verified and unexpired.
 - Credential routes are write-only: create, replace, delete. No read route exists.
 - Plan routes: read entitlements, credits, and usage; `POST /upgrade` records intent and (later milestone) starts checkout. Scan-launch returns 402 with an upgrade link when the plan or the credits do not allow it. A free account can `POST` a CLI run upload.
@@ -116,7 +116,7 @@ API process subscribes to `progress:{org_id}:{scan_id}` and forwards to sockets 
 - No secret is ever rendered: the component test plants credential canaries and asserts they never appear in the DOM.
 - API tests: viewer cannot launch; cross-org id in the path returns 403; WebSocket subscription to another org's scan fails.
 - Plan tests: a free account can upload a CLI run and cannot launch a scan (402); a credit balance of zero refuses a hosted-model scan with 402; after the plan changes to paid, the next launch runs.
-- Validate flow against the Phase 1 fixtures.
+- Validate flow against the fixtures in [03-engines-and-connections.md](03-engines-and-connections.md).
 
 ## Risks
 - Template editors are an injection footgun (the runner sends whatever the template says). Validate only sends a fixed benign prompt. Document that the template is customer-authored and scoped by the allowlist.

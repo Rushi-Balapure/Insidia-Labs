@@ -1,8 +1,8 @@
 # Database Schema (security-first)
 
-> **v6.** This schema is the **Insidia Cloud** database (Phase 2). It is unchanged in design: per-org envelope encryption, forced RLS, write-only secrets. The free CLI does not use it. A CLI run lives in `.insidia/runs/<id>/` on the user's machine (`findings.json`, `report.html`, SARIF), with secrets in evidence masked the same way (`[AWS_ACCESS_KEY len=20 fp=3f9a1c07]`). Phase numbers in the table notes below are v5 numbers; the [mapping](00-master-plan.md#phase-mapping-from-v5) says where each landed. Findings stored in Cloud may name the engine that produced them.
+> This schema is the **Insidia Cloud** database. The CLI stores runs in `.insidia/runs/<id>/` on the user's machine (`findings.json`, `report.html`, SARIF), with secrets in evidence masked the same way (`[AWS_ACCESS_KEY len=20 fp=3f9a1c07]`). Findings stored in Cloud may name the engine that produced them.
 
-Cross-cutting. The foundation (roles, RLS, encryption, audit) landed in Phase 0; tenant, target, scan, and finding tables land with Insidia Cloud; the rest in the phase that first needs them (noted per table).
+Cross-cutting. The foundation (roles, RLS, encryption, audit) is created in Phase 0; tenant, target, scan, and finding tables arrive with Phase 2C; the rest arrive in the phase that first needs them (noted per table).
 Parent: [00-master-plan.md](00-master-plan.md).
 
 ## Why this is security-critical
@@ -100,7 +100,7 @@ flowchart LR
 - **Cipher:** AES-256-GCM with a random 96-bit nonce per value. Stored format: `version(1) || key_version(4) || nonce(12) || ciphertext || tag(16)` in a `bytea` column.
 - **Associated data (AAD):** `org_id || table || column || row_id`. A ciphertext copied into another row, column, or org fails to decrypt, so an attacker with write access cannot swap evidence between rows.
 - **Platform keys:** a few values are not owned by one org, such as user emails (a user can belong to several orgs) and MFA secrets. They are encrypted with a platform data key and a platform blind-index key, both wrapped by the same KMS master key.
-- **Where encryption happens:** in the application (`engine/api/crypto/`), never with `pgcrypto`. The database never sees plaintext C1/C2/C3 or any key, so a DB superuser, a dump, or a replica cannot read them.
+- **Where encryption happens:** in the application (`cloud/api/crypto/`), never with `pgcrypto`. The database never sees plaintext C1/C2/C3 or any key, so a DB superuser, a dump, or a replica cannot read them.
 - **Unwrapped keys** are cached in process memory only, for at most 5 minutes, and never written to disk, Valkey, or logs.
 - **Rotation:** new data is always written with the newest `key_version`. A background job re-encrypts old rows in batches. Old key versions are kept (wrapped) until no row references them, then destroyed.
 - **Crypto-shredding:** deleting an org destroys all its wrapped keys. Every C2/C3 value for that org, in the live database, replicas, backups, and object storage, becomes unreadable at once. Row deletion then runs as normal cleanup, not as the security guarantee.
@@ -167,7 +167,7 @@ Conventions for every tenant table below: `id uuid PRIMARY KEY DEFAULT uuidv7()`
 
 ## Tables
 
-### Tenancy and identity (Phase 0-2)
+### Tenancy and identity (Phase 0 and Phase 2C)
 ```sql
 CREATE TABLE orgs (
   id            uuid PRIMARY KEY DEFAULT uuidv7(),
@@ -212,7 +212,7 @@ CREATE TABLE users (
 CREATE TABLE memberships (
   user_id uuid NOT NULL REFERENCES users(id),
   role    text NOT NULL CHECK (role IN ('owner','admin','member','viewer','custom')),
-  permissions text[] NOT NULL DEFAULT '{}',          -- used when role='custom' (Phase 10)
+  permissions text[] NOT NULL DEFAULT '{}',          -- used when role='custom' (Phase 4)
   UNIQUE (org_id, user_id)
 );
 
@@ -237,7 +237,7 @@ CREATE TABLE sessions (
 ```
 `users` has no `org_id` and no tenant RLS. `app_api` reads it only through a `SECURITY DEFINER` function that returns users sharing an org with the caller. Login looks the user up by `email_bidx`, so the email is never compared in plaintext.
 
-### Runners (Phase 1)
+### Runners (Phase 2C)
 ```sql
 CREATE TABLE runners (
   name_enc      bytea NOT NULL,                      -- C1
@@ -267,7 +267,7 @@ CREATE TABLE runner_certs (
 ```
 The hub checks `runner_certs.revoked_at` on every connection, so revoking a runner cuts it off immediately.
 
-### Targets (Phase 1; gray-box context Phase 4)
+### Targets (Phase 2C; gray-box context Phase 2B)
 ```sql
 CREATE TABLE targets (
   project_id    uuid NOT NULL REFERENCES projects(id),
@@ -313,7 +313,7 @@ CREATE TABLE target_credentials (                   -- direct mode only; runner 
   CHECK ((storage = 'cloud_secret_ref') = (cloud_ref_enc IS NOT NULL AND secret_enc IS NULL))
 );
 
-CREATE TABLE target_contexts (                      -- gray-box inputs (Phase 4)
+CREATE TABLE target_contexts (                      -- gray-box inputs (Phase 2B; white-box bundles Phase 3)
   target_id   uuid NOT NULL REFERENCES targets(id),
   kind        text NOT NULL CHECK (kind IN ('system_prompt','tool_schemas','purpose','documents','whitebox_bundle')),
   content_enc bytea,                                 -- C2 (small items)
@@ -325,8 +325,8 @@ CREATE TABLE target_contexts (                      -- gray-box inputs (Phase 4)
 - Only `app_worker` inside the direct egress proxy decrypts `target_credentials` or fetches `cloud_ref_enc`, and only for the scan being run. The dashboard can replace a credential but never read it back; it shows `kind`, `label`, `rotated_at`, and `fingerprint`.
 - The egress proxy checks each outgoing request's host against the decrypted `hosts_enc` list and the `host_bidx` verifications, so direct-mode scope checks work even though hostnames are encrypted at rest.
 
-### Engine registry and taxonomy (global reference data, Phase 1 and 3)
-No `org_id`, no tenant RLS. Writable only by migrations (proposed from the admin console). These tables hold real engine names and must never be exposed through a customer-facing API or view.
+### Engine registry and taxonomy (global reference data; registry from Phase 1A, measured values from Phase 1D)
+No `org_id`, no tenant RLS. Writable only by migrations (proposed from the admin console). Engine ids and upstream probe names are public and shown in the product.
 ```sql
 CREATE TABLE engines (                              -- public: upstream names, shown in the product
   id          text PRIMARY KEY,                      -- 'garak', 'promptfoo', 'zap', ...
@@ -350,7 +350,7 @@ CREATE TABLE capability_map (                       -- which engines cover which
   module_label     text NOT NULL,                    -- customer-facing label, the engine or module name
   est_cost_per_attempt numeric,
   median_runtime_s int,
-  precision_measured numeric,                        -- from the Phase 6 benchmark
+  precision_measured numeric,                        -- from the Phase 1D benchmark
   PRIMARY KEY (engine_id, attack_family_id)
 );
 
@@ -385,7 +385,7 @@ CREATE TABLE probe_taxonomy (
 ```
 `app_api` and `app_worker` can read `attack_families`, `probes`, `taxonomy_refs`, `probe_taxonomy`, and `capability_map.module_label` through a view. Only `app_worker` (normalizer) and `app_admin_read` can read `engines` and `probe_upstream_map`.
 
-### Scans (Phase 1; schedules Phase 9)
+### Scans (Phase 2C)
 ```sql
 CREATE TABLE scan_profiles (                        -- org_id NULL = built-in profile
   org_id       uuid REFERENCES orgs(id),
@@ -441,7 +441,7 @@ CREATE TABLE scan_tasks (                           -- one row per Celery task; 
   finished_at   timestamptz
 );
 
-CREATE TABLE scan_schedules (                       -- Phase 9
+CREATE TABLE scan_schedules (                       -- Phase 2C
   target_id   uuid NOT NULL REFERENCES targets(id),
   profile_id  uuid NOT NULL REFERENCES scan_profiles(id),
   cron        text NOT NULL,
@@ -453,7 +453,7 @@ CREATE TABLE scan_schedules (                       -- Phase 9
 ```
 Celery's own result backend stores only `{status, finding_count}`. Tasks never return evidence. `result_expires` is 1 hour; `scan_tasks` is the durable record.
 
-### Findings and evidence (Phase 1; baselines Phase 9)
+### Findings and evidence (Phase 2C)
 The most sensitive tables. Plaintext columns are only what the dashboard filters and sorts on.
 ```sql
 CREATE TABLE findings (
@@ -521,7 +521,7 @@ CREATE TABLE evidence_objects (                     -- large blobs live in objec
   expires_at  timestamptz NOT NULL                             -- created_at + org retention
 );
 
-CREATE TABLE baselines (                            -- Phase 9 regression gating
+CREATE TABLE baselines (                            -- Phase 2C regression gating
   target_id     uuid NOT NULL REFERENCES targets(id),
   finding_id    uuid NOT NULL REFERENCES findings(id),
   set_by        uuid NOT NULL REFERENCES users(id),
@@ -531,7 +531,8 @@ CREATE TABLE baselines (                            -- Phase 9 regression gating
 - The dedup key uses the blind index, so the database can merge findings from several engines without ever holding plaintext evidence.
 - `finding_sources` ties a finding to the engines that produced it. The public view exposes those engine ids and upstream probe names. Raw engine output stays in `evidence_objects` and stays encrypted.
 
-### Reports, usage, integrations (Phases 2, 3, 9)
+### Reports, usage, integrations (Phases 2A, 2C, and 3)
+`usage_events` arrives in Phase 2A, `reports` and `notification_channels` in Phase 2C, and the Jira and SIEM channel kinds in Phase 3.
 ```sql
 CREATE TABLE reports (
   scan_id     uuid REFERENCES scans(id),
@@ -559,7 +560,7 @@ CREATE TABLE notification_channels (
 );
 ```
 
-### Audit and staff access (Phase 0 foundation, Phase 10 full)
+### Audit and staff access (Phase 0 foundation, Phase 4 full)
 ```sql
 CREATE TABLE audit_events (
   seq          bigint GENERATED ALWAYS AS IDENTITY,
@@ -769,9 +770,9 @@ Backups are encrypted with a backup key separate from the org keys, kept 35 days
 - `app_api` reads findings only through `v_findings_public` (engine names included) and cannot select `org_keys`.
 - Audit table rejects `UPDATE` and `DELETE`; the chain verifier detects a manually edited row.
 - Crypto-shred: after destroying an org's keys, its findings cannot be decrypted from a restored backup.
-- Denylist: no upstream engine name appears in any row returned by a customer-facing view.
+- Engine ids and upstream probe names returned by a customer-facing view match rows in `engines` and `probe_upstream_map`.
 - `app_admin_read` cannot select any base table; `v_admin_*` views return no `_enc` columns; a staff decryption of C1 or C2 without the required grant fails.
 
 ## Open decisions
-- KMS product per environment (cloud KMS in our SaaS; Vault Transit vs customer HSM for on-prem) is chosen at Phase 10, but the key-service interface is fixed in Phase 0 so the choice does not change application code.
+- KMS product per environment (cloud KMS in our SaaS; Vault Transit vs customer HSM for on-prem) is chosen in Phase 4, and the key-service interface is fixed in Phase 0 so the choice does not change application code.
 - Whether gray-box `target_contexts` should use a third key separate from evidence. Default: same data key, revisit if a customer requires it.

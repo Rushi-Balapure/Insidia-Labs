@@ -1,8 +1,8 @@
-# Phase 3 — Agent security
+# Agent security — scripted checks (1C) and honeypots and A2A (Phase 3)
 
-> **v6.** Scripted agent checks (tool-trace oracle on a declared tool list, poisoned-description rules, hash pins) ship in the free CLI as part of Phase 1C where they need no server. The hosted honeypot MCP, the poisoned-content host, and the attack-path graph are Phase 3, and the hosted parts are paid because they run on our hardware. mcp-scanner and SkillSpector are named. The same free-versus-paid rule as the rest of the product applies: local is free, our hardware is paid.
+> Scripted agent checks (tool-trace oracle on a declared tool list, poisoned-description rules, hash pins) ship in the free CLI in Phase 1C because they need no server. The hosted honeypot MCP, the poisoned-content host, the A2A harnesses, and the attack-path graph are Phase 3, and the hosted parts are paid because they run on our hardware. mcp-scanner and SkillSpector are named in findings. Local is free; our hardware is paid.
 
-Depends on: the oracles from [06-phase4-depth.md](06-phase4-depth.md) and the probe ids from Phase 1D.
+Depends on: the oracles from [06-depth-checks.md](06-depth-checks.md) and the probe ids from Phase 1D.
 Parent: [00-master-plan.md](00-master-plan.md).
 Spec: coverage sections 3.3, 3.4, 3.7, 3.10 and layers 2, 3, 5, 8 in [01-ai-redteam-coverage-spec.md](01-ai-redteam-coverage-spec.md).
 
@@ -19,7 +19,7 @@ Treat agents as a first-class target: discover them, statically scan MCP servers
 
 ## Discovery (runner)
 `insidia-runner discover` reads known config paths for Claude Desktop, Cursor, VS Code, and Codex (the list is a table in the runner, updated as paths change). It collects server command, args, tool list if the server is already running, skill files, and A2A agent cards if a URL is in config.
-Upload payload: structured JSON, secrets redacted (env values replaced with `secret_ref` names). The runner does not start unknown executables in this phase. Starting a stdio MCP server to list tools requires an explicit `--run-declared-servers` flag and is off by default, because that executes customer-configured commands.
+Upload payload: structured JSON, secrets redacted (env values replaced with `secret_ref` names). The runner does not start unknown executables. Starting a stdio MCP server to list tools requires an explicit `--run-declared-servers` flag and is off by default, because that executes customer-configured commands.
 
 ## Static scans (cloud, queue `static`)
 - Wrap Cisco mcp-scanner and NVIDIA SkillSpector. The CLI runs them locally in Phase 1B; findings name them.
@@ -29,7 +29,7 @@ Upload payload: structured JSON, secrets redacted (env values replaced with `sec
 ## Dynamic harness
 Cloud-hosted, scan-scoped:
 - Honeypot MCP server the fixture agent is configured to call. Tools look useful and record every call (args, order, timestamps).
-- Poisoned web page, document, and email body served from the same expiring host as Phase 4.
+- Poisoned web page, document, and email body served from the same expiring host as the M-A1 content forge ([06-depth-checks.md](06-depth-checks.md)).
 - Canary tokens in tool descriptions and in documents.
 
 Customer agent must be pointed at the honeypot (staging config) or reached via relay if it is an HTTP agent. We do not silently rewrite production MCP configs.
@@ -48,14 +48,14 @@ Framework adapters, in order: raw MCP over the honeypot, OpenAI Agents SDK fixtu
 - ASI09 approval skip: fixture has an approval flag; oracle fires if the tool runs while the flag is false.
 - ASI10 rogue behavior: bounded check only (agent continues after a kill instruction in the test harness). No self-replication experiments.
 
-## Gap-filling Insidia Labs modules in this phase
+## Gap-filling Insidia Labs modules
 From [16-coverage-gaps.md](16-coverage-gaps.md):
 - **M-A4 tool-trace oracle, full version:** traces from the honeypot, the SDK, and OpenTelemetry GenAI spans, checked against a per-target tool policy (allowed tools, arguments, and forbidden chains).
 - **M-A7 multi-agent and A2A harness:** spoofed agent cards and messages (ASI07), supervisor injection through worker output, secondary injection, and cascade blast radius (ASI08).
 - **M-A8 sandbox sensor kit:** canary files, a fake metadata endpoint, out-of-band callbacks, and process and file-write sensors, so ASI05 findings are proven.
 - **M-A9 approval-bypass suite:** actions without approval, and approval requests whose summary differs from the executed action (ASI09).
 - **M-A13 AI supply-chain checks:** MCP tool-hash drift, GGUF template diffing, adapter behavioral goldens, and model-hub namespace checks (ASI04).
-- **M-A1 honeypot hosting:** the Phase 4 content forge gets its scan-scoped honeypot domains and MCP server here.
+- **M-A1 honeypot hosting:** the M-A1 content forge ([06-depth-checks.md](06-depth-checks.md)) gets its scan-scoped honeypot domains and MCP server here.
 
 ## Storage
 Honeypot traces, tool arguments, and agent graphs are C2 evidence: encrypted with the org data key, secret-redacted before storage, and stored as `evidence_objects` with `kind='tool_trace'` (see [14-database-schema.md](14-database-schema.md)). Tool-hash pins are stored as hashes plus the encrypted schema.

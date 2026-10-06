@@ -1,6 +1,6 @@
 # Phase 1D — Insidia Benchmark, taxonomy, and reports
 
-> **v6.** This is Phase 1D of the free CLI, not a later Cloud phase. The policy files and mappings live in `benchmark/` (moved from `engine/taxonomy-data/`). The CLI writes the HTML report, SARIF, JSON, and `benchmark.json` with no account. The executive PDF and the evidence-pack zip are Insidia Cloud exports (Phase 2C). Reports name the engine. There is no engine-name denylist. Wording stays "compliance-ready evidence", not certification.
+> This is Phase 1D of the free CLI. The policy files live in `benchmark/policies` and the framework mappings in `benchmark/mappings`. The CLI writes the HTML report, SARIF, JSON, and `benchmark.json` with no account. The executive PDF and the evidence-pack zip are Insidia Cloud exports (Phase 2C). Reports name the engine that produced each finding. Wording is "compliance-ready evidence", which is test evidence and not certification.
 
 Depends on: Phase 1B findings. The Cloud download buttons depend on Phase 2C.
 Parent: [00-master-plan.md](00-master-plan.md). IDs from [01-ai-redteam-coverage-spec.md](01-ai-redteam-coverage-spec.md).
@@ -13,13 +13,13 @@ Every finding can be pivoted by framework. A benchmark policy (L1, L2, L3, or a 
 - The sandbox fixtures produce findings tagged at least `owasp-llm:LLM01` (canary leak) and `owasp-web:A03` or `A05` (injected fixture).
 - `insidia scan` writes `report.html` (works offline, summary readable with JavaScript off), `results.sarif`, `findings.json`, and `benchmark.json`. SARIF `tool.driver.name` is `Insidia` and each result names the engine in a property.
 - The report's coverage matrix shows which controls were tested, which passed, and which were not tested.
-- Owned matrix cells are green ([17-test-suite.md](17-test-suite.md)). This phase adds taxonomy tags to cells other phases own; it does not own cells of its own.
+- Owned matrix cells are green ([17-test-suite.md](17-test-suite.md)). This phase adds taxonomy tags to cells that other phases own.
 
 ## Tag prefixes
 `owasp-llm` (2026 LLM01–LLM10), `owasp-asi` (ASI01–ASI10), `owasp-web` (2021 or current Top 10), `owasp-api` (API Security Top 10), `atlas`, `attack`, `cwe`, `cvss`, `aivss`, `nist-rmf`, `nist-600-1`, `eu-ai-act`, `iso-42001`, `aicm`, `pci`, `dsgai`.
 
 ## Data
-YAML files, one framework per directory, reviewed in PR:
+YAML files, one framework per file, reviewed in PR. Framework mappings live in `benchmark/mappings/` (policy files live in `benchmark/policies/`):
 ```
 benchmark/mappings/
   owasp-llm-2026.yaml      # id, title (short paraphrase we write), summary we write
@@ -50,7 +50,7 @@ A policy is a named list of controls, the probes that test each one, and budgets
 
 ## Scoring
 - Classic findings: CVSS 3.1 vector stored when the probe defines one; severity derived from it.
-- AI findings: AIVSS when we have enough fields; otherwise a fixed severity on the probe plus confidence from the oracle (Phase 4 fills confidence). Do not invent a CVSS score for a jailbreak.
+- AI findings: AIVSS when we have enough fields; otherwise a fixed severity on the probe plus confidence from the oracle (deterministic oracles in Phase 1C, judge calibration in Phase 2B). Do not invent a CVSS score for a jailbreak.
 
 ## Reports
 The CLI builder lives in `core/` and needs no server. Cloud reuses it and adds the PDF and the evidence pack on the `reports` queue.

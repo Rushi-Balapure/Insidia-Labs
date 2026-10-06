@@ -1,8 +1,8 @@
 # Coverage Gap Analysis and Insidia Labs-Built Modules
 
-> **v6. Public.** This file names the engines on purpose. Reports, docs, and the website credit them. Customer-facing coverage pages are generated from the scanner benchmark and the capability registry, and each row names the engine or Insidia module that covers it. Modules that need no hosted model ship in Phase 1C (free CLI). Modules that need the hosted attacker (M-A11 and the model-driven half of the multi-turn attacks) ship in Phase 2B. The phase labels inside the module list are v5 numbers; see the [mapping](00-master-plan.md#phase-mapping-from-v5).
+> **Public.** This file names the engines on purpose. Reports, docs, and the website credit them. Customer-facing coverage pages are generated from the scanner benchmark and the capability registry, and each row names the engine or Insidia module that covers it. Local engine adapters ship in Phase 1B, modules that need no hosted model ship in Phase 1C (free CLI), and agent-security and white-box depth ships in Phase 3. Modules that need the hosted attacker (M-A11 and the model-driven half of the multi-turn attacks) ship in Phase 2B.
 
-Parent: [00-master-plan.md](00-master-plan.md). Requirements: [01-ai-redteam-coverage-spec.md](01-ai-redteam-coverage-spec.md). Registry: [08-phase6-engine-registry.md](08-phase6-engine-registry.md).
+Parent: [00-master-plan.md](00-master-plan.md). Requirements: [01-ai-redteam-coverage-spec.md](01-ai-redteam-coverage-spec.md). Registry: [08-engine-registry.md](08-engine-registry.md).
 
 ## Method
 1. Take every requirement from the AI coverage spec (attack classes 3.1 to 3.11, surfaces A to F, oracles, target classes) and the classic AppSec scope in the master plan.
@@ -10,7 +10,7 @@ Parent: [00-master-plan.md](00-master-plan.md). Requirements: [01-ai-redteam-cov
 3. Rate it: **Covered** (an engine does it well enough to ship), **Partial** (some variants, weak oracle, or only in some connection modes), or **Gap** (nothing we can use).
 4. For every Partial or Gap, decide: **adopt** another permissively licensed tool, **build** an Insidia Labs module, or **defer**.
 
-Ratings come from each tool's documentation and our knowledge of it. They are hypotheses until the Phase 6 benchmark measures them (see [Validating this analysis](#validating-this-analysis)). Built modules plug into the same capability registry as the engines. A finding names whichever one produced it.
+Ratings come from each tool's documentation and our knowledge of it. They are hypotheses until the Phase 1D benchmark measures them (see [Validating this analysis](#validating-this-analysis)). Built modules plug into the same capability registry as the engines. A finding names whichever one produced it.
 
 ## Constraints that create gaps
 - **promptfoo without remote generation.** We keep `PROMPTFOO_DISABLE_REMOTE_GENERATION=true` so a user's prompts never go to promptfoo's servers. Per promptfoo's own data-handling docs, this disables:
@@ -24,7 +24,7 @@ Ratings come from each tool's documentation and our knowledge of it. They are hy
 - **Direct mode reaches only public endpoints.** Anything needing the customer's internal network, tool traces, or code needs the runner or the SDK.
 
 ## AI and agent coverage (spec section 3)
-Engines: garak (G), promptfoo local-only (PF), PyRIT (PY), DeepTeam (DT), Strix-based agent (AG, Phase 5), mcp-scanner (MS), SkillSpector (SS), ModelScan (MO). Module ids refer to [Modules to build](#modules-to-build).
+Engines: garak (G), promptfoo local-only (PF), PyRIT (PY), DeepTeam (DT), Strix-based agent (AG, Phase 2B), mcp-scanner (MS), SkillSpector (SS), ModelScan (MO). Module ids refer to [Modules to build](#modules-to-build).
 
 | Spec | Requirement | Today | Rating | Fill with |
 | --- | --- | --- | --- | --- |
@@ -53,7 +53,7 @@ Engines: garak (G), promptfoo local-only (PF), PyRIT (PY), DeepTeam (DT), Strix-
 | 3.6 | Secondary LLM injection (A's output becomes B's prompt) | none | Gap | M-A7 |
 | 3.7 | Malicious model files (pickle and similar) | MO | Covered | - |
 | 3.7 | GGUF chat-template and adapter poisoning, model provenance | none | Gap | M-A13 |
-| 3.7 | MCP and skill manifest poisoning, description shadowing, rug-pull (ASI04) | MS, SS | Partial: no hash pinning or drift | Phase 7 tool-hash pinning, M-A13 |
+| 3.7 | MCP and skill manifest poisoning, description shadowing, rug-pull (ASI04) | MS, SS | Partial: no hash pinning or drift | Phase 3 tool-hash pinning, M-A13 |
 | 3.7 | Namespace reuse and typosquatting of models and packages | none | Gap | M-A13 |
 | 3.8 | Unbounded consumption: token floods, reasoning DoS, repetition (LLM06) | PF `reasoning-dos`, `divergent-repetition`; G | Partial: no cost oracle | M-A14 |
 | 3.8 | Recursive tool loops and tool storms | none | Gap | M-A14 + M-A4 |
@@ -67,7 +67,7 @@ Engines: garak (G), promptfoo local-only (PF), PyRIT (PY), DeepTeam (DT), Strix-
 
 **Surface coverage (spec section 2).** Surface A (direct channels) is mostly covered. Surfaces B (indirect content) and D (retrieval) are the largest gaps, because every engine we have attacks through the prompt box. Surface C (tools) is covered for text but not for traces. Surface E (supply chain) is covered only for model-file scanning. Surface F (control plane, approval UIs) is almost entirely missing.
 
-**Oracles (spec section 4).** Engines ship detectors and LLM graders, but not a shared oracle layer. Canary, tool-trace, goal-diff, ACL, resource, manifest-drift, and multi-turn-state oracles all need to be built once and used by every engine and module (M-A3 and the Phase 4A oracle framework).
+**Oracles (spec section 4).** Engines ship detectors and LLM graders, but not a shared oracle layer. Canary, tool-trace, goal-diff, ACL, resource, manifest-drift, and multi-turn-state oracles all need to be built once and used by every engine and module (M-A3 and the Phase 1C oracle framework).
 
 ## Classic AppSec coverage
 Engines: ZAP (Z), Nuclei (N), Dalfox (D), katana/httpx/subfinder/ffuf (PD), interactsh (OOB), Trivy (T), osv-scanner (OSV), gitleaks (GL), Bandit (B), gosec (GS).
@@ -90,7 +90,7 @@ Engines: ZAP (Z), Nuclei (N), Dalfox (D), katana/httpx/subfinder/ffuf (PD), inte
 | Access control | BOLA/IDOR, BFLA, mass assignment, tenant isolation | none | Gap | M-C3 |
 | Auth | JWT flaws (`alg:none`, weak keys, `kid` injection), OAuth and OIDC misconfiguration, session fixation | Z partial, N some | Partial | M-C4 |
 | Logic | Race conditions (limit overrun, double spend) | none | Gap | M-C5 |
-| Logic | Business-logic abuse | AG (Phase 5) | Partial | AG with M-C3 identities |
+| Logic | Business-logic abuse | AG (Phase 2B) | Partial | AG (Phase 2B) with M-C3 identities |
 | API | GraphQL: introspection, batching, depth and alias DoS, field authorization | Z add-on, N some | Partial | M-C3, M-C7 |
 | API | gRPC and WebSocket APIs | none | Gap | M-C7 |
 | API | Rate-limit and resource-consumption tests | none | Gap | M-C7 |
@@ -100,7 +100,7 @@ Engines: ZAP (Z), Nuclei (N), Dalfox (D), katana/httpx/subfinder/ffuf (PD), inte
 | Infra | Port and service discovery | none (nmap excluded) | Gap | Adopt naabu (MIT) |
 | Infra | TLS configuration | none (testssl.sh excluded) | Gap | Adopt tlsx (MIT) + our cipher policy rules |
 | Infra | AI infrastructure exposure: unauthenticated vector DBs, inference servers, MLflow, Ray, notebooks | N some templates | Partial | M-A16 |
-| Infra | Cloud account posture (CSPM) | none | Out of scope for v1 | Defer; revisit after Phase 10 |
+| Infra | Cloud account posture (CSPM) | none | Out of scope for v1 | Defer; revisit after Phase 4 |
 | Static | SAST for Python and Go | B, GS | Partial | M-C9 |
 | Static | SAST for JavaScript/TypeScript, Java, C#, PHP, Ruby | none (Semgrep rules and CodeQL excluded) | Gap | M-C9 |
 | Static | Secrets in code and history | GL | Covered | - |
@@ -113,14 +113,14 @@ These close gaps with little work. All are permissively licensed, run in the clo
 
 | Tool | License | Fills |
 | --- | --- | --- |
-| naabu | MIT | Port and service discovery (replaces nmap) |
+| naabu | MIT | Port and service discovery (instead of nmap) |
 | tlsx | MIT | TLS versions, ciphers, and certificate checks; we add our own policy rules on top |
 | Adversarial Robustness Toolbox (ART) | MIT | Predictive-ML evasion, membership inference, extraction, poisoning (spec 3.11) |
 | TextAttack | MIT | Adversarial text attacks against classifiers (spec 3.11) |
 | OpenSSF model-signing (`model-transparency`) | Apache-2.0 | Model signature and provenance verification (spec 3.7) |
 | Playwright | Apache-2.0 | Browser for the login recorder (M-C1) and the output-sink renderer (M-A10) |
 
-Open decision: **opengrep** (the community fork of the Semgrep engine) is LGPL-2.1. Run unmodified as a separate process in our cloud, it may be acceptable, and it would shorten M-C9 a lot. It is not on the current allowlist, so legal review decides before Phase 8. Semgrep's registry rules stay excluded either way; all rules would be ours.
+Open decision: **opengrep** (the community fork of the Semgrep engine) is LGPL-2.1. Run unmodified as a separate process in our cloud, it may be acceptable, and it would shorten M-C9 a lot. It is not on the current allowlist, so legal review decides before Phase 1C. Semgrep's registry rules stay excluded either way; all rules would be ours.
 
 ## Modules to build
 Each module is our own code in `core/insidia/modules/<module>/`, so the CLI and the Cloud workers share it. It registers in the capability registry like any engine, and the report names it (for example "Insidia module: indirect-injection"). Size: S is up to 2 engineer-weeks, M is 2 to 6, L is more than 6.
@@ -130,67 +130,63 @@ Each module is our own code in `core/insidia/modules/<module>/`, so the CLI and 
 ### AI and agent modules
 | Id | Module | What it does | Connection | Phase | Size |
 | --- | --- | --- | --- | --- | --- |
-| M-A1 | Indirect content forge | Generates poisoned web pages, documents, emails, tickets, calendar invites, and tool results, each carrying a canary instruction. Hosts them on our honeypot domains or delivers them through the customer's ingest endpoint. | Direct or runner | 4A (honeypot hosting in 7) | M |
-| M-A2 | Payload converters | Turns any probe into other carriers: PDF, DOCX, and HTML with hidden text; images with rendered or OCR text; audio (text-to-speech); Unicode tag characters, homoglyphs, and zero-width smuggling. Applied as a strategy to every engine's probes. | Both | 4A | M |
-| M-A3 | Canary and hidden-context oracle | Plants unique canaries in system prompts, tool definitions, and documents (gray box), then proves extraction or obedience deterministically. Black-box variant scores reconstruction of hidden instructions. Includes the instruction-hierarchy suite (system vs developer vs user vs tool roles). | Both | Canaries 1; full suite 4A | M |
-| M-A4 | Tool-trace oracle | Collects the agent's actual tool calls (SDK, OpenTelemetry GenAI traces, or our honeypot tools) and checks them against a per-target policy: allowed tools, allowed arguments, forbidden chains such as read-then-send. Turns text-judged findings into proven ones. | Runner or SDK; honeypot tools in direct | 4A foundation, 7 full | L |
-| M-A5 | RAG and memory harness | Plants documents through a customer-provided ingest path (upload API, test bucket, test index), tests retrieval-rank manipulation and cross-document smuggling, writes to memory in one session and reads it back in another, and judges groundedness and citations. | Both; gray box needs ingest access | 4A | L |
-| M-A6 | Two-identity access harness | Runs the same attack as identity A, identity B, and an admin. An ACL oracle detects cross-tenant and cross-document bleed, and BOLA/BFLA through an agent. Shares its identity model with M-C3. | Both | 4A | M |
-| M-A7 | Multi-agent and A2A harness | Spoofs agent cards and inter-agent messages, injects the supervisor through worker output, tests secondary injection (agent A's output becomes agent B's prompt), and measures blast radius across a fleet. | Runner or SDK | 7 | L |
-| M-A8 | Sandbox sensor kit | Canary files, a fake cloud-metadata endpoint, out-of-band callbacks, and process and file-write sensors for code interpreters, plus the escape payload set. Proves code execution instead of inferring it. | Runner, or honeypot in direct | 7 | M |
-| M-A9 | Approval-bypass suite | Tests whether the agent acts without the required human approval, and whether the approval request shown to the human matches the action actually executed (a misleading summary is a finding). | Runner or SDK | 7 | M |
-| M-A10 | Output-sink simulator | Renders model output in a headless browser to detect script execution and image- or link-based exfiltration to our out-of-band server; parses output as shell, SQL, and ticket or email content to detect injection into downstream systems. | Both | 4A | M |
-| M-A11 | Insidia Labs attack generator | Our attacker-model generation that replaces the promptfoo remote-only plugins and strategies: harmful-content and bias categories, hijacking, off-topic, competitor, system-prompt override, domain packs, and a GOAT-style adaptive multi-turn attacker. Also turns a customer's stated purpose and policies into a custom attack set. | Both | 4A | L |
-| M-A12 | White-box AI analysis | Prompt and tool-graph analysis from extracted code, embedding and vector-store exposure checks, over-privileged tool detection. Already planned in Phase 8; listed here because it closes 3.2 embedding inversion. | Runner `extract` or upload | 8 | L |
-| M-A13 | AI supply-chain checks | GGUF chat-template diffing against known-good, behavioral goldens before and after swapping an adapter, model-signature verification, model-hub namespace reuse and typosquatting checks, and MCP tool-hash drift (rug-pull). | Both (static) | 7 and 8 | M |
-| M-A14 | Consumption and resource oracle | Measures tokens, cost, latency, and tool-loop depth per attempt; runs token-flood, reasoning-DoS, and tool-storm probes under a strict budget so the test itself cannot run up the customer's bill. | Both | 4A | S |
-| M-A15 | Predictive-ML pack | Wraps ART and TextAttack for classifiers, recommenders, and vision or audio models; adds model-extraction-by-scraping tests. Needs model access through the runner or SDK. | Runner or SDK | 11 (optional per spec) | M |
-| M-A16 | AI infrastructure exposure | Our own detection templates for unauthenticated vector databases, inference servers, model registries, MLflow, Ray dashboards, and notebooks. Runs on the existing template engine. | Both | 4B | S |
+| M-A1 | Indirect content forge | Generates poisoned web pages, documents, emails, tickets, calendar invites, and tool results, each carrying a canary instruction. Hosts them on our honeypot domains or delivers them through the customer's ingest endpoint. | Direct or runner | 1C (honeypot hosting in 3) | M |
+| M-A2 | Payload converters | Turns any probe into other carriers: PDF, DOCX, and HTML with hidden text; images with rendered or OCR text; audio (text-to-speech); Unicode tag characters, homoglyphs, and zero-width smuggling. Applied as a strategy to every engine's probes. | Both | 1C | M |
+| M-A3 | Canary and hidden-context oracle | Plants unique canaries in system prompts, tool definitions, and documents (gray box), then proves extraction or obedience deterministically. Black-box variant scores reconstruction of hidden instructions. Includes the instruction-hierarchy suite (system vs developer vs user vs tool roles). | Both | 1C | M |
+| M-A4 | Tool-trace oracle | Collects the agent's actual tool calls (SDK, OpenTelemetry GenAI traces, or our honeypot tools) and checks them against a per-target policy: allowed tools, allowed arguments, forbidden chains such as read-then-send. Turns text-judged findings into proven ones. | Runner or SDK; honeypot tools in direct | 1C (scripted trace oracle), 3 (SDK and OTel traces) | L |
+| M-A5 | RAG and memory harness | Plants documents through a customer-provided ingest path (upload API, test bucket, test index), tests retrieval-rank manipulation and cross-document smuggling, writes to memory in one session and reads it back in another, and judges groundedness and citations. | Both; gray box needs ingest access | 1C | L |
+| M-A6 | Two-identity access harness | Runs the same attack as identity A, identity B, and an admin. An ACL oracle detects cross-tenant and cross-document bleed, and BOLA/BFLA through an agent. Shares its identity model with M-C3. | Both | 1C | M |
+| M-A7 | Multi-agent and A2A harness | Spoofs agent cards and inter-agent messages, injects the supervisor through worker output, tests secondary injection (agent A's output becomes agent B's prompt), and measures blast radius across a fleet. | Runner or SDK | 3 | L |
+| M-A8 | Sandbox sensor kit | Canary files, a fake cloud-metadata endpoint, out-of-band callbacks, and process and file-write sensors for code interpreters, plus the escape payload set. Proves code execution instead of inferring it. | Runner, or honeypot in direct | 3 | M |
+| M-A9 | Approval-bypass suite | Tests whether the agent acts without the required human approval, and whether the approval request shown to the human matches the action actually executed (a misleading summary is a finding). | Runner or SDK | 3 | M |
+| M-A10 | Output-sink simulator | Renders model output in a headless browser to detect script execution and image- or link-based exfiltration to our out-of-band server; parses output as shell, SQL, and ticket or email content to detect injection into downstream systems. | Both | 1C | M |
+| M-A11 | Insidia Labs attack generator | Our attacker-model generation that covers the promptfoo remote-only plugins and strategies: harmful-content and bias categories, hijacking, off-topic, competitor, system-prompt override, domain packs, and a GOAT-style adaptive multi-turn attacker. Also turns a customer's stated purpose and policies into a custom attack set. | Both | 2B | L |
+| M-A12 | White-box AI analysis | Prompt and tool-graph analysis from extracted code, embedding and vector-store exposure checks, over-privileged tool detection. Part of the Phase 3 white-box work; it closes 3.2 embedding inversion. | Runner `extract` or upload | 3 | L |
+| M-A13 | AI supply-chain checks | GGUF chat-template diffing against known-good, behavioral goldens before and after swapping an adapter, model-signature verification, model-hub namespace reuse and typosquatting checks, and MCP tool-hash drift (rug-pull). | Both (static) | 1B (static checks), 3 (behavioral goldens) | M |
+| M-A14 | Consumption and resource oracle | Measures tokens, cost, latency, and tool-loop depth per attempt; runs token-flood, reasoning-DoS, and tool-storm probes under a strict budget so the test itself cannot run up the customer's bill. | Both | 1C | S |
+| M-A15 | Predictive-ML pack | Wraps ART and TextAttack for classifiers, recommenders, and vision or audio models; adds model-extraction-by-scraping tests. Needs model access through the runner or SDK. | Runner or SDK | 3 (optional per spec) | M |
+| M-A16 | AI infrastructure exposure | Our own detection templates for unauthenticated vector databases, inference servers, model registries, MLflow, Ray dashboards, and notebooks. Runs on the existing template engine. | Both | 1B | S |
 
 ### Classic AppSec modules
 | Id | Module | What it does | Connection | Phase | Size |
 | --- | --- | --- | --- | --- | --- |
-| M-C1 | Login recorder and API discovery | The customer records a login once in the dashboard (or with the runner); we replay it with Playwright to keep sessions alive, including CSRF tokens and test-account MFA. Also imports OpenAPI, GraphQL schemas, Postman collections, and HAR files to find endpoints a crawler misses. | Both | 4B | M |
-| M-C2 | Injection depth engine | SQL injection (error, boolean, time, out-of-band, second-order, with database fingerprinting), OS command injection, template injection with engine fingerprinting, NoSQL, LDAP, XPath, CRLF, deserialization gadget probes, and unsafe file upload. Confirms blind cases through the out-of-band server. Clean-room. | Both | 4B | L |
-| M-C3 | Access-control differ | Replays every discovered request as identity A, identity B, admin, and anonymous, then diffs the responses to find BOLA/IDOR, BFLA, tenant-isolation breaks, and mass assignment, including GraphQL field-level authorization. The highest-value classic module: no engine we use does it. | Both | 4B | L |
-| M-C4 | Token and session analyzer | JWT checks (`alg:none`, weak HMAC keys, `kid` and `jku` injection, expiry), OAuth and OIDC flow checks (redirect URI, state, PKCE), session fixation and logout invalidation. | Both | 4B | M |
-| M-C5 | Race-condition tester | Single-packet HTTP/2 bursts for limit-overrun and double-spend bugs on endpoints the customer marks as sensitive (checkout, redeem, transfer). Opt-in per endpoint because it changes state. | Runner tunnel preferred | 9 | M |
-| M-C6 | Smuggling and cache pack | HTTP request smuggling, web cache poisoning, and cache deception. | Both | 11 | M |
-| M-C7 | Protocol coverage | gRPC (via server reflection or uploaded protos), WebSocket message fuzzing, and rate-limit and resource-consumption tests for APIs. | Both | 4B (gRPC, rate limits), 9 (WebSocket) | M |
-| M-C8 | Client-side pack | Prototype pollution, postMessage handlers, CSP and clickjacking weaknesses, found by instrumenting the page in a headless browser. | Both | 11 | M |
-| M-C9 | Insidia Labs SAST | Tree-sitter parsing with our own taint rules for JavaScript/TypeScript, Python, Go, Java, C#, PHP, and Ruby, plus AI-specific sinks: prompt concatenation of untrusted input, LLM output passed to `eval`, SQL, shell, or HTML, and tools with no authorization check. Replaces Bandit and gosec as the primary static engine. | Runner `extract` or upload | 4B (Python, JS/TS), 8 (the rest) | L |
-| M-C10 | Secret liveness verifier | For leaked secrets, calls each provider's read-only identity endpoint (for example "who am I") to say whether the key is still live, rate-limited and opt-in. Stores only a live or dead flag and the fingerprint, never the secret. | Cloud, opt-in per org | 8 | S |
+| M-C1 | Login recorder and API discovery | The customer records a login once in the dashboard (or with the runner); we replay it with Playwright to keep sessions alive, including CSRF tokens and test-account MFA. Also imports OpenAPI, GraphQL schemas, Postman collections, and HAR files to find endpoints a crawler misses. | Both | 1B | M |
+| M-C2 | Injection depth engine | SQL injection (error, boolean, time, out-of-band, second-order, with database fingerprinting), OS command injection, template injection with engine fingerprinting, NoSQL, LDAP, XPath, CRLF, deserialization gadget probes, and unsafe file upload. Confirms blind cases through the out-of-band server. Clean-room. | Both | 1C | L |
+| M-C3 | Access-control differ | Replays every discovered request as identity A, identity B, admin, and anonymous, then diffs the responses to find BOLA/IDOR, BFLA, tenant-isolation breaks, and mass assignment, including GraphQL field-level authorization. The highest-value classic module: no engine we use does it. | Both | 1C | L |
+| M-C4 | Token and session analyzer | JWT checks (`alg:none`, weak HMAC keys, `kid` and `jku` injection, expiry), OAuth and OIDC flow checks (redirect URI, state, PKCE), session fixation and logout invalidation. | Both | 1C | M |
+| M-C5 | Race-condition tester | Single-packet HTTP/2 bursts for limit-overrun and double-spend bugs on endpoints the customer marks as sensitive (checkout, redeem, transfer). Opt-in per endpoint because it changes state. | Runner tunnel preferred | 1C | M |
+| M-C6 | Smuggling and cache pack | HTTP request smuggling, web cache poisoning, and cache deception. | Both | 3 | M |
+| M-C7 | Protocol coverage | gRPC (via server reflection or uploaded protos), WebSocket message fuzzing, and rate-limit and resource-consumption tests for APIs. | Both | 1C | M |
+| M-C8 | Client-side pack | Prototype pollution, postMessage handlers, CSP and clickjacking weaknesses, found by instrumenting the page in a headless browser. | Both | 3 | M |
+| M-C9 | Insidia Labs SAST | Tree-sitter parsing with our own taint rules for JavaScript/TypeScript, Python, Go, Java, C#, PHP, and Ruby, plus AI-specific sinks: prompt concatenation of untrusted input, LLM output passed to `eval`, SQL, shell, or HTML, and tools with no authorization check. Becomes the primary static engine, ahead of Bandit and gosec. | Runner `extract` or upload | 1C (Python, JS/TS), 3 (the rest) | L |
+| M-C10 | Secret liveness verifier | For leaked secrets, calls each provider's read-only identity endpoint (for example "who am I") to say whether the key is still live, rate-limited and opt-in. Stores only a live or dead flag and the fingerprint, never the secret. | Cloud, opt-in per org | 3 | S |
 
 ## Build order
 The order follows the spec's minimum capability layers (section 5) and what customers ask about first.
 
 | Order | Modules | Why first |
 | --- | --- | --- |
-| 1 | M-A3 canaries, M-A14 | Deterministic proof for the Phase 1 slice; cheap |
-| 2 | M-A11, M-A2 | Recover the promptfoo coverage lost to local-only mode; every probe benefits from the converters |
+| 1 | M-A3 canaries, M-A14 | Deterministic proof for the first AI findings (Phase 1C); cheap |
+| 2 | M-A11 (Phase 2B), M-A2 (Phase 1C) | Cover the promptfoo plugins and strategies that need remote generation; every probe benefits from the converters |
 | 3 | M-C3, M-C1, M-C2 | The biggest classic gaps (access control, authenticated scanning, injection depth) and what buyers compare against Burp |
 | 4 | M-A1, M-A5, M-A6, M-A10 | Indirect injection, RAG, tenant bleed, output sinks: spec layers 2, 4, and 7 |
-| 5 | M-A4, M-C4, M-C9 (first languages), M-A16, M-C7 (gRPC, rate limits) | Tool-trace proof and the rest of Phase 4 |
-| 6 | M-A7, M-A8, M-A9, M-A13 | Agent security (Phase 7): multi-agent, sandbox, approval, supply chain |
-| 7 | M-A12, M-C9 (remaining languages), M-C10 | White box (Phase 8) |
-| 8 | M-C5, M-C7 (WebSocket) | Continuous and developer workflow (Phase 9) |
-| 9 | M-A15, M-C6, M-C8 | Later (Phase 11) |
+| 5 | M-A4, M-C4, M-C9 (first languages), M-A16, M-C7 | Tool-trace proof and the rest of the classic depth modules |
+| 6 | M-A7, M-A8, M-A9, M-A13 | Agent security (Phase 3): multi-agent, sandbox, approval, supply chain |
+| 7 | M-A12, M-C9 (remaining languages), M-C10 | White box (Phase 3) |
+| 8 | M-C5 | Opt-in, state-changing checks (Phase 1C) |
+| 9 | M-A15, M-C6, M-C8 | Predictive ML, smuggling, client-side (Phase 3) |
 
 **Where coverage stands.** Of the 36 AI rows in the table above, 3 are Covered today, 18 are Partial, and 15 are Gaps. Every Partial and Gap row has an assigned module or adopted tool, so the plan covers every row once steps 1 to 9 ship. Only the benchmark below can say how well each one is covered.
 
 ## Where each module lands in the phase plans
-- **Phase 1** ([03-phase1-vertical-slices.md](03-phase1-vertical-slices.md)): M-A3 canary oracle, used by the first AI findings.
-- **Phase 4A** ([06-phase4-depth.md](06-phase4-depth.md)): M-A1, M-A2, M-A3 full, M-A4 foundation, M-A5, M-A6, M-A10, M-A11, M-A14.
-- **Phase 4B**: M-A16, M-C1, M-C2, M-C3, M-C4, M-C7 (gRPC, rate limits), M-C9 (Python, JS/TS); adopt naabu and tlsx.
-- **Phase 5** ([07-phase5-pentest-agent.md](07-phase5-pentest-agent.md)): the pentest agent uses M-C3 identities, M-C2 payloads, and M-A10 sinks as tools.
-- **Phase 6** ([08-phase6-engine-registry.md](08-phase6-engine-registry.md)): measures every module against the engines in the benchmark and sets Standard-mode priorities.
-- **Phase 7** ([09-phase7-agent-security.md](09-phase7-agent-security.md)): M-A4 full, M-A7, M-A8, M-A9, M-A13; honeypot hosting for M-A1.
-- **Phase 8** ([10-phase8-whitebox.md](10-phase8-whitebox.md)): M-A12, M-C9 (remaining languages), M-C10; adopt model-signing.
-- **Phase 9** ([11-phase9-continuous.md](11-phase9-continuous.md)): M-C5, M-C7 (WebSocket).
-- **Phase 11** ([13-phase11-later.md](13-phase11-later.md)): M-A15 (adopt ART and TextAttack), M-C6, M-C8.
+- **Phase 1B** ([03-engines-and-connections.md](03-engines-and-connections.md)): M-A16, M-C1, M-A13 (static checks); adopt naabu and tlsx.
+- **Phase 1C** ([06-depth-checks.md](06-depth-checks.md)): M-A1, M-A2, M-A3, M-A4 (scripted trace oracle), M-A5, M-A6, M-A10, M-A14, M-C2, M-C3, M-C4, M-C5, M-C7, M-C9 (Python, JS/TS).
+- **Phase 1D** ([08-engine-registry.md](08-engine-registry.md)): measures every module against the engines in the benchmark and sets Standard-mode priorities.
+- **Phase 2B** ([07-pentest-agent.md](07-pentest-agent.md)): M-A11; the pentest agent uses M-C3 identities, M-C2 payloads, and M-A10 sinks as tools.
+- **Phase 3** ([09-agent-security.md](09-agent-security.md), [10-white-box.md](10-white-box.md), [13-runtime-guardrails.md](13-runtime-guardrails.md)): M-A4 (SDK and OTel traces), M-A7, M-A8, M-A9, M-A13 (behavioral goldens), honeypot hosting for M-A1, M-A12, M-C9 (remaining languages), M-C10, M-A15 (adopt ART and TextAttack), M-C6, M-C8; adopt model-signing.
 
 ## Validating this analysis
-The ratings above are hypotheses. The Phase T permutation suite ([17-test-suite.md](17-test-suite.md)) and the Phase 6 benchmark turn them into measurements. Both read the same targets and ground truth from `tests/`, so there is one source of truth.
+The ratings above are hypotheses. The Phase T permutation suite ([17-test-suite.md](17-test-suite.md)) and the Phase 1D benchmark turn them into measurements. Both read the same targets and ground truth from `benchmark/`, so there is one source of truth.
 - **Benchmark targets** (permissively licensed, self-hosted, sandboxed with no egress; defined in [17-test-suite.md](17-test-suite.md)): OWASP Juice Shop (MIT), crAPI (Apache-2.0), VAmPI (MIT), Damn Vulnerable GraphQL Application (MIT), AgentDojo tasks (MIT), and our own fixtures: a vulnerable chatbot, a RAG app with a plantable corpus, an MCP agent with dangerous tools, and a two-agent A2A system. Each has a `ground_truth.yaml` list of planted vulnerabilities.
 - **Per engine and per module**, we measure recall against ground truth, precision (confirmed findings over all findings), cost per attempt, and runtime. These numbers fill `capability_map.precision_measured` and drive Standard-mode priorities.
 - A row moves from Partial to Covered only when the benchmark shows at least 80% recall on that row's planted vulnerabilities with at least 90% precision.

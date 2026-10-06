@@ -1,6 +1,6 @@
 ---
 name: Insidia Labs AI Security Platform
-overview: Master plan v6 for Insidia Labs, an open-source AI-native application security toolkit with a paid hosted layer. Phase 1 ships an Apache-2.0 CLI and an open security benchmark that anyone runs on their own machine. It tests AI apps, agents, and web/API targets with the OSS engines (garak, promptfoo, PyRIT, DeepTeam, ZAP, Nuclei, Dalfox, Trivy, and others, credited openly), fills their gaps with our own modules, and writes a single-file HTML report. An agent skill sits at the top of the docs so a coding agent can run the whole flow for the user. Phase 2 adds Insidia Cloud, the paid offering - custom attack generation on our hosted uncensored models, the AI pentest agent, and a dashboard that launches and schedules scans. The Phase 2 code is open source too; customers pay for the GPUs, the model operations, and the managed service. Everything is agent-, model-, and OS-agnostic.
+overview: Master plan for Insidia Labs, an open-source AI-native application security toolkit with a paid hosted layer. Phase 1 ships an Apache-2.0 CLI and an open security benchmark that anyone runs on their own machine. It tests AI apps, agents, and web/API targets with the OSS engines (garak, promptfoo, PyRIT, DeepTeam, ZAP, Nuclei, Dalfox, Trivy, and others, credited openly), fills their gaps with our own modules, and writes a single-file HTML report. An agent skill sits at the top of the docs so a coding agent can run the whole flow for the user. Phase 2 adds Insidia Cloud, the paid offering - custom attack generation on our hosted uncensored models, the AI pentest agent, and a dashboard that launches and schedules scans. The Phase 2 code is open source too; customers pay for the GPUs, the model operations, and the managed service. Everything is agent-, model-, and OS-agnostic.
 todos:
   - id: phase0
     content: "Phase 0 (done): monorepo scaffold, ADRs, security-first database foundation, CI"
@@ -9,10 +9,10 @@ todos:
     content: "Phase T (done): permutation matrix, sandboxed targets, ground truth, xfail cell suite; becomes the open scanner benchmark"
     status: completed
   - id: phasew
-    content: "Phase W: marketing site (built on phase-w-marketing-site); rework for open-source-first messaging and engine credits"
+    content: "Phase W: marketing site (built); next work leads with the open-source CLI, credits the engines, and adds a benchmark page"
     status: in_progress
   - id: restructure
-    content: "Phase 1.0 (done): engine/ is cloud/, the harness is benchmark/, ownership.yaml uses v6 phase ids, CONTRIBUTING/SECURITY/AGENTS are in the repo"
+    content: "Phase 1.0 (done): repo layout with cloud/ and benchmark/, ownership.yaml maps every cell to a phase, CONTRIBUTING/SECURITY/AGENTS are in the repo"
     status: completed
   - id: phase1a
     content: "Phase 1A: insidia CLI core - config, scope guard, target adapters, model-agnostic provider layer, engine manager, findings normalizer"
@@ -47,7 +47,7 @@ todos:
 isProject: false
 ---
 
-# Insidia Labs - Master Plan (v6: open source first, paid hosted layer)
+# Insidia Labs - Master Plan (open source first, paid hosted layer)
 
 Plans are stored in both `/home/rushi/Desktop/Rushi/Insidia-Labs/plans/` and this repo's `plans/`. This file is `00-master-plan.md`. The AI attack coverage requirements live in `01-ai-redteam-coverage-spec.md`.
 
@@ -58,9 +58,9 @@ Update this table in the same change that starts or finishes a phase. The next r
 | Phase | Status | Where it stands |
 | --- | --- | --- |
 | 0 Foundations | Done | Merged to `main`. Cloud database, RLS, envelope encryption, CI. |
-| T Test harness | Done | Merged to `main`. Now lives in `benchmark/`. 1,235 cells, still xfail until a scanner exists. |
-| W Marketing site | Built, rework pending | Site is on `main`. Still to do: open-source-first copy, engine credits, drop the engine-name denylist, benchmark page. |
-| 1.0 Restructure | Done | Branch `phase-1.0-restructure`, commit `1a02366`. Not merged. `engine/` is `cloud/`, `tests/` is `benchmark/`, cells map to v6 phases. |
+| T Test harness | Done | Merged to `main`. Lives in `benchmark/`. 1,235 cells, xfail until a scanner exists. |
+| W Marketing site | Built, next work pending | Site is on `main`. Next: open-source-first copy, engine credits, remove the engine-name denylist, benchmark page. |
+| 1.0 Restructure | Done | Branch `phase-1.0-restructure`, not merged. Cloud lives in `cloud/`, the scanner benchmark in `benchmark/`, and every cell has an owning phase. |
 | 1A CLI core | Next | Not started. |
 | 1B Engines | Not started | 635 cells in `ownership.yaml`. |
 | 1C Gap modules | Not started | 556 cells. |
@@ -72,43 +72,43 @@ Update this table in the same change that starts or finishes a phase. The next r
 | 3 Depth | Not started | 44 cells (SDK, predictive ML, smuggling, client-side). |
 | 4 Enterprise | Not started | |
 
-## What changed in v6
-v5 was a closed-source, multi-tenant SaaS with a model-free trial and every OSS engine hidden behind an "Insidia Labs Engine" label. v6 follows the pattern of developer-tool companies that grew from an open core (mem0, Supabase, PostHog, Langfuse):
+## Principles
+Insidia follows the open-core pattern of developer-tool companies (mem0, Supabase, PostHog, Langfuse):
 - **The code is open source under Apache-2.0**, including the Phase 2 Cloud code. The product a customer pays for is the hosted service: GPUs, our tuned uncensored attacker and judge models operated for them, uptime, the dashboard, team features, and support.
 - **The free tier is the CLI.** Anyone runs full scans on their own machine with the OSS engines and our gap modules, and gets an HTML report. No account.
-- **The OSS engines are credited, not hidden.** Open code cannot hide its dependencies, and crediting garak, promptfoo, ZAP, and the rest earns trust with the security community. The v5 masking layer and engine-name denylist are retired. The secret and real-data denylists stay.
-- **Model-agnostic replaces "no BYOK".** The CLI talks to any model the user points it at. Insidia Cloud is one option, chosen because it is the easiest way to get attack generation that does not refuse.
+- **The OSS engines are credited by name.** Open code shows its dependencies, and crediting garak, promptfoo, ZAP, and the rest earns trust with the security community. Reports and docs name the engine behind every finding. The secret and real-data checks run in CI.
+- **Model-agnostic.** The CLI talks to any model the user points it at. Insidia Cloud is one option, chosen because it is the easiest way to get attack generation that does not refuse.
 - **Agents are first-class users.** The first thing in the docs is an agent skill. A user asks their coding agent to "test this app with Insidia", and the agent installs, configures, scans, and opens the report.
 
-Work already done carries over: Phase 0 (database security, RLS, envelope encryption) is the foundation of Insidia Cloud, and Phase T (the permutation matrix and sandboxed ground truth) becomes the public scanner benchmark.
+Phase 0 (database security, RLS, envelope encryption) is the foundation of Insidia Cloud. Phase T (the permutation matrix and sandboxed ground truth) is the public scanner benchmark.
 
 ## Phase plans
-Each file has been updated for v6. Filenames keep their v5 numbers so existing links and `ownership.yaml` still resolve. The v6 phase is in the file's opening note.
+Each file opens with the phase it belongs to.
 
-| File | Covers in v6 | Status |
-| --- | --- | --- |
-| [01-ai-redteam-coverage-spec.md](01-ai-redteam-coverage-spec.md) | AI attack coverage requirements | Updated; requirements unchanged |
-| [02-phase0-foundations.md](02-phase0-foundations.md) | Phase 0 (done) | Updated; ADRs 0001, 0004, 0005 marked superseded |
-| [03-phase1-vertical-slices.md](03-phase1-vertical-slices.md) | Local engines in Phase 1B; relay and tunnel in Phase 2C | Updated |
-| [04-phase2-dashboard.md](04-phase2-dashboard.md) | Hosted dashboard, Phase 2C | Updated; credits replace the trial |
-| [05-phase3-taxonomy-compliance.md](05-phase3-taxonomy-compliance.md) | Benchmark and reports, Phase 1D | Updated |
-| [06-phase4-depth.md](06-phase4-depth.md) | Deterministic depth in 1B/1C; model-driven depth in 2B | Updated |
-| [07-phase5-pentest-agent.md](07-phase5-pentest-agent.md) | Pentest agent, Phase 2B | Updated |
-| [08-phase6-engine-registry.md](08-phase6-engine-registry.md) | Capability registry, Phase 1A/1D | Updated; masking section removed |
-| [09-phase7-agent-security.md](09-phase7-agent-security.md) | Phase 3, with scripted checks in 1C | Updated |
-| [10-phase8-whitebox.md](10-phase8-whitebox.md) | Static scanners in 1B; AI-BOM and SDK in Phase 3 | Updated |
-| [11-phase9-continuous.md](11-phase9-continuous.md) | GitHub Action in 1E; schedules in 2C | Updated |
-| [12-phase10-enterprise.md](12-phase10-enterprise.md) | Phase 4 | Updated |
-| [13-phase11-later.md](13-phase11-later.md) | Runtime guardrails, Phase 4 | Updated |
-| [14-database-schema.md](14-database-schema.md) | Insidia Cloud database | Updated; schema unchanged |
-| [15-customer-docs.md](15-customer-docs.md) | Docs; the agent skill goes first | Updated |
-| [16-coverage-gaps.md](16-coverage-gaps.md) | Gap modules, Phase 1C and 2B | Updated; no longer internal |
-| [17-test-suite.md](17-test-suite.md) | Public scanner benchmark and phase gate | Updated; ownership remap landed in Phase 1.0 |
-| [18-validity-matrix.md](18-validity-matrix.md) | Matrix validity function | Updated; function unchanged |
-| [19-model-hosting.md](19-model-hosting.md) | Cloud model service, Phase 2A | Updated; no longer internal |
-| [20-admin-console.md](20-admin-console.md) | Staff console, Phase 2C | Updated |
-| [21-marketing-website.md](21-marketing-website.md) | Marketing site, Phase W | Updated; the site rework is still to build |
-| [22-website-video-scripts.md](22-website-video-scripts.md) | Scripts for the site's demo videos | Current |
+| File | Covers |
+| --- | --- |
+| [01-ai-redteam-coverage-spec.md](01-ai-redteam-coverage-spec.md) | AI attack coverage requirements |
+| [02-foundations.md](02-foundations.md) | Phase 0 (done) |
+| [03-engines-and-connections.md](03-engines-and-connections.md) | Local engines in 1B; relay, tunnel, and direct connections in 2C |
+| [04-hosted-dashboard.md](04-hosted-dashboard.md) | Hosted dashboard, 2C |
+| [05-benchmark-and-reports.md](05-benchmark-and-reports.md) | Benchmark and reports, 1D |
+| [06-depth-checks.md](06-depth-checks.md) | Deterministic depth in 1B/1C; model-driven depth in 2B |
+| [07-pentest-agent.md](07-pentest-agent.md) | Pentest agent, 2B |
+| [08-engine-registry.md](08-engine-registry.md) | Capability registry, 1A and 1D |
+| [09-agent-security.md](09-agent-security.md) | Scripted checks in 1C; honeypots and A2A in Phase 3 |
+| [10-white-box.md](10-white-box.md) | Static scanners in 1B; AI-BOM and SDK in Phase 3 |
+| [11-continuous-scanning.md](11-continuous-scanning.md) | GitHub Action in 1E; schedules in 2C |
+| [12-enterprise.md](12-enterprise.md) | Phase 4 |
+| [13-runtime-guardrails.md](13-runtime-guardrails.md) | Runtime guardrails, Phase 4 |
+| [14-database-schema.md](14-database-schema.md) | Insidia Cloud database |
+| [15-customer-docs.md](15-customer-docs.md) | Docs; the agent skill goes first |
+| [16-coverage-gaps.md](16-coverage-gaps.md) | Gap modules, 1C and 2B |
+| [17-test-suite.md](17-test-suite.md) | Public scanner benchmark and phase gate |
+| [18-validity-matrix.md](18-validity-matrix.md) | Matrix validity function |
+| [19-model-hosting.md](19-model-hosting.md) | Cloud model service, 2A |
+| [20-admin-console.md](20-admin-console.md) | Staff console, 2C |
+| [21-marketing-website.md](21-marketing-website.md) | Marketing site, Phase W |
+| [22-website-video-scripts.md](22-website-video-scripts.md) | Scripts for the site's demo videos |
 
 ## Scope
 Insidia Labs is an **AI-native application security toolkit**. It covers two tracks:
@@ -131,7 +131,7 @@ Competitors: AI-side (Mindgard, Lakera, HiddenLayer, promptfoo's commercial tier
 - **OS-agnostic.** Linux, macOS, and Windows. `core` is pure Python 3.12+, installed straight from GitHub with `uv tool install` or `pipx install` from the git URL, or run as the Docker image. Engines that need another runtime (ZAP needs Java; Nuclei, Dalfox, and gitleaks are Go binaries; promptfoo needs Node) are fetched into a managed toolchain directory by `insidia engines install`, or run as pinned containers with `--engines docker`. `insidia doctor` explains what is missing.
 - **Python version split.** `core` targets 3.12+ so users can install it on common systems. Insidia Cloud services stay on Python 3.14 as built in Phase 0.
 - **Test-first stays.** Phase T's matrix gates every phase: a phase exits when the cells it owns are green. The same matrix and sandboxed targets are published as the scanner benchmark.
-- **Local safety for an open tool.** The CLI scans only hosts listed in the project's `insidia.yaml` scope. Each non-local host needs an explicit `authorized: true` the user sets. Rate limits are on by default. The agent skill tells agents never to add a host the user did not name. Cloud scans keep v5's ownership verification and egress controls.
+- **Local safety for an open tool.** The CLI scans only hosts listed in the project's `insidia.yaml` scope. Each non-local host needs an explicit `authorized: true` the user sets. Rate limits are on by default. The agent skill tells agents never to add a host the user did not name. Cloud scans add ownership verification and fixed-IP egress controls.
 - **Privacy by default in the CLI.** Nothing leaves the machine except traffic to the target and to the model the user configured. No telemetry unless the user opts in. Secrets found in evidence are masked in the report (`[AWS_ACCESS_KEY len=20 fp=3f9a1c07]`).
 - **Cloud keeps the security-first database.** Insidia Cloud stores customers' unfixed vulnerabilities, so Phase 0's design stands: per-org envelope encryption, RLS, no plaintext customer values. See [14-database-schema.md](14-database-schema.md).
 - **Licenses we accept for dependencies:** MIT, Apache-2.0, BSD, ISC, and reviewed MPL-2.0. No GPL, AGPL, SSPL, or Elastic-licensed code in anything we ship, because the CLI is distributed. GPL tools can be documented as optional user-installed plugins that we never bundle.
@@ -187,7 +187,7 @@ flowchart LR
 4. The run directory `.insidia/runs/<run-id>/` gets `findings.json`, `results.sarif`, `benchmark.json` (the policy score), and `report.html`. Exit code is 0 when the policy passes, 1 when it fails, 2 on error.
 
 ### Cloud scan flow (Phase 2)
-The same `core` runs inside Celery workers. Targets connect directly (public, ownership-verified, from fixed egress IPs) or through the runner (internal targets; relay for AI, WireGuard tunnel for raw HTTP). The connection-mode design, egress proxy, hub, and fairness rules from v5 carry over unchanged into Phase 2C. See [03-phase1-vertical-slices.md](03-phase1-vertical-slices.md) until it is rewritten.
+The same `core` runs inside Celery workers. Targets connect directly (public, ownership-verified, from fixed egress IPs) or through the runner (internal targets; relay for AI, WireGuard tunnel for raw HTTP). The connection modes, egress proxy, hub, and fairness rules are built in Phase 2C. See [03-engines-and-connections.md](03-engines-and-connections.md).
 
 ## The Insidia Benchmark (open policy)
 Two things share the name, and the docs keep them apart:
@@ -260,7 +260,7 @@ models:
 
 Findings schema: `Finding{track, engine, probe, severity, confidence, attack, response, trace_ref, taxonomy[], remediation, evidence_hash, cross_validated}`. Taxonomy prefixes: `owasp-llm:LLM01`, `owasp-asi:ASI02`, `owasp-web:A03`, `owasp-api:API1`, `atlas:AML.T0051`, `attack:T1190`, `cwe:CWE-89`, `cvss:9.8`, `nist-rmf:MS-2.7`, `eu-ai-act:art15`. The JSON schema is published and versioned, because agents and CI parse it.
 
-The relay protocol (protobuf over gRPC/WSS) between the Cloud hub and the runner is unchanged from v5 and lives in `shared/proto/`.
+The relay protocol (protobuf over gRPC/WSS) between the Cloud hub and the runner lives in `shared/proto/`.
 
 ## Insidia Cloud (Phase 2)
 - **Model service:** uncensored open-weight attacker and judge (Qwen3.8-27B derivatives), staged hardware as in [19-model-hosting.md](19-model-hosting.md): Stage 0 is llama.cpp with a GGUF build on one 20 GB GPU; Stage 1 is vLLM with an AWQ build on 48 GB GPUs. One OpenAI-compatible endpoint behind an API key, so the CLI uses it like any other provider. No prompt logging; per-org token metering.
@@ -268,11 +268,11 @@ The relay protocol (protobuf over gRPC/WSS) between the Cloud hub and the runner
 - **AI pentest agent:** adapted from `usestrix/strix` (Apache-2.0), with tools for the target adapters, ZAP/Nuclei, a browser, and the OOB server. It plans chained attacks, confirms them with an oracle, and writes repro steps. The code is open and runs locally with any capable model; it is built and tuned for our hosted model.
 - **Dashboard (`dashboard/`, on `app.`):** launch, schedule, and compare scans; triage findings across a team; compliance exports; runner enrollment for internal targets; usage and billing. Launching a scan from the dashboard is a paid feature. A free account can upload CLI results to view history, so a user can try the dashboard before paying.
 - **Pricing shape:** free CLI forever; Cloud credits for new accounts; usage-based model tokens plus a team plan for the dashboard; enterprise for SSO, private tenants, and self-hosted Cloud. Exact numbers are a business decision recorded outside this plan.
-- **Backend:** Python 3.14 FastAPI control plane, Celery on RabbitMQ (MPL-2.0), Valkey (BSD-3, not Redis 8+), Postgres 18 with RLS and per-org envelope encryption, Go hub for runners, egress proxy with fixed IPs and private-range blocking, hosted interactsh. Kubernetes and Helm. All from Phase 0 and v5.
+- **Backend:** Python 3.14 FastAPI control plane, Celery on RabbitMQ (MPL-2.0), Valkey (BSD-3, not Redis 8+), Postgres 18 with RLS and per-org envelope encryption, Go hub for runners, egress proxy with fixed IPs and private-range blocking, hosted interactsh. Kubernetes and Helm. Phase 0 built the base; Phase 2C adds the rest.
 - **Admin console:** staff-only, internal hostname, as in [20-admin-console.md](20-admin-console.md).
 
-## Monorepo layout (target)
-Phase 1.0 moved the repo to this shape. The whole repo is public, including `internal/`: the ADRs and the threat model ship with the code.
+## Monorepo layout
+The whole repo is public, including `internal/`: the ADRs and the threat model ship with the code.
 ```
 Insidia-Labs/
   core/                   Python package `insidia` (3.12+): CLI, config, scope guard, target adapters,
@@ -280,12 +280,12 @@ Insidia-Labs/
                           registry, normalizer, benchmark runner, report builder, MCP server
   benchmark/
     policies/             Insidia Benchmark policy files (L1, L2, L3) and the policy JSON schema
-    mappings/             framework mappings (was engine/taxonomy-data)
-    matrix/               scanner benchmark: permutation matrix and validity (was tests/matrix)
-    targets/              sandboxed vulnerable targets and ground truth (was tests/targets)
-    harness/              scoring, egress guard, sandbox checks (was tests/harness)
+    mappings/             framework mappings (OWASP, ATLAS, CWE, and the rest)
+    matrix/               scanner benchmark: permutation matrix and validity
+    targets/              sandboxed vulnerable targets and ground truth
+    harness/              scoring, egress guard, sandbox checks
   skills/insidia/         agent skill (SKILL.md and references), published for `npx skills add`
-  cloud/                  Insidia Cloud (was engine/): api/, workers/, agent/, models/, egress/,
+  cloud/                  Insidia Cloud: api/, workers/, agent/, models/, egress/,
                           admin_api/, hub/ (Go), alembic/
   runner/                 Go runner for Cloud scans of internal targets
   dashboard/              hosted dashboard (React)
@@ -302,23 +302,7 @@ Insidia-Labs/
   plans/
   LICENSE, NOTICE, THIRD_PARTY_NOTICES.md, CONTRIBUTING.md, SECURITY.md, AGENTS.md
 ```
-Restructure rules, applied in Phase 1.0: `git mv` so history follows the files; CI paths, compose files, and the matrix CLI updated in the same change. The ownership map in `benchmark/matrix/ownership.yaml` uses v6 phase ids. `ownership.py` is the function that produces that file.
-
-## Phase mapping from v5
-Older plan files still mention v5 numbers. This table is how those numbers landed in `ownership.yaml`.
-
-| v5 phase | v6 home |
-| --- | --- |
-| 1 (black-box chat and web/API) | 1B |
-| 3 (taxonomy) | 1D |
-| 4A (RAG, indirect injection, memory, output sinks) | 1C deterministic oracles; model-driven variants in 2B |
-| 4B (GraphQL/gRPC, BOLA/BFLA, JWT, infra) | 1B and 1C |
-| 5 (pentest agent) | 2B |
-| 6 (registry, overlap) | 1A and 1D |
-| 7 (agents, multi-agent, tool misuse) | 1C for scripted cases; Phase 3 for honeypots and A2A depth |
-| 8 (white box) | 1B for static scanners; Phase 3 for AI-BOM and SDK |
-| 9 (race, websocket API, continuous) | 1B for race and websocket; 2C and Phase 3 for continuous |
-| 11 (predictive ML, smuggling, client-side) | Phase 3 |
+Layout rules: move files with `git mv` so history follows them; keep CI paths, compose files, and the matrix CLI in step with directory names. The ownership map in `benchmark/matrix/ownership.yaml` assigns every valid cell to one phase, and `benchmark/matrix/ownership.py` is the function that produces that file.
 
 ## Phases
 
@@ -331,14 +315,14 @@ Monorepo scaffold, ADRs, the security-first database (roles, RLS, envelope encry
 17 connectors x 3 box modes x 44 attacks x 4 connection modes; 1,235 valid cells as strict xfail tests with planted ground truth on a no-egress sandbox. Merged to `main`. It becomes the scanner benchmark in `benchmark/`.
 
 ### Phase W - Marketing website (built, rework pending)
-Static Astro site on Vercel, separate from the product; brand kit applied; looping HTML demos; waitlist. Rework for v6: lead with the open-source CLI (GitHub link and stars, the `uv tool install` line from GitHub, the agent prompt), credit the engines, remove the engine-name denylist from the site CI, add the benchmark page, and make Cloud the second call to action. Videos follow [22-website-video-scripts.md](22-website-video-scripts.md). See [21-marketing-website.md](21-marketing-website.md).
+Static Astro site on Vercel, separate from the product; brand kit applied; looping HTML demos; waitlist. Next work: lead with the open-source CLI (GitHub link and stars, the `uv tool install` line from GitHub, the agent prompt), credit the engines, remove the engine-name denylist from the site CI, add the benchmark page, and make Cloud the second call to action. Videos follow [22-website-video-scripts.md](22-website-video-scripts.md). See [21-marketing-website.md](21-marketing-website.md).
 
 ### Phase 1 - Open-source launch (free)
-- **1.0 Restructure (done, on `phase-1.0-restructure`):** `cloud/` (was `engine/`), `benchmark/` (was `tests/` plus `engine/taxonomy-data/`), `LICENSE`, `NOTICE`, `CONTRIBUTING.md`, `SECURITY.md`, `AGENTS.md`, CI paths, and the v6 ownership remap. `core/` and `skills/insidia/` arrive with the CLI in 1A and 1E. Local Ruff, mypy, Cloud unit tests, and the benchmark suite passed. The first GitHub run failed because the license check still opened `engine/pyproject.toml`; that path is `cloud/pyproject.toml` now.
+- **1.0 Restructure (done, on `phase-1.0-restructure`):** `cloud/` (Insidia Cloud), `benchmark/` (scanner benchmark and framework mappings), `LICENSE`, `NOTICE`, `CONTRIBUTING.md`, `SECURITY.md`, `AGENTS.md`, CI paths, and the phase-owned ownership map. `core/` and `skills/insidia/` arrive with the CLI in 1A and 1E.
 - **1A CLI core:** `insidia.yaml` schema and `init`, scope guard, target adapters (HTTP chat, OpenAI-compatible, Anthropic-style, WebSocket, MCP stdio and HTTP, web, REST/GraphQL/gRPC, local repo), the model provider layer, engine manager (local toolchains and Docker mode), capability registry v1, normalizer with cross-engine dedup, run directory format, `doctor`. Exit: `insidia scan` runs one AI probe and one web probe against the sandbox on Linux, macOS, and Windows.
-- **1B Engines:** garak, promptfoo, PyRIT (single-turn), DeepTeam, mcp-scanner, SkillSpector; ZAP, Nuclei, Dalfox, katana/httpx, Trivy, osv-scanner, gitleaks, Bandit, gosec. Exit: the v5 Phase 1, 4B static, 8 static, and 9 race/websocket cells (see mapping) are green with no model configured where the cell allows it.
-- **1C Gap modules:** the Insidia-built modules from [16-coverage-gaps.md](16-coverage-gaps.md) that do not need our hosted model: canary leakage oracle, instruction-hierarchy probes, indirect-injection fixtures (documents, web pages, tool results), RAG cross-tenant bleed, tool-trace and goal-diff oracles, output-sink checks, BOLA/BFLA, mass assignment, JWT, GraphQL depth, scripted AI-to-classic chains. Exit: the owned 4A deterministic and 4B cells are green.
-- **1D Benchmark and report:** the policy format and L1-L3 policies, framework mappings (from `taxonomy-data`), per-control scoring, `benchmark.json`, SARIF, JSON, and the single-file HTML report (apple-design, light and dark, works offline, secrets masked, engine credited per finding, "fix this" guidance, a re-run command per finding). Exit: one scan produces a report and an OWASP LLM / ASI / Web / API score; the report renders with JavaScript off for the summary.
+- **1B Engines:** garak, promptfoo, PyRIT (single-turn), DeepTeam, mcp-scanner, SkillSpector; ZAP, Nuclei, Dalfox, katana/httpx, Trivy, osv-scanner, gitleaks, Bandit, gosec. Exit: every cell that `ownership.yaml` assigns to 1B is green, with no model configured where the cell allows it.
+- **1C Gap modules:** the Insidia-built modules from [16-coverage-gaps.md](16-coverage-gaps.md) that do not need our hosted model: canary leakage oracle, instruction-hierarchy probes, indirect-injection fixtures (documents, web pages, tool results), RAG cross-tenant bleed, tool-trace and goal-diff oracles, output-sink checks, BOLA/BFLA, mass assignment, JWT, GraphQL depth, scripted AI-to-classic chains. Exit: every cell that `ownership.yaml` assigns to 1C is green.
+- **1D Benchmark and report:** the policy format and L1-L3 policies, framework mappings (`benchmark/mappings/`), per-control scoring, `benchmark.json`, SARIF, JSON, and the single-file HTML report (apple-design, light and dark, works offline, secrets masked, engine credited per finding, "fix this" guidance, a re-run command per finding). Exit: one scan produces a report and an OWASP LLM / ASI / Web / API score; the report renders with JavaScript off for the summary.
 - **1E Agents, distribution, launch:** the agent skill, `insidia mcp`, docs with the skill first, `llms.txt`, the GitHub Action, signed GitHub Releases (git install, wheel, GHCR image), a launch post, and the reworked site. Exit: a fresh machine with only a coding agent (Claude Code, Cursor, and Codex tested) goes from "test my app with Insidia" to an opened report with no manual commands, and the same flow works in CI.
 
 ### Phase 2 - Insidia Cloud (paid, open-source code)
@@ -347,7 +331,7 @@ Static Astro site on Vercel, separate from the product; brand kit applied; loopi
 - **2C Hosted dashboard:** accounts and orgs, upload of CLI runs (free), launching and scheduling scans (paid), direct and runner connection modes, team triage, history and diffs, compliance exports, billing, admin console v1. Exit: a team signs up, uploads a CLI run for free, then pays and launches a scheduled scan of an internal target through the runner.
 
 ### Phase 3 - Depth
-Agent security (hosted honeypot MCP, poisoned content, canary tokens, multi-agent and A2A harnesses, ASI01-ASI10 suites, attack-path graph), white box (AI-BOM in CycloneDX, SDK handler and OTel traces feeding the attack planner), the late v5 Phase 11 modules (predictive ML, smuggling, client-side), and integrations (GitLab, Jira, Slack, SIEM, Burp extension). Free versus paid follows the same rule: local is free, our hardware is paid.
+Agent security (hosted honeypot MCP, poisoned content, canary tokens, multi-agent and A2A harnesses, ASI01-ASI10 suites, attack-path graph), white box (AI-BOM in CycloneDX, SDK handler and OTel traces feeding the attack planner), the late modules (predictive ML, smuggling, client-side), and integrations (GitLab, Jira, Slack, SIEM, Burp extension). Free versus paid follows the same rule: local is free, our hardware is paid.
 
 ### Phase 4 - Enterprise
 SSO (SAML/OIDC), RBAC, audit export, retention controls, regional and private single-tenant Cloud, self-hosted Cloud on customer GPUs with a support contract, runtime guardrails reusing detectors as inline policies, SOC 2.
@@ -367,7 +351,7 @@ SSO (SAML/OIDC), RBAC, audit export, retention controls, regional and private si
 - **Cloud infrastructure:** RabbitMQ (MPL-2.0), Valkey (BSD-3), PostgreSQL, Celery (BSD-3), wireguard-go (MIT), Pomerium (Apache-2.0, admin console only).
 - **Docs and UI:** Astro, Starlight, Pagefind, Motion (MIT).
 - **Reference:** AgentDojo (MIT), Inspect AI (MIT), splx Agentic Radar (Apache-2.0), LLM Guard (MIT), NeMo Guardrails (Apache-2.0).
-- **Avoid:** sqlmap, Nikto, Wapiti, commix, testssl.sh (GPL); nmap (NPSL); trufflehog (AGPL); Redis 8+ (AGPLv3/SSPLv1/RSALv2); Semgrep registry rules; CAI (commercial); `Strixgov/strix` (Elastic license). Tencent AI-Infra-Guard was excluded in v5 only because it requires public attribution; that is no longer a conflict, so it can be reconsidered after a license review.
+- **Avoid:** sqlmap, Nikto, Wapiti, commix, testssl.sh (GPL); nmap (NPSL); trufflehog (AGPL); Redis 8+ (AGPLv3/SSPLv1/RSALv2); Semgrep registry rules; CAI (commercial); `Strixgov/strix` (Elastic license). Tencent AI-Infra-Guard can be considered after a license review, because its public-attribution requirement fits an open repo.
 
 ## Attribution
 We distribute the CLI, so attribution is a release requirement:

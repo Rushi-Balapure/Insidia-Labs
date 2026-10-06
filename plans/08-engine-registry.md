@@ -1,6 +1,6 @@
 # Phase 1A and 1D — Engine registry and overlap
 
-> **v6.** The registry ships with the CLI (Phase 1A for the data and the selector, Phase 1D for the measured defaults once the benchmark has numbers). Engines are named everywhere: the report, the docs, the site, and SARIF. The v5 masking section is removed. Registry data files live in `core/` and are versioned with the CLI, so a laptop and a Cloud worker select the same engine for a family.
+> This is the capability registry. It ships with the CLI: Phase 1A owns the data and the selector, and Phase 1D owns the measured defaults once the benchmark has numbers. Engines are named everywhere: the report, the docs, the site, and SARIF. Registry data files live in `core/` and are versioned with the CLI, so a laptop and a Cloud worker select the same engine for a family.
 
 Depends on: the normalizer (Phase 1A) and the benchmark mappings (Phase 1D).
 Parent: [00-master-plan.md](00-master-plan.md). Gaps and modules: [16-coverage-gaps.md](16-coverage-gaps.md). Cloud tables: [14-database-schema.md](14-database-schema.md).
@@ -18,21 +18,21 @@ No porting: the OSS engines stay as they are. The registry turns them and the In
 - Cross-engine dedup merges duplicate findings with under 2% false merges on the labeled benchmark set.
 - A finding from each engine names that engine in the CLI report and in the Cloud API.
 - The Engines section of the admin console is live, and customer accounts cannot reach it (tested).
-- Every Partial or Gap row in [16-coverage-gaps.md](16-coverage-gaps.md) scheduled for Phases 1 to 4 has a benchmark result.
-- Owned matrix cells are green ([17-test-suite.md](17-test-suite.md)). Phase 6 reads the same cells; it does not own any.
+- Every Partial or Gap row in [16-coverage-gaps.md](16-coverage-gaps.md) scheduled for Phases 1A through 4 has a benchmark result.
+- Owned matrix cells are green ([17-test-suite.md](17-test-suite.md)). The registry reads the same cells and owns none of them.
 
 ## Out of scope
-Rewriting or forking engines. Removing an engine is allowed (the registry routes to another), but replacing its code with ours is not a goal of this phase.
+Rewriting or forking engines. The registry may route away from an engine to another one, and engine code is used as shipped upstream.
 
-## Capability registry, full version
-Phase 1 shipped a minimal registry. Phase 6 grows it to every engine and module:
+## Capability registry
+Phase 1A defines the registry for the engines and probes the first CLI release runs, together with the selector. Phase 1D extends it to every engine and module and fills in the measured values:
 - `engines` holds each upstream engine **and** each Insidia Labs module (`engine_id = 'insidia.m_c3'`, for example), with its pinned image digest and license.
 - `capability_map` holds, per (engine, attack family): priority, `module_label`, measured precision and recall, cost per attempt, and median runtime.
 - `probe_upstream_map` maps every upstream probe we use to an Insidia probe id, and the finding keeps both names. An unmapped probe is flagged `unmapped` rather than dropped.
 - The registry is edited only by migrations, proposed from the admin console, with every change audited. Changes take effect for new scans only, so a running scan never switches engines mid-way.
 
 ## Benchmark suite
-- Targets and ground truth are the shared Phase T permutation suite ([17-test-suite.md](17-test-suite.md)), not a separate set: OWASP Juice Shop, crAPI, VAmPI, Damn Vulnerable GraphQL Application, AgentDojo tasks, and our fixtures (vulnerable chatbot, RAG app, MCP agent, two-agent A2A system), each sandboxed with no egress and carrying a `ground_truth.yaml`. See [16-coverage-gaps.md](16-coverage-gaps.md#validating-this-analysis).
+- Targets and ground truth come from the scanner benchmark in `benchmark/` ([17-test-suite.md](17-test-suite.md)): OWASP Juice Shop, crAPI, VAmPI, Damn Vulnerable GraphQL Application, AgentDojo tasks, and our fixtures (vulnerable chatbot, RAG app, MCP agent, two-agent A2A system), each sandboxed with no egress and carrying a `ground_truth.yaml`. See [16-coverage-gaps.md](16-coverage-gaps.md#validating-this-analysis).
 - For each (engine or module, attack family): recall, precision, cost per attempt, runtime, and false-positive causes.
 - Runs weekly and on every engine version bump. A regression larger than 5 points in recall or precision blocks the version bump.
 - Results are written to `capability_map` by a reviewed migration, not automatically, so a bad run cannot silently reroute production.
@@ -55,13 +55,13 @@ Phase 1 shipped a minimal registry. Phase 6 grows it to every engine and module:
 - Thorough and Custom show the delta against Standard before launch ("about 3x attempts, about 40 minutes more").
 
 ## What stays hidden
-Engine names are public. These are not:
-- Secrets and customer data. The redactor still masks them, and a CI test fails if a planted secret or a real customer string appears in a report, an API response, a webhook, or the docs.
+Engine names are public. These stay private:
+- Secrets and customer data. The redactor masks them, and a CI test fails if a planted secret or a real customer string appears in a report, an API response, a webhook, or the docs.
 - Engine telemetry. A sniffing proxy fails the test if an engine calls home. User-Agent is `Insidia Labs` plus the engine name, so the target can see what scanned it.
-- Engine crashes are shown with the engine name and our error code (`INS-SCAN-014`), not a raw stack that includes paths from the user's machine.
+- Engine crashes are shown with the engine name and our error code (`INS-SCAN-014`); raw stacks that include paths from the user's machine are redacted.
 
 ## Engines section of the admin console
-The admin console ([20-admin-console.md](20-admin-console.md)) ships in Phase 2; this phase adds its Engines and modules section.
+The admin console ([20-admin-console.md](20-admin-console.md)) ships in Phase 2C and includes an Engines and modules section.
 - Shows real engine names, per-engine benchmark results, production precision from customer triage (aggregated, never raw evidence), error rates, and version pins.
 - Lets staff propose registry changes, which go out as reviewed migrations.
 - Uses the admin console's access model: separate internal hostname, staff SSO with authenticator-app MFA, the `app_admin_read` and `app_admin_write` roles. Evidence is visible only through an active, customer-approved `staff_access_grants` row.
