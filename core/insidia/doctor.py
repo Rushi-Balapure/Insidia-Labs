@@ -36,7 +36,10 @@ def diagnose(config_path: Path) -> tuple[list[dict[str, object]], int]:
             "detail": "found" if docker else "not found; optional unless you use --engines docker",
         }
     )
-    checks.append({"name": "engines", "ok": True, "detail": "built-in: insidia"})
+    from insidia.engines import installed_engines
+
+    names = ", ".join(["insidia", *sorted(installed_engines())])
+    checks.append({"name": "engines", "ok": True, "detail": f"installed: {names}"})
     code = 0 if python_ok and config_ok else 2
     return checks, code
 

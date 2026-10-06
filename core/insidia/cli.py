@@ -32,6 +32,7 @@ def main(argv: list[str] | None = None) -> int:
     engine_commands = engines.add_subparsers(dest="engine_command", required=True)
     engine_commands.add_parser("list")
     install_parser = engine_commands.add_parser("install")
+    install_parser.add_argument("names", nargs="*", metavar="ENGINE")
     install_parser.add_argument("--docker", action="store_true")
 
     policy = subcommands.add_parser("policy", parents=[shared])
@@ -76,7 +77,7 @@ def _run(args: argparse.Namespace) -> int:
         _emit(args.json, {"engines": engines}, "\n".join(lines))
         return 0
     if args.command == "engines" and args.engine_command == "install":
-        message = install(docker=args.docker)
+        message = install(tuple(args.names), docker=args.docker)
         _emit(args.json, {"message": message}, message)
         return 0
     if args.command == "policy" and args.policy_command == "list":

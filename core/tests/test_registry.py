@@ -44,3 +44,5 @@ def test_two_engines_mark_a_finding_cross_validated() -> None:
     assert len(findings) == 1
     assert findings[0].cross_validated
     assert findings[0].engine == "insidia"
+    assert findings[0].engines == ("insidia", "garak")
+    assert findings[0].as_json()["engines"] == ["insidia", "garak"]

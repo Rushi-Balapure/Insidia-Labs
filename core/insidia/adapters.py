@@ -4,14 +4,12 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
 
+from insidia.catalog import License
 from insidia.config import Target
 from insidia.errors import CliError
-
-License = Literal["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "MPL-2.0"]
 
 CANARY_PREFIX = "insidia-plant-canary-"
 _CANARY = re.compile(re.escape(CANARY_PREFIX) + r"[0-9A-Za-z]*")
@@ -38,9 +36,15 @@ class RelayEndpoint:
 
 @dataclass(frozen=True)
 class ScopedUrl:
-    """A target URL that already passed `check_url`. Target auth is never included."""
+    """A target URL that already passed `check_url`. Target auth is never included.
+
+    `query` is the target's query template. Web engines need it to reach the
+    injection point. The sandbox reads the payload from that query, not from
+    the bare path.
+    """
 
     url: str
+    query: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -57,6 +61,8 @@ class Invocation:
     program: str
     args: tuple[str, ...]
     report: str
+    env: Mapping[str, str] = field(default_factory=dict)
+    timeout: float = 120.0
 
 
 @dataclass(frozen=True)
@@ -151,7 +157,13 @@ BUILT_IN = BuiltIn(
     },
 )
 
-ADAPTERS: tuple[Adapter, ...] = (BUILT_IN,)
+def _upstream() -> tuple[Adapter, ...]:
+    from insidia.upstream import build
+
+    return build()
+
+
+ADAPTERS: tuple[Adapter, ...] = (BUILT_IN, *_upstream())
 
 
 def _index(adapters: tuple[Adapter, ...]) -> dict[str, tuple[Adapter, ProbeSpec]]:

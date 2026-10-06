@@ -13,3 +13,7 @@ class ConfigError(CliError):
 
 class ScopeError(CliError):
     pass
+
+
+class EngineFailed(CliError):
+    """An upstream engine is missing or did not produce a report."""

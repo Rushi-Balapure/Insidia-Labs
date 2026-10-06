@@ -24,10 +24,12 @@ class Finding:
     evidence_hash: str
     cross_validated: bool
     target: str
+    engines: tuple[str, ...] = ()
 
     def as_json(self) -> dict[str, object]:
         document = asdict(self)
         document["taxonomy"] = list(self.taxonomy)
+        document["engines"] = list(self.engines)
         return document
 
 
@@ -59,10 +61,14 @@ def normalize(hits: list[ProbeHit]) -> list[Finding]:
     merged: list[Finding] = []
     for key in order:
         items = grouped[key]
-        finding = items[0]
-        engines = {item.engine for item in items}
-        if len(engines) >= 2:
-            finding = replace(finding, cross_validated=True, confidence="high")
+        names = tuple(dict.fromkeys(item.engine for item in items))
+        cross = len(set(names)) >= 2
+        finding = replace(
+            items[0],
+            cross_validated=cross,
+            confidence="high" if cross else items[0].confidence,
+            engines=names,
+        )
         merged.append(finding)
     return merged
 

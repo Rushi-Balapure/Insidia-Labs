@@ -87,9 +87,10 @@ def latest_run(root: Path) -> Path | None:
 
 
 def _row(finding: Finding) -> str:
+    engines = ", ".join(finding.engines) if finding.engines else finding.engine
     cells = (
         finding.target,
-        finding.engine,
+        engines,
         finding.probe,
         finding.severity,
         finding.response,

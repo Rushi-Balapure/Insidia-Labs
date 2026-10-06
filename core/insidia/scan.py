@@ -7,7 +7,7 @@ from pathlib import Path
 
 from insidia.adapters import find
 from insidia.config import Project, Target
-from insidia.errors import CliError
+from insidia.errors import CliError, EngineFailed
 from insidia.findings import Finding, normalize
 from insidia.policy import get_policy
 from insidia.probes import ProbeHit, run
@@ -65,7 +65,11 @@ def execute(
             failed = False
             for capability in chosen:
                 adapter, spec = find(capability.probe)
-                found = run(adapter, spec, target, project, root, policy.control(family))
+                try:
+                    found = run(adapter, spec, target, project, root, policy.control(family))
+                except EngineFailed as exc:
+                    skips.append(f"{capability.engine}: {exc}")
+                    continue
                 hits.extend(found)
                 failed = failed or bool(found)
             result = "fail" if failed else "pass"

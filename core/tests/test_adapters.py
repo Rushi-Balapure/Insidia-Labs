@@ -23,7 +23,7 @@ from insidia.errors import ScopeError
 from insidia.findings import normalize
 from insidia.policy import get_policy
 from insidia.probes import ProbeHit, run
-from insidia.registry import CAPABILITIES
+from insidia.registry import capabilities
 from insidia.scope import ScopeHost, hostname
 from tests.support import target
 
@@ -90,11 +90,15 @@ class _Recorder:
         (workspace / invocation.report).write_text(json.dumps(RECORDED) + "\n")
 
 
-def test_every_registered_probe_resolves_to_its_adapter() -> None:
-    assert [adapter.engine for adapter in ADAPTERS] == ["insidia"]
-    assert [(item.probe, item.engine, item.available) for item in CAPABILITIES] == [
-        ("insidia.ai.data_leakage", "insidia", True),
-        ("insidia.web.ssti", "insidia", True),
+def test_every_registered_probe_resolves_to_its_adapter(
+    monkeypatch: object, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("INSIDIA_TOOLCHAIN", str(tmp_path))  # type: ignore[attr-defined]
+    assert ADAPTERS[0] is BUILT_IN
+    installed = [(item.probe, item.engine) for item in capabilities() if item.available]
+    assert installed == [
+        ("insidia.ai.data_leakage", "insidia"),
+        ("insidia.web.ssti", "insidia"),
     ]
     for spec in BUILT_IN.probes:
         assert find(spec.probe) == (BUILT_IN, spec)
@@ -181,3 +185,4 @@ def test_same_evidence_in_different_responses_is_one_cross_validated_finding() -
 
     findings = normalize([hit("insidia", "rendered 49"), hit("nuclei", "HTTP/1.1 200\r\n\r\n49")])
     assert [(item.engine, item.cross_validated) for item in findings] == [("insidia", True)]
+    assert findings[0].engines == ("insidia", "nuclei")
