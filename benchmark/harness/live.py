@@ -14,7 +14,7 @@ import urllib.request
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 from benchmark.harness.score import Finding
 from benchmark.matrix.registry import Cell
@@ -127,10 +127,20 @@ class BearerPost:
 
 
 @dataclass(frozen=True)
+class OwnedReport:
+    """A report owned by the seeded admin, read back by `reader`."""
+
+    reader: BearerLogin
+    owner_login: bytes
+    mechanic_code: str
+    problem: str
+
+
+@dataclass(frozen=True)
 class LiveCase:
     app: RunApp | ComposeApp
     check: HttpCheck | DomCheck
-    setup: OnceGet | BearerLogin | PublicKeyHs256 | BearerPost | None = None
+    setup: OnceGet | BearerLogin | PublicKeyHs256 | BearerPost | OwnedReport | None = None
 
 
 def _graphql(query: str) -> bytes:
@@ -283,13 +293,18 @@ _CHECKS: dict[tuple[str, str], LiveCase] = {
         _CRAPI,
         HttpCheck(
             "GET",
-            "/workshop/api/mechanic/mechanic_report?report_id=1",
+            "/workshop/api/mechanic/mechanic_report?report_id={report_id}",
             None,
             _BEARER,
             "admin@example.com",
             200,
         ),
-        _CRAPI_ACCESS,
+        OwnedReport(
+            _CRAPI_ACCESS,
+            b'{"email":"admin@example.com","password":"Admin!123"}',
+            "TRAC_JME",
+            "insidia-bola-plant",
+        ),
     ),
     ("crapi", "api.bfla"): LiveCase(
         _CRAPI,
@@ -413,6 +428,7 @@ _ONCE: set[str] = set()
 _POSTED: set[tuple[str, str]] = set()
 _SEQ = 0
 _TOKEN: dict[tuple[str, BearerLogin | PublicKeyHs256], str] = {}
+_REPORT_ID = ""
 _PROVED: dict[tuple[str, str, str], bool] = {}
 
 
@@ -481,7 +497,80 @@ def _prepare(case: LiveCase, port: int) -> str | None:
         token = _token_for(port, case.app.name, setup.login)
         _post_once(port, case.app.name, setup, token)
         return token
+    if isinstance(setup, OwnedReport):
+        return _owned_report(port, setup)
     return None
+
+
+def _owned_report(port: int, setup: OwnedReport) -> str:
+    """Fresh crAPI has no mechanic report until workshop sees a vehicle."""
+    global _REPORT_ID
+    token = _token_for(port, "crapi", setup.reader)
+    status, body = _exchange(
+        port,
+        "POST",
+        setup.reader.login_path,
+        setup.owner_login,
+        _JSON,
+        None,
+    )
+    if status != 200:
+        raise RuntimeError(f"admin login returned {status}: {_text(body)}")
+    owner = _at(json.loads(body), setup.reader.token_at)
+    vin = _admin_vin(port, owner)
+    query = urlencode(
+        {
+            "mechanic_code": setup.mechanic_code,
+            "problem_details": setup.problem,
+            "vin": vin,
+        }
+    )
+    deadline = time.monotonic() + 45
+    last = ""
+    report_id: object = None
+    while time.monotonic() < deadline:
+        status, body = _exchange(
+            port,
+            "GET",
+            f"/workshop/api/mechanic/receive_report?{query}",
+            None,
+            (),
+            None,
+        )
+        if status == 200:
+            report_id = json.loads(body).get("id")
+            if isinstance(report_id, int):
+                break
+        last = _text(body)
+        time.sleep(1)
+    else:
+        raise RuntimeError(f"receive_report returned no id: {last}")
+    _REPORT_ID = str(report_id)
+    return token
+
+
+def _admin_vin(port: int, owner: str) -> str:
+    deadline = time.monotonic() + 45
+    last = ""
+    auth = (("Authorization", f"Bearer {owner}"),)
+    while time.monotonic() < deadline:
+        status, body = _exchange(
+            port,
+            "GET",
+            "/identity/api/v2/vehicle/vehicles",
+            None,
+            auth,
+            None,
+        )
+        if status == 200:
+            rows = json.loads(body)
+            if isinstance(rows, list) and rows and isinstance(rows[0], dict):
+                vin = rows[0].get("vin")
+                if isinstance(vin, str) and vin:
+                    return vin
+        last = _text(body)
+        time.sleep(1)
+    raise RuntimeError(f"admin vehicle missing: {last}")
 
 
 def _token_for(port: int, app: str, setup: BearerLogin | PublicKeyHs256) -> str:
@@ -586,6 +675,10 @@ def _exchange(
                 raise RuntimeError(f"{path} needs a token")
             value = value.replace("{token}", token)
         rendered[key] = value
+    if "{report_id}" in path:
+        if _REPORT_ID == "":
+            raise RuntimeError(f"{path} needs a report id")
+        path = path.replace("{report_id}", _REPORT_ID)
     request = urllib.request.Request(
         f"http://127.0.0.1:{port}{path}",
         data=_plant(body),
