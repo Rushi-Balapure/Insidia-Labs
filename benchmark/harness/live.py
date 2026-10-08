@@ -137,10 +137,26 @@ class OwnedReport:
 
 
 @dataclass(frozen=True)
+class OwnedPost:
+    """A community post written by the seeded admin and read by `reader`."""
+
+    reader: BearerLogin
+    owner_login: bytes
+
+
+@dataclass(frozen=True)
 class LiveCase:
     app: RunApp | ComposeApp
     check: HttpCheck | DomCheck
-    setup: OnceGet | BearerLogin | PublicKeyHs256 | BearerPost | OwnedReport | None = None
+    setup: (
+        OnceGet
+        | BearerLogin
+        | PublicKeyHs256
+        | BearerPost
+        | OwnedReport
+        | OwnedPost
+        | None
+    ) = None
 
 
 def _graphql(query: str) -> bytes:
@@ -313,10 +329,13 @@ _CHECKS: dict[tuple[str, str], LiveCase] = {
             "/community/api/v2/community/posts/recent",
             None,
             _BEARER,
-            "robot001@example.com",
+            "admin@example.com",
             200,
         ),
-        _CRAPI_ACCESS,
+        OwnedPost(
+            _CRAPI_ACCESS,
+            b'{"email":"admin@example.com","password":"Admin!123"}',
+        ),
     ),
     ("crapi", "api.mass_assignment"): LiveCase(
         _CRAPI,
@@ -499,7 +518,43 @@ def _prepare(case: LiveCase, port: int) -> str | None:
         return token
     if isinstance(setup, OwnedReport):
         return _owned_report(port, setup)
+    if isinstance(setup, OwnedPost):
+        _owned_post(port, setup)
+        return _token_for(port, case.app.name, setup.reader)
     return None
+
+
+def _owned_post(port: int, setup: OwnedPost) -> None:
+    """A fresh community database has no posts until its seed finds the authors."""
+    status, body = _exchange(
+        port,
+        "POST",
+        setup.reader.login_path,
+        setup.owner_login,
+        _JSON,
+        None,
+    )
+    if status != 200:
+        raise RuntimeError(f"admin login returned {status}: {_text(body)}")
+    owner = _at(json.loads(body), setup.reader.token_at)
+    title = f"insidia-bfla-{time.time_ns()}"
+    payload = json.dumps({"title": title, "content": "insidia-bfla-body"}).encode()
+    deadline = time.monotonic() + 45
+    last = ""
+    while time.monotonic() < deadline:
+        status, body = _exchange(
+            port,
+            "POST",
+            "/community/api/v2/community/posts",
+            payload,
+            (*_JSON, ("Authorization", f"Bearer {owner}")),
+            None,
+        )
+        if status == 200 and title.encode() in body:
+            return
+        last = _text(body)
+        time.sleep(1)
+    raise RuntimeError(f"community post returned no title: {last}")
 
 
 def _owned_report(port: int, setup: OwnedReport) -> str:
@@ -705,22 +760,31 @@ def _dom(port: int, check: DomCheck) -> bool:
 
 
 def _chrome(url: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        [
-            "google-chrome",
-            "--headless=new",
-            "--disable-gpu",
-            "--no-sandbox",
-            "--timeout=8000",
-            "--virtual-time-budget=5000",
-            "--dump-dom",
-            url,
-        ],
-        capture_output=True,
+    argv = [
+        "google-chrome",
+        "--headless=new",
+        "--disable-gpu",
+        "--no-sandbox",
+        "--timeout=8000",
+        "--virtual-time-budget=5000",
+        "--dump-dom",
+        url,
+    ]
+    proc = subprocess.Popen(
+        argv,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
-        timeout=30,
-        check=False,
     )
+    try:
+        stdout, stderr = proc.communicate(timeout=30)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        stdout, stderr = proc.communicate()
+        # The DOM is already in stdout. Chrome stays up on a slow tunnel.
+        code = 0 if stdout else -9
+        return subprocess.CompletedProcess(argv, code, stdout or "", stderr or "")
+    return subprocess.CompletedProcess(argv, proc.returncode or 0, stdout, stderr)
 
 
 def _ensure(app: RunApp | ComposeApp) -> int:
