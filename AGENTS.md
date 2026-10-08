@@ -19,7 +19,7 @@ This file is for coding agents changing Insidia. The agent skill that *runs* a s
 
 - Keep a scan inside the declared scope. Localhost is the default. Do not add a path that scans an arbitrary host without `authorized: true`.
 - Name the engine that produced a finding. Mask secrets as `[TYPE len=N fp=xxxxxxxx]`. Do not log prompts or raw tokens.
-- Dependencies must be MIT, Apache-2.0, BSD, ISC, or reviewed MPL-2.0.
+- Dependencies must be MIT, Apache-2.0, BSD, ISC, or reviewed MPL-2.0. `email-validator` is Unlicense and is allowed for the AgentDojo workspace tools.
 - Move files with `git mv`. Do not rewrite history.
 - Do not commit `.env` files, customer data, or the `.cursor/` directory.
 - The Insidia Labs name and logo are trademarks. They are not covered by Apache-2.0. See [NOTICE](NOTICE).

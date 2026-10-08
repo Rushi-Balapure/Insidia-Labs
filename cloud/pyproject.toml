@@ -16,6 +16,8 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+  "docstring-parser>=0.15",
+  "email-validator>=2",
   "httpx>=0.28",
   "mypy>=1.17",
   "pytest>=8.4",

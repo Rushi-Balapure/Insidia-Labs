@@ -18,6 +18,8 @@ GPL, AGPL, SSPL, Elastic, and BUSL are denied.
 | --- | --- |
 | FastAPI, Starlette, Uvicorn, Pydantic, Alembic, cryptography, psycopg | MIT or Apache-2.0 or BSD, as published by each project |
 | PyYAML | MIT | The CLI reads `insidia.yaml` with PyYAML. Keep its copyright and license notice. |
+| email-validator | Unlicense | Allowed for the AgentDojo inbox and calendar models. Unlicense has no use restriction. |
+| docstring-parser | MIT | Imported when the AgentDojo tool modules load. |
 
 The runner and the hub use only the Go standard library in Phase 0.
 The dashboard uses React and Vite (MIT).
