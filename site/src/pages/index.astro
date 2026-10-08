@@ -4,20 +4,22 @@ import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 import DataFlowHero from "../components/DataFlowHero.tsx";
 import LeadForm from "../components/LeadForm.tsx";
-import DemoReel from "../components/DemoReel.astro";
+import ScriptedDemos from "../components/ScriptedDemos.astro";
+import PlayerControls from "../components/PlayerControls.astro";
 import { changelog } from "../content/changelog";
 
-const description = "Insidia Labs is an AI pentest agent that chains attacks on your AI into exploits in your app, from prompt to payload. Early access opens December 2026.";
+const description = "Insidia is an open-source CLI that tests AI apps, agents, and the web apps and APIs around them on your machine. Insidia Cloud is the hosted attacker.";
 const endpoint = import.meta.env.PUBLIC_LEAD_ENDPOINT ?? "";
+const github = "https://github.com/Rushi-Balapure/Insidia-Labs";
+const install = 'uv tool install "git+https://github.com/Rushi-Balapure/Insidia-Labs#subdirectory=core"';
 const faqs = [
-  ["Is Insidia available today?", "Not yet. Insidia is in development, and early access opens in December 2026, starting with three design partners. Join the waitlist to hear when it opens, or apply to be a design partner to get in early."],
-  ["Can prompt injection lead to SQL injection?", "Yes. If an AI agent can call a tool that queries a database, a prompt injection can make the model write a SQL injection payload and pass it to that tool. The payload comes from the model, not a form field, so scanners that test your endpoints directly can miss it."],
-  ["What's the difference between AI red teaming and AI pentesting?", "AI red teaming tests how a model or agent behaves: does it follow injected instructions, leak data, or break its rules? Pentesting tests whether an attacker can actually compromise your systems. Insidia does both as one attack, following an injection through the agent's tools into your app and data."],
-  ["How do you connect a target?", "If the target is reachable from the internet, you prove you own it and Insidia tests it from our cloud. If it sits on your network, a small runner in your environment carries the tests. During early access, design-partner testing runs against staging, and only with written authorization."],
-  ["How is my data handled?", "Findings are stored with per-organization encryption. Secrets are redacted before they are stored, and findings are not used to train models. The waitlist on this site is separate from the product and is not written into a customer database."],
-  ["How does pricing work?", "Design partners get three months of free access. When the product opens, a trial includes three basic scans. Paid plans are request-access. This site has no checkout."],
-  ["How do you pentest an AI agent?", "Map what the agent can reach (tools, APIs, data, MCP servers), attack its inputs with direct and indirect prompt injection, then check what those tool calls can do downstream, such as SQL injection, SSRF, or access-control bypass. Insidia automates that full path and shows each step to reproduce and fix."],
-  ["Will it test production?", "During early access, design-partner testing runs against staging environments only, and only with your written authorization before any test."],
+  ["Can I run Insidia today?", "Yes. Install the CLI from GitHub and scan hosts you list in insidia.yaml. The CLI is pre-release: commands and the report format can still change. Insidia Cloud, the hosted attacker, opens for design partners in December 2026."],
+  ["Does a scan leave my machine?", "Traffic goes to the target you configured and, if you set one, to your model endpoint. There is no telemetry. Insidia Cloud is optional and is not required for a scan."],
+  ["Which engines does it run?", "garak, promptfoo, PyRIT, DeepTeam, mcp-scanner, and SkillSpector on the AI side. ZAP, Nuclei, Dalfox, Trivy, osv-scanner, gitleaks, Bandit, and gosec on the app side. Insidia modules cover gaps such as indirect injection, RAG bleed, and scripted chains. Every finding names the engine that produced it."],
+  ["What is the Insidia Benchmark?", "An open policy with three levels. L1 is the fast baseline and needs no model. L2 adds judge-scored checks when you configure a model. L3 adds model-generated attacks when you configure one. The same repository publishes the scanner matrix used to measure recall."],
+  ["Can my coding agent run it?", "Paste the quickstart into Claude Code, Cursor, Codex, or any agent that can run a shell. You confirm the hosts. The installable skill and the MCP server ship with the public launch."],
+  ["What does Insidia Cloud add?", "A hosted uncensored attacker and judge, custom attacks for your app, and later a dashboard to launch and schedule scans. The CLI stays free. Hosted work is metered. You can self-host the Cloud code; most teams will pay us to run the GPUs."],
+  ["Will it test production?", "Only hosts in your scope. Anything other than localhost needs authorized: true, set by you. Design-partner Cloud tests run against staging, and only with written authorization."],
 ];
 const jsonLd = {
   "@context": "https://schema.org",
@@ -34,8 +36,9 @@ const jsonLd = {
       "@type": "SoftwareApplication",
       name: "Insidia",
       applicationCategory: "SecurityApplication",
-      operatingSystem: "Web",
-      description: "An AI pentest agent that tests AI agents and the apps they touch, following prompt injection through agent tools into classic exploits such as SQL injection, SSRF, XSS, and broken access control.",
+      operatingSystem: "Linux, macOS, Windows",
+      offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+      description: "Open-source CLI for security testing of AI apps, agents, web apps, and APIs. Runs on your machine with credited open-source engines.",
     },
     {
       "@type": "FAQPage",
@@ -48,7 +51,7 @@ const jsonLd = {
   ],
 };
 ---
-<Base title="Insidia Labs | AI pentest agent for AI agents and the apps they touch" description={description}>
+<Base title="Insidia Labs | Open-source security testing for AI apps and the apps around them" description={description}>
   <Fragment slot="head">
     <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
   </Fragment>
@@ -56,17 +59,22 @@ const jsonLd = {
   <main id="content">
     <div class="wrap hero">
       <div>
-        <h1>Your AI agent is your newest attack surface.</h1>
+        <p class="kicker">Open source · Apache-2.0</p>
+        <h1>Test the model and the app around it, in one run.</h1>
         <div class="rule" aria-hidden="true"></div>
-        <p class="lede">Insidia's pentest agent follows an attack from a prompt injection all the way to a real exploit in your app, like an agent tricked into sending SQL injection to your own database. Most AI security tools and AppSec scanners were each built for one half of that path.</p>
+        <p class="lede">Insidia is a free CLI. It drives garak, promptfoo, PyRIT, ZAP, Nuclei, and the rest on your machine, fills the gaps they leave, and writes one HTML report. A prompt injection that becomes SQL injection is the case the separate tools miss.</p>
         <div class="cta-row">
-          <a class="btn" href="#waitlist">Join the waitlist</a>
-          <a class="btn ghost" href="mailto:insidialabs@gmail.com?subject=Book%20a%20call">Book a call</a>
+          <a class="btn" href="#install">Get the CLI</a>
+          <a class="btn ghost" href="#cloud">Insidia Cloud</a>
           <a class="btn ghost" href="#demo">Watch the demo</a>
           <a class="btn ghost" href="https://docs.insidialabs.com">Read the docs</a>
         </div>
       </div>
       <DataFlowHero client:visible />
+    </div>
+
+    <div class="wrap hero-player" id="demo">
+      <ScriptedDemos set="hero" />
     </div>
 
     <div class="wrap">
@@ -82,78 +90,105 @@ const jsonLd = {
       </div>
     </div>
 
+    <section class="block" id="engines">
+      <div class="wrap">
+        <h2>The engines are credited, not hidden.</h2>
+        <p class="prose muted">Insidia does not pretend their findings are ours. A report names the engine and the probe. Insidia modules cover the families those projects do not.</p>
+        <div class="chips tight" aria-label="Engines">
+          <a class="chip" href="https://github.com/NVIDIA/garak">garak</a>
+          <a class="chip" href="https://github.com/promptfoo/promptfoo">promptfoo</a>
+          <a class="chip" href="https://github.com/Azure/PyRIT">PyRIT</a>
+          <a class="chip" href="https://github.com/confident-ai/deepteam">DeepTeam</a>
+          <a class="chip" href="https://github.com/zaproxy/zaproxy">ZAP</a>
+          <a class="chip" href="https://github.com/projectdiscovery/nuclei">Nuclei</a>
+          <a class="chip" href="https://github.com/hahwul/dalfox">Dalfox</a>
+          <a class="chip" href="https://github.com/aquasecurity/trivy">Trivy</a>
+          <a class="chip" href="https://github.com/gitleaks/gitleaks">gitleaks</a>
+        </div>
+        <p><a href="/licenses">Full engine list and licenses</a></p>
+      </div>
+    </section>
+
     <section class="block" id="how">
       <div class="wrap">
-        <h2>Insidia tests what happens when one attacks the other.</h2>
+        <h2>Three steps, on your machine.</h2>
         <div class="grid-3">
           <article>
             <p class="kicker">01</p>
             <h3>Attacks both layers</h3>
-            <p class="muted">AI red-teaming and classic AppSec in one run: prompt injection, jailbreaks, RAG and memory, agent tool misuse, plus SQL injection, XSS, SSRF, and broken access control.</p>
+            <p class="muted">Prompt injection, jailbreaks, RAG and memory, and tool misuse, plus SQL injection, XSS, SSRF, and broken access control. Standard coverage picks one engine per family. Thorough runs every engine that covers it.</p>
           </article>
           <article>
             <p class="kicker">02</p>
             <h3>Proves the chain</h3>
-            <p class="muted">The pentest agent carries a prompt injection through a tool call into a backend exploit and confirms it with an oracle, not a guess.</p>
+            <p class="muted">Scripted checks follow a prompt injection through a tool call into a backend bug and confirm it with an oracle. Discovered chains are the Insidia Cloud pentest agent, which is not shipped yet.</p>
           </article>
           <article>
             <p class="kicker">03</p>
             <h3>Maps to what you report</h3>
-            <p class="muted">Findings carry OWASP LLM and Agentic, MITRE ATLAS, and classic web and API ids, and export as a report.</p>
+            <p class="muted">Findings carry OWASP LLM, OWASP Agentic, MITRE ATLAS, and classic web and API ids. You get HTML, SARIF, and JSON. The policy result is in benchmark.json.</p>
           </article>
         </div>
+        <ScriptedDemos set="how" />
+        <blockquote class="example"><strong>Example chain (illustrative).</strong> A support chatbot reads an uploaded document. Hidden text tells the agent to look up an order with a crafted id. The agent passes that id to a tool, and the id is a SQL injection payload. A web scanner never talks to the agent. A model red-team often stops at “the model misbehaved.” Insidia tests both halves and shows the step that connected them.</blockquote>
       </div>
     </section>
 
-    <section class="block" id="demo">
+    <section class="block" id="install">
       <div class="wrap">
-        <h2>Watch the dashboard</h2>
-        <p class="prose muted">Three short previews play on a loop. They are the product UI, drawn in the page, not a video file. There is no prompt to type, and nothing on this page starts a test.</p>
-        <DemoReel />
-        <blockquote class="example"><strong>Example chain (illustrative).</strong> A support chatbot reads a customer's uploaded document. Hidden text in that document tells the agent to look up order status with a crafted order id. The agent passes it straight to an internal lookup tool, and the order id is a SQL injection payload. A scanner built to test endpoints does not go through the agent to reach that path. A red-teaming tool built to test the model can flag the injection without proving what the payload does downstream. Insidia tests both halves as one attack and shows each step.</blockquote>
+        <h2>Install from GitHub.</h2>
+        <p class="prose">No package registry. Python 3.12 or newer. Linux, macOS, and Windows.</p>
+        <pre class="install-box"><code>{install}</code></pre>
+        <p class="muted" style="margin-top:0.8rem">The same URL works with <code>pipx install</code>. Then <code>insidia init</code>, <code>insidia doctor</code>, <code>insidia scan</code>, and <code>insidia report --open</code>. A host other than localhost needs <code>authorized: true</code> in your scope.</p>
+        <p>Hand this to a coding agent: “Test this app with Insidia. Only scan localhost, and open the report when you're done.” The <a href="https://docs.insidialabs.com">docs</a> have the full quickstart.</p>
+      </div>
+    </section>
+
+    <section class="block" id="benchmark">
+      <div class="wrap">
+        <h2>An open benchmark, with three levels.</h2>
+        <div class="grid-3">
+          <article class="card"><h3>L1 Baseline</h3><p>Fast checks. No model. Safe to run on every pull request. <code>insidia scan --policy L1</code> exits 1 when the policy fails.</p></article>
+          <article class="card"><h3>L2 Standard</h3><p>The same controls, recorded as L2. Judge-scored checks run when a model is configured.</p></article>
+          <article class="card"><h3>L3 Thorough</h3><p>The same controls, recorded as L3. Model-generated attacks run when an attacker model is configured.</p></article>
+        </div>
+        <p style="margin-top:1.2rem"><a href="/benchmark">How the benchmark is scored</a></p>
       </div>
     </section>
 
     <section class="block" id="problem">
       <div class="wrap">
         <div class="grid-3">
-          <h2>Your security tools were each built for one half of the attack.</h2>
+          <h2>One-sided tools miss the seam.</h2>
           <div class="span-2">
-            <p>AI security tools test the model. AppSec scanners test the app. Once an LLM agent can call tools, query databases, and hit internal APIs, the most dangerous attacks start in one place and land in the other.</p>
-            <p class="muted">Scanners were built to test endpoints, not to talk to your agent. Red-teaming tools were built to test the model, so they often stop at "the model misbehaved." The path between them is where the damage happens.</p>
+            <p>AI security tools test the model. AppSec scanners test the app. Once an agent can call tools, the damaging path starts in one place and lands in the other.</p>
+            <p class="muted">OWASP’s LLM and Agentic lists and the classic Web and API lists describe the two ends. They do not run the test. Insidia does, and it names the engine behind each finding. We do not publish customer counts or detection rates we have not measured.</p>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="block" id="coverage">
+    <section class="block" id="cloud">
       <div class="wrap">
-        <h2>What it covers</h2>
+        <h2>The CLI is free. Insidia Cloud is the upgrade.</h2>
         <div class="grid-3">
-          <article class="card"><h3>AI and agent security</h3><p>Prompt injection, direct and indirect, jailbreaks, tool and function-call abuse, MCP and plugin risks, and data leakage through LLM features.</p></article>
-          <article class="card"><h3>Classic AppSec</h3><p>SQL injection, XSS, SSRF, and broken authentication and access control across web apps and APIs.</p></article>
-          <article class="card"><h3>The seam</h3><p>Attacks that start in one layer and finish in the other, with each step shown.</p></article>
+          <article class="card"><h3>On your machine</h3><p>Every engine, the Insidia modules, any model you bring, and the HTML report. No account.</p></article>
+          <article class="card"><h3>On our GPUs</h3><p>A hosted attacker and judge that are built to write attacks, custom to your tools and domain. Metered. The code stays Apache-2.0, so you can self-host later.</p></article>
+          <article class="card"><h3>Design partners</h3><p>Three partners, from December 2026. Three months of access and a call every two weeks. This site does not take payment.</p></article>
         </div>
-        <p class="muted" style="margin-top:1.2rem">Built for security and engineering teams shipping LLM features or agents that touch real systems: AI-native SaaS, fintech and healthtech teams adding AI assistants, and developer-tool companies exposing agents or MCP integrations.</p>
+        <ScriptedDemos set="cloud" />
+        <p class="muted">General-purpose models often refuse to write attacks. Those families stay thin until you point the attacker at a model that will generate them.</p>
       </div>
     </section>
 
     <section class="block" id="security">
       <div class="wrap">
-        <h2>Security, stated the way the product is built</h2>
+        <h2>Security, stated the way it is built</h2>
         <div class="grid-3">
-          <article class="card"><h3>Your cloud boundary, our encryption</h3><p>The product runs on our own infrastructure. Findings are stored with per-organization envelope encryption.</p></article>
-          <article class="card"><h3>Secrets stay redacted</h3><p>A discovered secret is stored as a masked token, not as the value itself.</p></article>
-          <article class="card"><h3>Not training data</h3><p>Your findings are not used to train models. <a href="/security">Read the security page</a>.</p></article>
+          <article class="card"><h3>Local by default</h3><p>A CLI scan stays on your machine, apart from the target and the model you chose.</p></article>
+          <article class="card"><h3>Secrets stay masked</h3><p>Evidence uses a masked token, for example [AWS_ACCESS_KEY len=20 fp=3f9a1c07]. The raw value is not written into the report.</p></article>
+          <article class="card"><h3>Cloud, when you use it</h3><p>Hosted findings use per-organization encryption and are not training data. <a href="/security">Read the security page</a>.</p></article>
         </div>
-      </div>
-    </section>
-
-    <section class="block" id="design-partners">
-      <div class="wrap">
-        <h2>Help shape it.</h2>
-        <p class="muted" style="max-width:42rem">We're working with three design partners before general availability. Each one gets three months of free access and a direct line to the founding team. In return, we ask for a short feedback call every two weeks and, if the results are good, the chance to talk about them together.</p>
-        <a class="btn" href="#waitlist">Apply to be a design partner</a>
       </div>
     </section>
 
@@ -184,11 +219,12 @@ const jsonLd = {
 
     <section class="block" id="waitlist">
       <div class="wrap" style="max-width:40rem">
-        <h2>Join the waitlist</h2>
-        <p class="muted">Tell us what you ship. We'll write back about access. Book a call if you'd rather talk first.</p>
+        <h2>Ask about Insidia Cloud</h2>
+        <p class="muted">The CLI does not need this form. Use it if you want design-partner access or a call. Leads stay out of the product database. <a href={`mailto:insidialabs@gmail.com?subject=Book%20a%20call`}>Book a call</a> or <a href={github}>read the code</a>.</p>
         <LeadForm client:load endpoint={endpoint} />
       </div>
     </section>
   </main>
   <Footer />
+  <PlayerControls />
 </Base>

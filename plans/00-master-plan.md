@@ -9,8 +9,8 @@ todos:
     content: "Phase T (done): permutation matrix, sandboxed targets, ground truth, xfail cell suite; becomes the open scanner benchmark"
     status: completed
   - id: phasew
-    content: "Phase W: marketing site (built); next work leads with the open-source CLI, credits the engines, and adds a benchmark page"
-    status: in_progress
+    content: "Phase W: marketing site and docs lead with the open-source CLI, credit the engines, and include a benchmark page"
+    status: completed
   - id: restructure
     content: "Phase 1.0 (done): repo layout with cloud/ and benchmark/, ownership.yaml maps every cell to a phase, CONTRIBUTING/SECURITY/AGENTS are in the repo"
     status: completed
@@ -59,7 +59,7 @@ Update this table in the same change that starts or finishes a phase. The next r
 | --- | --- | --- |
 | 0 Foundations | Done | Merged to `main`. Cloud database, RLS, envelope encryption, CI. |
 | T Test harness | Done | Merged to `main`. Lives in `benchmark/`. 1,235 cells, xfail until a scanner exists. |
-| W Marketing site | Built, next work pending | Site is on `main`. Next: open-source-first copy, engine credits, remove the engine-name denylist, benchmark page. |
+| W Marketing site | Reworked | Site and docs lead with the CLI, name the engines, and include a benchmark page. The engine-name denylist is gone. Secret checks remain. Videos 5–6 stay marked coming soon. |
 | 1.0 Restructure | Done | Branch `phase-1.0-restructure`, not merged. Cloud lives in `cloud/`, the scanner benchmark in `benchmark/`, and every cell has an owning phase. |
 | 1A CLI core | Done | Branch `phase-1a-cli-core`. `insidia scan` runs one AI probe and one web probe against the sandbox. The `core` CI job runs that suite on Linux, macOS, and Windows. |
 | 1B Engines | Done | Branch `phase-1b-engines`. Adapters are wired for garak 0.17.0, promptfoo 0.124.0, PyRIT 1.1.0, DeepTeam 1.0.9, mcp-scanner 4.8.5, SkillSpector 2.12.0, ZAP 2.17.0, Nuclei 3.11.1, Dalfox 3.2.3, katana 1.8.0, httpx 1.12.0, Trivy 0.75.0, osv-scanner 2.6.0, gitleaks 8.30.1, Bandit 1.9.4, and gosec 2.29.0. The built-in scan proves every phase 1B cell whose plant lives under `benchmark/targets/insidia/`, including white box and direct, relay, tunnel, and sdk_bridge. The white-box scan reads the cloned Juice Shop, crAPI, VAmPI, DVGA, and AgentDojo sinks through the cell's connection. Black-box and gray-box Juice Shop, VAmPI, and crAPI cells hit the running apps through direct and tunnel. All 635 phase 1B cells pass. |
@@ -314,8 +314,8 @@ Monorepo scaffold, ADRs, the security-first database (roles, RLS, envelope encry
 ### Phase T - Test harness (done)
 17 connectors x 3 box modes x 44 attacks x 4 connection modes; 1,235 valid cells as strict xfail tests with planted ground truth on a no-egress sandbox. Merged to `main`. It becomes the scanner benchmark in `benchmark/`.
 
-### Phase W - Marketing website (built, rework pending)
-Static Astro site on Vercel, separate from the product; brand kit applied; looping HTML demos; waitlist. Next work: lead with the open-source CLI (GitHub link and stars, the `uv tool install` line from GitHub, the agent prompt), credit the engines, remove the engine-name denylist from the site CI, add the benchmark page, and make Cloud the second call to action. Videos follow [22-website-video-scripts.md](22-website-video-scripts.md). See [21-marketing-website.md](21-marketing-website.md).
+### Phase W - Marketing website (reworked)
+Static Astro site on Vercel, separate from the product. The site leads with the open-source CLI, credits the engines, has a benchmark page, and treats Insidia Cloud as the second call to action. The engine-name denylist is removed. Secret checks remain. Docs in `docs/` open with the agent prompt, then the human quickstart. Looping HTML demos follow [22-website-video-scripts.md](22-website-video-scripts.md). Videos 5 and 6 stay labeled coming soon. See [21-marketing-website.md](21-marketing-website.md).
 
 ### Phase 1 - Open-source launch (free)
 - **1.0 Restructure (done, on `phase-1.0-restructure`):** `cloud/` (Insidia Cloud), `benchmark/` (scanner benchmark and framework mappings), `LICENSE`, `NOTICE`, `CONTRIBUTING.md`, `SECURITY.md`, `AGENTS.md`, CI paths, and the phase-owned ownership map. `core/` and `skills/insidia/` arrive with the CLI in 1A and 1E.

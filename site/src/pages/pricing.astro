@@ -3,28 +3,28 @@ import Base from "../layouts/Base.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 
-const description = "Request access to Insidia Labs. Design partners, a three-scan trial, and team plans. No checkout on this site.";
+const description = "The Insidia CLI is free. Insidia Cloud is request-access. This site has no checkout.";
 ---
 <Base title="Pricing | Insidia Labs" description={description} path="/pricing">
   <Header />
   <main id="content" class="wrap" style="padding:3rem 0 4rem">
-    <h1>Request access</h1>
-    <p class="lede">There is no checkout here. Early access opens in December 2026. Prices for paid plans are agreed with us, not listed as a number we have not set.</p>
+    <h1>Free CLI. Paid GPUs.</h1>
+    <p class="lede">There is no checkout on this site, and no price we have not set. You pay for hosted work. The code, including the Cloud code, stays Apache-2.0.</p>
     <div class="grid-3" style="margin-top:2rem">
       <article class="card">
+        <h2>CLI</h2>
+        <p>Free. Install from GitHub and scan on your machine or in CI. Engines, Insidia modules, your own model or none, HTML, SARIF, and JSON.</p>
+        <a class="btn" href="/#install">Get the CLI</a>
+      </article>
+      <article class="card">
+        <h2>Insidia Cloud</h2>
+        <p>Hosted attacker and judge, custom and multi-turn attacks, and later a dashboard to launch and schedule scans. Usage is metered. Early access opens in December 2026.</p>
+        <a class="btn ghost" href="/#waitlist">Request access</a>
+      </article>
+      <article class="card">
         <h2>Design partner</h2>
-        <p>Three months of free access and a direct line to the founding team. We ask for a short feedback call every two weeks. Three partners.</p>
-        <a class="btn" href="/#waitlist">Apply</a>
-      </article>
-      <article class="card">
-        <h2>Trial</h2>
-        <p>When the product opens, a new organization gets three basic scans: black-box, standard coverage, with no model-driven attacks. After that, scanning waits on an upgrade.</p>
-        <a class="btn ghost" href="/#waitlist">Join the waitlist</a>
-      </article>
-      <article class="card">
-        <h2>Team</h2>
-        <p>More targets, deeper coverage, and reports mapped to the frameworks you already file. Tell us what you need and we will reply with access terms.</p>
-        <a class="btn ghost" href="mailto:insidialabs@gmail.com?subject=Team%20access">Book a call</a>
+        <p>Three teams. Three months of access and a short call every two weeks. Staging targets only, with written authorization.</p>
+        <a class="btn ghost" href="mailto:insidialabs@gmail.com?subject=Design%20partner">Book a call</a>
       </article>
     </div>
   </main>

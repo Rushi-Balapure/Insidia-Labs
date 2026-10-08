@@ -152,7 +152,7 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
-      - run: node scripts/denylist.mjs dist
+      - run: node scripts/secrets.mjs dist
 
   compose:
     runs-on: ubuntu-latest

@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "check": "node scripts/denylist.mjs && node scripts/links.mjs"
+    "check": "node scripts/secrets.mjs && node scripts/links.mjs"
   },
   "dependencies": {
     "@astrojs/starlight": "^0.35.2",

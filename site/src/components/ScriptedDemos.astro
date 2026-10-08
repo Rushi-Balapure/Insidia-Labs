@@ -1,0 +1,177 @@
+---
+interface Props {
+  set: "hero" | "how" | "cloud";
+}
+const { set } = Astro.props;
+---
+
+{set === "hero" && (
+  <article class="player v-hero" data-player aria-label="Representative demo, 14 seconds, no sound. A terminal runs insidia scan --policy L2. Two lanes fill, a line connects prompt injection to SQL injection, and the lanes collapse into a report card.">
+    <header class="player-bar">
+      <span>Representative demo</span>
+      <button type="button" data-pause aria-pressed="false">Pause</button>
+    </header>
+    <div class="stage vstage">
+      <p class="cap c1">Run one command.</p>
+      <p class="cap c2">It tests the model and the app around it.</p>
+      <p class="cap c3">And finds where they connect.</p>
+      <p class="cap c4">You get a report you can act on.</p>
+      <p class="mono beat term">$ insidia scan --policy L2</p>
+      <div class="lanes beat lanes-in">
+        <div>
+          <strong>AI layer</strong>
+          <span>Prompt injection</span>
+          <span>Jailbreak</span>
+          <span>Tool misuse</span>
+          <span>RAG leak</span>
+          <small>garak · promptfoo · PyRIT · DeepTeam</small>
+        </div>
+        <div>
+          <strong>App layer</strong>
+          <span>SQLi</span>
+          <span>XSS</span>
+          <span>SSRF</span>
+          <span>BOLA</span>
+          <small>ZAP · Nuclei · Dalfox</small>
+        </div>
+      </div>
+      <p class="mono beat chain">Prompt injection → SQLi · chained</p>
+      <div class="endcard beat">
+        <strong>Policy L2</strong>
+        <span>31/38 controls passed · Representative</span>
+        <span>3 high</span>
+        <span class="mono">.insidia/runs/20261201T100200Z-a1b2c3/report.html</span>
+      </div>
+    </div>
+    <div class="scrub" aria-hidden="true"><b></b></div>
+    <p class="mock-note">Drawn in the page. 31/38 is a sample frame, not a measured score.</p>
+  </article>
+)}
+
+{set === "how" && (
+  <div class="players">
+    <article class="player v-agent" data-player aria-label="Representative demo, 24 seconds, no sound. A generic coding-agent chat. You ask to test localhost only, confirm the hosts, and the agent runs insidia init, doctor, scan, and report.">
+      <header class="player-bar">
+        <span>Let your agent run it</span>
+        <button type="button" data-pause aria-pressed="false">Pause</button>
+      </header>
+      <div class="stage vstage">
+        <p class="cap c1">Ask in plain words.</p>
+        <p class="cap c2">You confirm what it may test.</p>
+        <p class="cap c3">The agent runs the real CLI.</p>
+        <p class="cap c4">It explains the findings and opens the report.</p>
+        <div class="chat beat chat-a">
+          <p class="who">You</p>
+          <p>Test this app with Insidia. Only scan localhost.</p>
+        </div>
+        <div class="chat beat chat-b">
+          <p class="who">Agent</p>
+          <p>I'll scan http://127.0.0.1:8080/chat and http://localhost:3000. Nothing else is in scope. Confirm?</p>
+          <span class="btn tiny">Yes</span>
+        </div>
+        <ul class="steps beat chat-c">
+          <li>Wrote insidia.yaml</li>
+          <li>Added http://localhost:3000</li>
+          <li>insidia scan --policy L2</li>
+          <li>20261201T100200Z-a1b2c3: failed</li>
+        </ul>
+        <div class="endcard beat">
+          <strong>Policy L2. Failed. 3 finding(s).</strong>
+          <span>3 high · Representative</span>
+          <span class="mono">/home/dev/app/.insidia/runs/20261201T100200Z-a1b2c3/report.html</span>
+        </div>
+      </div>
+      <div class="scrub" aria-hidden="true"><b></b></div>
+      <p class="mock-note">Generic agent panel. The installable skill is not in this pre-release.</p>
+    </article>
+
+    <article class="player v-cli" data-player aria-label="Representative demo, 20 seconds, no sound. insidia init writes insidia.yaml, insidia doctor lists checks, and insidia scan --policy L2 prints a failed run id and exit code 1.">
+      <header class="player-bar">
+        <span>The CLI</span>
+        <button type="button" data-pause aria-pressed="false">Pause</button>
+      </header>
+      <div class="stage vstage">
+        <p class="cap c1">Init writes a config with a local scope.</p>
+        <p class="cap c2">Doctor checks Python, config, and engines.</p>
+        <p class="cap c3">L2 runs the baseline checks. A configured model adds judge scoring.</p>
+        <p class="cap c4">Exit codes and --json make it work in CI.</p>
+        <pre class="mono beat term t1">$ insidia init
+wrote insidia.yaml
+url: http://127.0.0.1:8080/chat</pre>
+        <pre class="mono beat term t2">$ insidia doctor
+python: 3.12.4
+config: insidia.yaml
+docker: found
+engines: installed: insidia, dalfox, deepteam, garak, gitleaks, nuclei, promptfoo, pyrit, trivy, zap</pre>
+        <pre class="mono beat term t3">$ insidia scan --policy L2
+20261201T100200Z-a1b2c3: failed
+$ echo $?
+1</pre>
+        <div class="endcard beat">
+          <strong>20261201T100200Z-a1b2c3: failed</strong>
+          <span class="mono">/home/dev/app/.insidia/runs/20261201T100200Z-a1b2c3/report.html</span>
+        </div>
+      </div>
+      <div class="scrub" aria-hidden="true"><b></b></div>
+      <p class="mock-note">Commands and the doctor lines match the CLI. Engine names after insidia are alphabetical.</p>
+    </article>
+
+    <article class="player v-report" data-player aria-label="Representative demo, 26 seconds, no sound. insidia report --open opens one HTML file. The report shows a framework table and findings. One row shows a masked secret.">
+      <header class="player-bar">
+        <span>The report</span>
+        <button type="button" data-pause aria-pressed="false">Pause</button>
+      </header>
+      <div class="stage vstage">
+        <p class="cap c1">One file. It opens offline.</p>
+        <p class="cap c2">Each row names the target, the engine, and the severity.</p>
+        <p class="cap c3">The evidence is shown with secrets masked.</p>
+        <p class="cap c4">Fix it, run the scan again, and keep the results as files.</p>
+        <p class="mono beat term">$ insidia report --open</p>
+        <table class="matrix beat bars">
+          <tbody>
+            <tr><td>Policy L2. Failed. 3 finding(s).</td><td>Representative</td></tr>
+            <tr><td>Framework</td><td>Failed / Passed / Not tested</td></tr>
+          </tbody>
+        </table>
+        <div class="finding beat">
+          <strong>prompt-injection.indirect · high</strong>
+          <span>garak, promptfoo</span>
+          <span class="mono">[AWS_ACCESS_KEY len=20 fp=3f9a1c07]</span>
+        </div>
+        <div class="endcard beat">
+          <strong>findings.json · results.sarif · benchmark.json · report.html</strong>
+          <span class="mono">insidia scan --policy L2</span>
+        </div>
+      </div>
+      <div class="scrub" aria-hidden="true"><b></b></div>
+      <p class="mock-note">The table shape matches the HTML report. The expanded finding card is a planned view.</p>
+    </article>
+  </div>
+)}
+
+{set === "cloud" && (
+  <div class="players">
+    <article class="player is-soon" aria-label="Coming soon. Insidia Cloud is not available yet. Custom attacks stay a concept until the hosted model ships.">
+      <header class="player-bar">
+        <span>Custom attacks</span>
+        <span class="badge">Coming soon</span>
+      </header>
+      <div class="stage">
+        <p>Insidia Cloud is not available yet. General-purpose models often refuse to write attacks. The hosted attacker would be the same CLI, metered, on our hardware.</p>
+        <p class="mono">attacker: provider: insidia-cloud · Concept</p>
+      </div>
+      <p class="mock-note">No autoplay. No measured “finds more” claim.</p>
+    </article>
+    <article class="player is-soon" aria-label="Coming soon. A concept of a chained exploit from prompt injection through a tool call into SQL injection.">
+      <header class="player-bar">
+        <span>Chained exploit</span>
+        <span class="badge">Coming soon</span>
+      </header>
+      <div class="stage">
+        <p>Scripted chains run in the free CLI. Chains a pentest agent discovers are an Insidia Cloud concept, not a product you can run today.</p>
+        <p class="mono">prompt injection → search_orders → SQL injection</p>
+      </div>
+      <p class="mock-note">Illustrative path. Nothing here launches a test.</p>
+    </article>
+  </div>
+)}

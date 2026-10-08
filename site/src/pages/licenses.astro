@@ -3,21 +3,46 @@ import Base from "../layouts/Base.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 
-const description = "Open-source licenses used by Insidia Labs. License names only.";
+const description = "Engines Insidia runs, and the open-source licenses we accept.";
+const engines = [
+  ["garak", "Apache-2.0", "https://github.com/NVIDIA/garak"],
+  ["promptfoo", "MIT", "https://github.com/promptfoo/promptfoo"],
+  ["PyRIT", "MIT", "https://github.com/Azure/PyRIT"],
+  ["DeepTeam", "Apache-2.0", "https://github.com/confident-ai/deepteam"],
+  ["mcp-scanner", "Apache-2.0", "https://github.com/cisco-ai-defense/mcp-scanner"],
+  ["SkillSpector", "Apache-2.0", "https://github.com/NVIDIA/SkillSpector"],
+  ["ZAP", "Apache-2.0", "https://github.com/zaproxy/zaproxy"],
+  ["Nuclei", "MIT", "https://github.com/projectdiscovery/nuclei"],
+  ["Dalfox", "MIT", "https://github.com/hahwul/dalfox"],
+  ["katana", "MIT", "https://github.com/projectdiscovery/katana"],
+  ["httpx", "MIT", "https://github.com/projectdiscovery/httpx"],
+  ["Trivy", "Apache-2.0", "https://github.com/aquasecurity/trivy"],
+  ["osv-scanner", "Apache-2.0", "https://github.com/google/osv-scanner"],
+  ["gitleaks", "MIT", "https://github.com/gitleaks/gitleaks"],
+  ["Bandit", "Apache-2.0", "https://github.com/PyCQA/bandit"],
+  ["gosec", "Apache-2.0", "https://github.com/securego/gosec"],
+];
 ---
-<Base title="Open-source licenses | Insidia Labs" description={description} path="/licenses">
+<Base title="Engines and licenses | Insidia Labs" description={description} path="/licenses">
   <Header />
   <main id="content" class="wrap" style="padding:3rem 0 4rem">
-    <h1>Open-source licenses</h1>
-    <p class="lede">Distributed copies of the product include the license notices for the open-source software they contain. This page lists the licenses, not the role of each component.</p>
-    <ul>
-      <li>MIT</li>
-      <li>Apache-2.0</li>
-      <li>BSD-3-Clause</li>
-      <li>MPL-2.0</li>
-      <li>SIL Open Font License 1.1 (Sora, used on this site)</li>
-    </ul>
-    <p class="muted">The font license text is at <a href="/fonts/OFL.txt">/fonts/OFL.txt</a>.</p>
+    <h1>Engines and licenses</h1>
+    <p class="lede">Insidia is Apache-2.0. Each engine keeps its own license. A finding names the engine that produced it.</p>
+    <table class="matrix">
+      <thead>
+        <tr><th>Engine</th><th>License</th></tr>
+      </thead>
+      <tbody>
+        {engines.map(([name, license, href]) => (
+          <tr>
+            <td><a href={href}>{name}</a></td>
+            <td>{license}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+    <p style="margin-top:1.2rem">Dependencies we ship are MIT, Apache-2.0, BSD, ISC, or reviewed MPL-2.0. The Sora font on this site is SIL Open Font License 1.1. The text is at <a href="/fonts/OFL.txt">/fonts/OFL.txt</a>.</p>
+    <p class="muted">The Insidia Labs name and logo are trademarks and are not covered by Apache-2.0.</p>
   </main>
   <Footer />
 </Base>
