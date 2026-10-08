@@ -25,7 +25,7 @@ todos:
     status: completed
   - id: phase1d
     content: "Phase 1D: Insidia Benchmark (open policy format, L1-L3 levels, OWASP LLM/ASI/web/API mappings, score) plus HTML report, SARIF, JSON"
-    status: pending
+    status: completed
   - id: phase1e
     content: "Phase 1E: agent skill at the top of the docs, MCP server, llms.txt, GitHub Action, install from GitHub (uv/pipx from git, GHCR Docker image, release wheels), public launch"
     status: pending
@@ -53,7 +53,7 @@ Plans are stored in both `/home/rushi/Desktop/Rushi/Insidia-Labs/plans/` and thi
 
 ## Status
 
-Update this table in the same change that starts or finishes a phase. The next row to build is **1D**.
+Update this table in the same change that starts or finishes a phase. The next row to build is **1E**.
 
 | Phase | Status | Where it stands |
 | --- | --- | --- |
@@ -64,7 +64,7 @@ Update this table in the same change that starts or finishes a phase. The next r
 | 1A CLI core | Done | Branch `phase-1a-cli-core`. `insidia scan` runs one AI probe and one web probe against the sandbox. The `core` CI job runs that suite on Linux, macOS, and Windows. |
 | 1B Engines | Done | Branch `phase-1b-engines`. Adapters are wired for garak 0.17.0, promptfoo 0.124.0, PyRIT 1.1.0, DeepTeam 1.0.9, mcp-scanner 4.8.5, SkillSpector 2.12.0, ZAP 2.17.0, Nuclei 3.11.1, Dalfox 3.2.3, katana 1.8.0, httpx 1.12.0, Trivy 0.75.0, osv-scanner 2.6.0, gitleaks 8.30.1, Bandit 1.9.4, and gosec 2.29.0. The built-in scan proves every phase 1B cell whose plant lives under `benchmark/targets/insidia/`, including white box and direct, relay, tunnel, and sdk_bridge. The white-box scan reads the cloned Juice Shop, crAPI, VAmPI, DVGA, and AgentDojo sinks through the cell's connection. Black-box and gray-box Juice Shop, VAmPI, and crAPI cells hit the running apps through direct and tunnel. All 635 phase 1B cells pass. |
 | 1C Gap modules | Done | 556 cells. The built-in scan proves the sandbox plants. Juice Shop, crAPI, and DVGA are hit on the running apps. The AgentDojo workspace tools run in process. `email-validator` is Unlicense and is allowed for those tools. |
-| 1D Benchmark and report | Not started | |
+| 1D Benchmark and report | Done | One scan writes the four OWASP scores, a static coverage matrix, fix guidance, and a re-run command. Light and dark follow the system theme. |
 | 1E Agents and launch | Not started | |
 | 2A Model service | Not started | |
 | 2B Custom attacks and pentest agent | Not started | |

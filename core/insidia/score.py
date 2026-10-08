@@ -34,7 +34,28 @@ class Score:
 
 
 def score_frameworks(controls: list[dict[str, str]]) -> tuple[Score, ...]:
-    return tuple(_score(framework, controls) for framework in _frameworks())
+    frameworks = _frameworks()
+    _reject_unknown(controls, frameworks)
+    return tuple(_score(framework, controls) for framework in frameworks)
+
+
+def coverage(controls: list[dict[str, str]]) -> tuple[tuple[str, str, str], ...]:
+    """One row per framework item: id, title, and fail, pass, or not tested."""
+    frameworks = _frameworks()
+    _reject_unknown(controls, frameworks)
+    rows: list[tuple[str, str, str]] = []
+    for framework in frameworks:
+        ids = {item_id for item_id, _title in framework.items}
+        failed, passed = _split(framework, controls, ids)
+        for item_id, title in framework.items:
+            if item_id in failed:
+                result = "fail"
+            elif item_id in passed:
+                result = "pass"
+            else:
+                result = "not tested"
+            rows.append((f"{framework.name}:{item_id}", title, result))
+    return tuple(rows)
 
 
 def _frameworks() -> tuple[Framework, ...]:
@@ -64,6 +85,14 @@ def _load(filename: str) -> Framework:
 
 def _score(framework: Framework, controls: list[dict[str, str]]) -> Score:
     ids = {item_id for item_id, _title in framework.items}
+    failed, passed = _split(framework, controls, ids)
+    not_tested = len(ids - failed - passed)
+    return Score(framework.name, framework.title, len(failed), len(passed), not_tested)
+
+
+def _split(
+    framework: Framework, controls: list[dict[str, str]], ids: set[str]
+) -> tuple[set[str], set[str]]:
     failed: set[str] = set()
     passed: set[str] = set()
     prefix = f"{framework.name}:"
@@ -78,8 +107,22 @@ def _score(framework: Framework, controls: list[dict[str, str]]) -> Score:
             elif result == "pass":
                 passed.add(item_id)
     passed -= failed
-    not_tested = len(ids - failed - passed)
-    return Score(framework.name, framework.title, len(failed), len(passed), not_tested)
+    return failed, passed
+
+
+def _reject_unknown(controls: list[dict[str, str]], frameworks: tuple[Framework, ...]) -> None:
+    known = {
+        framework.name: {item_id for item_id, _title in framework.items}
+        for framework in frameworks
+    }
+    for control in controls:
+        for tag in control.get("taxonomy", "").split(","):
+            cleaned = tag.strip()
+            prefix, sep, item_id = cleaned.partition(":")
+            if sep != ":" or prefix not in known:
+                continue
+            if item_id not in known[prefix]:
+                raise ValueError(f"unknown taxonomy id {cleaned}")
 
 
 def _item_id(tag: str, prefix: str, ids: set[str]) -> str | None:

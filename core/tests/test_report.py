@@ -1,9 +1,12 @@
 import json
 from pathlib import Path
 
+import pytest
 from insidia.findings import Finding
 from insidia.mask import mask
+from insidia.policy import get_policy
 from insidia.runstore import write_run
+from insidia.score import score_frameworks
 
 _SECRET = "AKIAIOSFODNN7EXAMPLE"
 
@@ -45,6 +48,12 @@ def test_report_scores_frameworks_and_names_the_engine(tmp_path: Path) -> None:
     assert "<tr><td>OWASP LLM Top 10</td><td>1</td><td>0</td><td>9</td></tr>" in html
     assert "<tr><td>OWASP Web Top 10</td><td>0</td><td>1</td><td>9</td></tr>" in html
     assert "<script" not in html
+    assert "prefers-color-scheme: dark" in html
+    assert "owasp-llm:LLM01" in html
+    assert "not tested" in html
+    assert "owasp-llm:LLM06" in html
+    assert "Stop returning secrets." in html
+    assert "insidia scan --policy L1" in html
     assert _SECRET not in html
     assert "AKIA" not in html
     benchmark = json.loads((directory / "benchmark.json").read_text())
@@ -82,3 +91,16 @@ def test_report_scores_frameworks_and_names_the_engine(tmp_path: Path) -> None:
     run = sarif["runs"][0]
     assert run["tool"]["driver"]["name"] == "Insidia"
     assert run["results"][0]["properties"]["engine"] == "insidia"
+
+
+def test_unknown_taxonomy_id_is_rejected() -> None:
+    controls = [{"id": "x", "target": "chat", "result": "fail", "taxonomy": "owasp-llm:LLM99"}]
+    with pytest.raises(ValueError, match="unknown taxonomy id owasp-llm:LLM99"):
+        score_frameworks(controls)
+
+
+def test_l1_tags_prompt_injection_and_template_injection() -> None:
+    policy = get_policy("L1")
+    assert "owasp-llm:LLM01" in policy.control("ai.prompt_injection_direct").taxonomy
+    assert "owasp-web:A03" in policy.control("web.ssti").taxonomy
+    assert "owasp-llm:LLM06" in policy.control("ai.unbounded_consumption").taxonomy
