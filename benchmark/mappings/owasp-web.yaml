@@ -1,0 +1,23 @@
+framework: owasp-web
+title: OWASP Web Top 10
+items:
+  - id: A01
+    title: Someone reaches data or an action they should not
+  - id: A02
+    title: Data or a session is protected with weak or missing crypto
+  - id: A03
+    title: User input is executed as code, a query, or a template
+  - id: A04
+    title: A control that should exist was never designed in
+  - id: A05
+    title: A default, debug, or open setting leaves the app exposed
+  - id: A06
+    title: A component with a known flaw is still installed
+  - id: A07
+    title: Sign-in, session, or password checks can be skipped
+  - id: A08
+    title: An update or payload is trusted without a check
+  - id: A09
+    title: An attack is not recorded and nobody is told
+  - id: A10
+    title: The server requests a URL the user supplied

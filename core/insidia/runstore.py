@@ -5,10 +5,12 @@ from __future__ import annotations
 import json
 import secrets
 import time
+from dataclasses import asdict
 from pathlib import Path
 
 from insidia import __version__
 from insidia.findings import Finding
+from insidia.score import Score, score_frameworks
 
 _HTML = """\
 <!DOCTYPE html>
@@ -25,6 +27,12 @@ th, td {{ text-align: left; border-bottom: 1px solid #d2d2d7; padding: 0.4rem; }
 <body>
 <h1>Insidia scan</h1>
 <p>Policy {policy}. {result}. {count} finding(s).</p>
+<table>
+<thead><tr><th>Framework</th><th>Failed</th><th>Passed</th><th>Not tested</th></tr></thead>
+<tbody>
+{scores}
+</tbody>
+</table>
 <table>
 <thead><tr><th>Target</th><th>Engine</th><th>Probe</th><th>Severity</th><th>Evidence</th></tr></thead>
 <tbody>
@@ -55,11 +63,13 @@ def write_run(
     payload = [finding.as_json() for finding in findings]
     (directory / "findings.json").write_text(json.dumps(payload, indent=2) + "\n")
     (directory / "results.sarif").write_text(json.dumps(_sarif(findings), indent=2) + "\n")
+    scores = score_frameworks(controls)
     benchmark = {
         "policy": policy,
         "passed": passed,
         "controls": controls,
         "skips": skips,
+        "scores": [asdict(score) for score in scores],
     }
     (directory / "benchmark.json").write_text(json.dumps(benchmark, indent=2) + "\n")
     rows = "\n".join(_row(finding) for finding in findings)
@@ -70,6 +80,7 @@ def write_run(
         policy=_escape(policy),
         result="Passed" if passed else "Failed",
         count=len(findings),
+        scores=_score_rows(scores),
         rows=rows,
     )
     (directory / "report.html").write_text(html)
@@ -84,6 +95,19 @@ def latest_run(root: Path) -> Path | None:
     if not names:
         return None
     return runs / names[-1]
+
+
+def _score_rows(scores: tuple[Score, ...]) -> str:
+    lines = []
+    for score in scores:
+        cells = (
+            _escape(score.title),
+            str(score.failed),
+            str(score.passed),
+            str(score.not_tested),
+        )
+        lines.append("<tr>" + "".join(f"<td>{cell}</td>" for cell in cells) + "</tr>")
+    return "\n".join(lines)
 
 
 def _row(finding: Finding) -> str:
@@ -115,6 +139,7 @@ def _sarif(findings: list[Finding]) -> dict[str, object]:
                 "ruleId": finding.probe,
                 "level": "error" if finding.severity == "high" else "warning",
                 "message": {"text": f"{finding.engine}: {finding.attack} on {finding.target}"},
+                "properties": {"engine": finding.engine},
             }
         )
     return {
@@ -122,7 +147,7 @@ def _sarif(findings: list[Finding]) -> dict[str, object]:
         "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
         "runs": [
             {
-                "tool": {"driver": {"name": "insidia", "version": __version__, "rules": rules}},
+                "tool": {"driver": {"name": "Insidia", "version": __version__, "rules": rules}},
                 "results": results,
             }
         ],

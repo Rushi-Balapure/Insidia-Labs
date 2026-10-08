@@ -1,1 +1,10 @@
-Taxonomy YAML lands in Phase 1D. This directory stays empty until then.
+# Framework mappings
+
+These four maps are the first slice:
+
+- `owasp-llm-2026.yaml` (`owasp-llm`, LLM01–LLM10)
+- `owasp-asi-2026.yaml` (`owasp-asi`, ASI01–ASI10)
+- `owasp-web.yaml` (`owasp-web`, A01–A10)
+- `owasp-api.yaml` (`owasp-api`, API1–API10)
+
+Each item is an id and a one-line title written for this repo. ATLAS, ATT&CK, CWE, CVSS, NIST, the EU AI Act, and the other frameworks are later.
