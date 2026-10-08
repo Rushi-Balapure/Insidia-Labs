@@ -60,12 +60,16 @@ class SandboxCall:
 
 
 def scanner_ready(cell: Cell) -> bool:
-    """True when this 1B cell's plant is one the scanner can prove."""
-    if cell.phase != "1B":
+    """True when this cell's plant is one the scanner can prove."""
+    if cell.phase not in {"1B", "1C"}:
         return False
     if plant_for(cell.target, cell.attack).location.startswith(_INSIDIA):
         return True
     from benchmark.harness.live import live_ready
+    from benchmark.harness.suite import suite_ready
+
+    if cell.phase == "1C":
+        return live_ready(cell) or suite_ready(cell)
     from benchmark.harness.upstream import upstream_ready
 
     return upstream_ready(cell) or live_ready(cell)
@@ -76,6 +80,10 @@ def run_cell(cell: Cell) -> list[Finding]:
         raise ScannerNotBuilt(cell)
     if plant_for(cell.target, cell.attack).location.startswith(_INSIDIA):
         return _prove(cell)
+    from benchmark.harness.suite import prove_suite, suite_ready
+
+    if suite_ready(cell):
+        return prove_suite(cell)
     from benchmark.harness.live import live_ready, prove_live
     from benchmark.harness.upstream import prove_upstream, upstream_ready
 

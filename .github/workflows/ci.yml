@@ -59,6 +59,7 @@ jobs:
         run: |
           docker pull bkimminich/juice-shop@sha256:73c53fbf442e8337b3ea3d98c7e8550308854701ebdfce4cc39768f36b75430e
           docker pull erev0s/vampi@sha256:0a5a224b6e14ae7da6a6ea265178ff71286ff903aec74adee98f660bb0e4ca12
+          docker pull dolevf/dvga@sha256:040aa33c199d99f3380c9ff9a1ee5d725e9abca7b189c63a35a2a73bda79c957
           docker compose -f ../local-targets/crAPI/deploy/docker/docker-compose.yml pull
       - name: Install Chrome for the Juice Shop page check
         run: |

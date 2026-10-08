@@ -22,7 +22,7 @@ todos:
     status: completed
   - id: phase1c
     content: "Phase 1C: Insidia gap modules (canary oracles, indirect injection, RAG bleed, tool-trace oracle, BOLA/BFLA, mass assignment, and the rest of 16-coverage-gaps)"
-    status: pending
+    status: completed
   - id: phase1d
     content: "Phase 1D: Insidia Benchmark (open policy format, L1-L3 levels, OWASP LLM/ASI/web/API mappings, score) plus HTML report, SARIF, JSON"
     status: pending
@@ -53,7 +53,7 @@ Plans are stored in both `/home/rushi/Desktop/Rushi/Insidia-Labs/plans/` and thi
 
 ## Status
 
-Update this table in the same change that starts or finishes a phase. The next row to build is **1C**.
+Update this table in the same change that starts or finishes a phase. The next row to build is **1D**.
 
 | Phase | Status | Where it stands |
 | --- | --- | --- |
@@ -63,7 +63,7 @@ Update this table in the same change that starts or finishes a phase. The next r
 | 1.0 Restructure | Done | Branch `phase-1.0-restructure`, not merged. Cloud lives in `cloud/`, the scanner benchmark in `benchmark/`, and every cell has an owning phase. |
 | 1A CLI core | Done | Branch `phase-1a-cli-core`. `insidia scan` runs one AI probe and one web probe against the sandbox. The `core` CI job runs that suite on Linux, macOS, and Windows. |
 | 1B Engines | Done | Branch `phase-1b-engines`. Adapters are wired for garak 0.17.0, promptfoo 0.124.0, PyRIT 1.1.0, DeepTeam 1.0.9, mcp-scanner 4.8.5, SkillSpector 2.12.0, ZAP 2.17.0, Nuclei 3.11.1, Dalfox 3.2.3, katana 1.8.0, httpx 1.12.0, Trivy 0.75.0, osv-scanner 2.6.0, gitleaks 8.30.1, Bandit 1.9.4, and gosec 2.29.0. The built-in scan proves every phase 1B cell whose plant lives under `benchmark/targets/insidia/`, including white box and direct, relay, tunnel, and sdk_bridge. The white-box scan reads the cloned Juice Shop, crAPI, VAmPI, DVGA, and AgentDojo sinks through the cell's connection. Black-box and gray-box Juice Shop, VAmPI, and crAPI cells hit the running apps through direct and tunnel. All 635 phase 1B cells pass. |
-| 1C Gap modules | Not started | 556 cells. |
+| 1C Gap modules | Done | 556 cells. The built-in scan proves the sandbox plants. Juice Shop, crAPI, and DVGA are hit on the running apps. The AgentDojo workspace tools run in process. `email-validator` is Unlicense and is allowed for those tools. |
 | 1D Benchmark and report | Not started | |
 | 1E Agents and launch | Not started | |
 | 2A Model service | Not started | |

