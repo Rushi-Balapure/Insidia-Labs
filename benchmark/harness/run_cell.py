@@ -60,12 +60,15 @@ class SandboxCall:
 
 
 def scanner_ready(cell: Cell) -> bool:
-    """True when this 1B cell's plant is one the scanner can prove."""
-    if cell.phase != "1B":
+    """True when this cell's plant is one the scanner can prove."""
+    if cell.phase not in {"1B", "1C"}:
         return False
     if plant_for(cell.target, cell.attack).location.startswith(_INSIDIA):
         return True
     from benchmark.harness.live import live_ready
+
+    if cell.phase == "1C":
+        return live_ready(cell)
     from benchmark.harness.upstream import upstream_ready
 
     return upstream_ready(cell) or live_ready(cell)
