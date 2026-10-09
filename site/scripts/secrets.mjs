@@ -1,25 +1,31 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 
-const banned = [
-  "garak",
-  "promptfoo",
-  "pyrit",
-  "deepteam",
-  "nuclei",
-  "dalfox",
-  "owasp zap",
-  "vllm",
-  "llama.cpp",
-  "llamacpp",
-  "ollama",
-  "sqlmap",
+const patterns = [
+  { name: "aws-access-key", re: /AKIA[0-9A-Z]{16}/ },
+  { name: "openai-key", re: /sk-[A-Za-z0-9]{20,}/ },
+  { name: "github-token", re: /ghp_[A-Za-z0-9]{20,}/ },
+  { name: "private-key", re: /-----BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY-----/ },
+  { name: "slack-token", re: /xox[baprs]-[A-Za-z0-9-]{10,}/ },
 ];
 
 const roots = process.argv.slice(2);
 if (roots.length === 0) roots.push("src", "public");
 
-const extensions = new Set([".html", ".js", ".mjs", ".css", ".svg", ".txt", ".xml", ".json", ".astro", ".ts", ".tsx", ".md"]);
+const extensions = new Set([
+  ".html",
+  ".js",
+  ".mjs",
+  ".css",
+  ".svg",
+  ".txt",
+  ".xml",
+  ".json",
+  ".astro",
+  ".ts",
+  ".tsx",
+  ".md",
+]);
 
 async function files(dir) {
   let entries;
@@ -44,10 +50,10 @@ for (const root of roots) {
   if (!info) continue;
   const list = info.isDirectory() ? await files(root) : [root];
   for (const file of list) {
-    const text = (await readFile(file, "utf8")).toLowerCase();
-    for (const word of banned) {
-      if (text.includes(word)) {
-        console.error(`${file} contains forbidden name: ${word}`);
+    const text = await readFile(file, "utf8");
+    for (const pattern of patterns) {
+      if (pattern.re.test(text)) {
+        console.error(`${file} contains ${pattern.name}`);
         failed = true;
       }
     }
@@ -55,4 +61,4 @@ for (const root of roots) {
 }
 
 if (failed) process.exit(1);
-console.log(`denylist ok (${roots.join(", ")})`);
+console.log(`secrets ok (${roots.join(", ")})`);

@@ -91,6 +91,8 @@ jobs:
       - run: uv run mypy insidia
         if: runner.os == 'Linux'
       - run: uv run pytest
+      - run: uv build --wheel
+        if: runner.os == 'Linux'
 
   go:
     runs-on: ubuntu-latest
@@ -152,7 +154,7 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
-      - run: node scripts/denylist.mjs dist
+      - run: node scripts/secrets.mjs dist
 
   compose:
     runs-on: ubuntu-latest

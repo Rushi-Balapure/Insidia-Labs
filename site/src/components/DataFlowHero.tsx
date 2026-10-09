@@ -60,7 +60,7 @@ export default function DataFlowHero() {
       </p>
       <div className="flow-grid">
         <Node id="target" hot={hot} title="Target" detail="Chat, agent, or app" />
-        <Node id="engine" hot={hot} title="Insidia Labs Engine" detail="One run, both layers" />
+        <Node id="engine" hot={hot} title="Engines" detail="garak, ZAP, Insidia modules" />
         <Node id="findings" hot={hot} title="Findings" detail="Path you can reproduce" />
         <Node id="injection" hot={hot} title="Prompt injection" detail="Hidden instruction" />
         <Node id="tool" hot={hot} title="Tool call" detail="The agent acts" />

@@ -3,11 +3,7 @@
 > Phase W is the Astro marketing site on Vercel. The brochure is built: brand kit applied, HTML demos, waitlist. Videos follow [22-website-video-scripts.md](22-website-video-scripts.md).
 
 ## Next work on the site
-- Lead with the open-source CLI (`uv tool install` from GitHub), the agent prompt, and the benchmark.
-- Credit the engines by name, with links.
-- Add a benchmark page.
-- Make Insidia Cloud the second call to action.
-- Remove `site/scripts/denylist.mjs` and its CI step; the site CI keeps the secret and real-data checks.
+Done in the open-source rework: the CLI install leads, engines are linked, `/benchmark` exists, Insidia Cloud is the second call to action, and `site/scripts/denylist.mjs` is replaced by `site/scripts/secrets.mjs`. The same secret check covers `docs/`. Videos 1–4 are HTML players. Videos 5 and 6 are labeled coming soon.
 
 Depends on: nothing in the build tracks.
 Parent: [00-master-plan.md](00-master-plan.md). Related: [04-hosted-dashboard.md](04-hosted-dashboard.md) (the hosted dashboard), [15-customer-docs.md](15-customer-docs.md).

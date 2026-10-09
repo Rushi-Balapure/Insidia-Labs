@@ -9,7 +9,7 @@ from insidia.adapters import find
 from insidia.config import Project, Target
 from insidia.errors import CliError, EngineFailed
 from insidia.findings import Finding, normalize
-from insidia.policy import get_policy
+from insidia.policy import Policy, get_policy
 from insidia.probes import ProbeHit, run
 from insidia.providers import build_provider
 from insidia.registry import select
@@ -60,7 +60,7 @@ def execute(
             chosen = select(family, mode, model_available=model_available)
             if not chosen:
                 skips.append(f"{target.name}: {family} has no runnable probe")
-                controls.append({"id": family, "target": target.name, "result": "skipped"})
+                controls.append(_recorded(policy, family, target.name, "skipped"))
                 continue
             failed = False
             for capability in chosen:
@@ -73,7 +73,7 @@ def execute(
                 hits.extend(found)
                 failed = failed or bool(found)
             result = "fail" if failed else "pass"
-            controls.append({"id": family, "target": target.name, "result": result})
+            controls.append(_recorded(policy, family, target.name, result))
     if not any(item["result"] != "skipped" for item in controls):
         detail = "; ".join(skips) or "the policy did not run any controls for these targets"
         raise CliError(detail)
@@ -82,6 +82,15 @@ def execute(
     run_id = new_run_id()
     run_dir = write_run(root, run_id, policy.name, passed, findings, controls, skips)
     return ScanOutcome(run_id, run_dir, passed, findings, skips)
+
+
+def _recorded(policy: Policy, family: str, target: str, result: str) -> dict[str, str]:
+    return {
+        "id": family,
+        "target": target,
+        "result": result,
+        "taxonomy": ",".join(policy.control(family).taxonomy),
+    }
 
 
 def _grpc(target: Target) -> bool:

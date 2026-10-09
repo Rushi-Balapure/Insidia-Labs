@@ -1,0 +1,33 @@
+@font-face {
+  font-family: Sora;
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../../../brand/fonts/Sora-Regular.ttf") format("truetype");
+}
+@font-face {
+  font-family: Sora;
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../../../brand/fonts/Sora-SemiBold.ttf") format("truetype");
+}
+
+:root {
+  --sl-font: Sora, ui-sans-serif, system-ui, sans-serif;
+  --sl-color-accent-low: #3d2418;
+  --sl-color-accent: #ed7b39;
+  --sl-color-accent-high: #f6c13f;
+  --sl-color-text-accent: #ed7b39;
+}
+
+:root[data-theme="dark"] {
+  --sl-color-bg: #101028;
+  --sl-color-bg-nav: #101028;
+  --sl-color-bg-sidebar: #14142e;
+}
+
+.sl-link-button.primary {
+  background: #ed7b39;
+  color: #101028;
+}

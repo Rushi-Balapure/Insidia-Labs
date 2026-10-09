@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="brand/readme/hero-dark.png">
-    <img src="brand/readme/hero-light.png" alt="Insidia Labs. Your AI agent is your newest attack surface. Open-source security testing for AI apps, agents, and the web apps and APIs around them." width="100%">
+    <img src="brand/readme/hero-light.png" alt="Insidia Labs. Open-source security testing for AI apps, agents, and the web apps and APIs around them." width="100%">
   </picture>
 </p>
 
@@ -10,127 +10,30 @@
   <img alt="Status: pre-release" src="https://img.shields.io/badge/status-pre--release-E33D86?style=flat-square&labelColor=101028">
   <img alt="Python 3.12+" src="https://img.shields.io/badge/python-3.12%2B-B93486?style=flat-square&labelColor=101028">
   <img alt="Linux, macOS, Windows" src="https://img.shields.io/badge/os-linux%20%7C%20macos%20%7C%20windows-8D307C?style=flat-square&labelColor=101028">
-  <img alt="Agent skill and MCP" src="https://img.shields.io/badge/agents-skill%20%2B%20MCP-542970?style=flat-square&labelColor=101028">
   <a href="https://insidialabs.com"><img alt="Website" src="https://img.shields.io/badge/web-insidialabs.com-F6C13F?style=flat-square&labelColor=101028"></a>
+  <a href="https://docs.insidialabs.com"><img alt="Docs" src="https://img.shields.io/badge/docs-docs.insidialabs.com-ED7B39?style=flat-square&labelColor=101028"></a>
 </p>
 
 <p align="center">
-  <a href="#hand-it-to-your-agent"><b>Agent quickstart</b></a> ·
-  <a href="#how-it-works"><b>How it works</b></a> ·
-  <a href="#what-it-tests"><b>What it tests</b></a> ·
   <a href="#install"><b>Install</b></a> ·
-  <a href="#open-source-and-insidia-cloud"><b>Insidia Cloud</b></a> ·
-  <a href="plans/00-master-plan.md"><b>Roadmap</b></a>
+  <a href="#quickstart"><b>Quickstart</b></a> ·
+  <a href="#what-it-tests"><b>What it tests</b></a> ·
+  <a href="#benchmark"><b>Benchmark</b></a> ·
+  <a href="#insidia-cloud"><b>Insidia Cloud</b></a> ·
+  <a href="https://docs.insidialabs.com"><b>Docs</b></a>
 </p>
 
 <br>
 
-AI apps fail in two places at once. The model layer leaks secrets, follows injected instructions, and misuses its tools. The app around it still has SQL injection, XSS, SSRF, and broken authorization. Attackers chain the two: a prompt injection makes an agent call a tool with a payload that a normal web scanner never gets to send.
+Insidia tests an AI app and the application around it in one local run. The model layer can leak secrets, follow injected instructions, and misuse tools. The app still has SQL injection, XSS, SSRF, and broken authorization. Attackers chain the two. A prompt injection can make an agent call a tool with a payload a normal web scanner never sends.
 
-**Insidia tests both layers in one run, on your own machine.** It drives the best open-source security engines, fills the gaps they leave with its own modules, scores you against an open benchmark, and hands you a single HTML report. Your coding agent can do all of it for you.
+**Insidia is the free command-line tool for that job.** It runs open-source engines on your machine, fills the gaps they leave, scores the run against an open policy, and writes one HTML report. Nothing in a scan requires an account.
 
-> [!NOTE]
-> Insidia is pre-release. The CLI described here is being built now ([roadmap](plans/00-master-plan.md)). Early access to Insidia Cloud opens in December 2026 for three design partners. Write to [insidialabs@gmail.com](mailto:insidialabs@gmail.com) to take part.
-
-## Hand it to your agent
-
-Add the Insidia skill to any coding agent that supports skills (Claude Code, Cursor, Codex, and others):
-
-```bash
-npx skills add Rushi-Balapure/Insidia-Labs --skill insidia
-```
-
-Then ask:
-
-```text
-Test this app with Insidia. Only scan localhost, and open the report when you're done.
-```
-
-The agent installs the CLI, writes a scoped `insidia.yaml`, runs the scan, reads the findings, proposes fixes, and opens the report. You only confirm which hosts it may test. Agents that prefer tools over shell commands can use the MCP server instead: `insidia mcp`.
-
-## How it works
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="brand/readme/flow-dark.png">
-    <img src="brand/readme/flow-light.png" alt="How Insidia works. 1, Ask: you or your coding agent, through the agent skill, the MCP server, or the CLI, confirm which hosts are in scope. 2, Plan: insidia scan loads the Insidia Benchmark policy at level L1, L2, or L3 and picks engines for each control. 3, Attack on your machine: AI-layer engines garak, promptfoo, PyRIT, and DeepTeam; app-layer engines ZAP, Nuclei, Dalfox, Trivy, and gitleaks; and Insidia gap modules for indirect injection, RAG bleed, and attack chains. Optionally, Insidia Cloud adds a hosted uncensored attacker and judge. 4, Report: one HTML file with the benchmark score and every finding, plus SARIF and JSON." width="100%">
-  </picture>
-</p>
-
-## What it tests
-
-<table>
-<tr>
-<th width="50%" align="left">AI and agent layer</th>
-<th width="50%" align="left">Application layer</th>
-</tr>
-<tr>
-<td valign="top">
-
-- Direct and indirect prompt injection
-- Jailbreaks and policy bypass
-- System prompt and secret leakage
-- Agent tool misuse and excessive agency
-- RAG and memory poisoning, cross-tenant bleed
-- MCP server and agent supply chain
-- Unbounded consumption
-
-</td>
-<td valign="top">
-
-- SQL injection, XSS, SSRF, and the rest of the web Top 10
-- API flaws: BOLA/IDOR, BFLA, mass assignment, JWT
-- GraphQL and gRPC endpoints
-- Secrets in code and history
-- Vulnerable dependencies and container images
-- **Chains** that start in the AI layer and land in the app
-
-</td>
-</tr>
-</table>
-
-Every result maps to **OWASP LLM Top 10**, **OWASP Agentic Top 10**, **OWASP Web and API Top 10**, **MITRE ATLAS**, and **CWE**, so you can show what passed, not only what failed.
-
-### The Insidia Benchmark
-
-An open, versioned policy of security controls, each with the probes that test it and the oracle that decides pass or fail. Pick a level:
-
-| Level | What it runs | When to use it |
-| --- | --- | --- |
-| **L1 Baseline** | Fast checks that need no model | Every pull request |
-| **L2 Standard** | Adds judge-scored probes and authenticated web and API checks | Before a release |
-| **L3 Thorough** | Every covering engine, plus multi-turn and model-generated attacks | Before launch and after big changes |
-
-You get a score per framework and a badge for your README. Add your own controls in the same format.
-
-### Built for any agent, any model, any OS
-
-<table>
-<tr>
-<td width="50%" valign="top">
-<b>Any agent</b><br>
-A plain CLI with <code>--json</code> output and stable exit codes, an agent skill, and an MCP server. No agent framework required.
-</td>
-<td width="50%" valign="top">
-<b>Any model</b><br>
-Point the attacker and judge at any OpenAI-compatible endpoint (Ollama, llama.cpp, vLLM, LM Studio, OpenRouter), Anthropic, Gemini, Bedrock, Azure, or Insidia Cloud. Many checks need no model at all.
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top">
-<b>Any OS</b><br>
-Linux, macOS, and Windows. Insidia installs the engines it needs, or runs them all from one Docker image.
-</td>
-<td width="50%" valign="top">
-<b>Private by default</b><br>
-Nothing leaves your machine except traffic to your target and to the model you chose. No telemetry.
-</td>
-</tr>
-</table>
+Install from GitHub today. A version tag publishes a signed wheel and a container image. [Insidia Cloud](#insidia-cloud), the hosted attacker, is not open yet.
 
 ## Install
 
-Insidia installs straight from this repository.
+Python 3.12 or newer. Install from this repository. Insidia is not on PyPI.
 
 ```bash
 # uv (recommended)
@@ -138,138 +41,174 @@ uv tool install "git+https://github.com/Rushi-Balapure/Insidia-Labs#subdirectory
 
 # pipx
 pipx install "git+https://github.com/Rushi-Balapure/Insidia-Labs#subdirectory=core"
-
-# Docker, with every engine bundled
-docker run --rm -it -v "$PWD:/work" ghcr.io/rushi-balapure/insidia scan
 ```
 
-To pin a release, add its tag: `...Insidia-Labs@v0.1.0#subdirectory=core`. Each GitHub Release also ships a signed wheel for offline installs.
+Pin a commit or tag by adding it before the fragment: `...Insidia-Labs@<rev>#subdirectory=core`.
 
-### Quickstart
+`insidia engines install` fetches the engine toolchains the scan needs. `insidia doctor` tells you what is missing. A version tag attaches a signed wheel and publishes `ghcr.io/rushi-balapure/insidia` with every pinned engine. See [the launch note](https://insidialabs.com/launch).
+
+## Quickstart
+
+From the project you want to test:
 
 ```bash
-insidia init           # find your app and write insidia.yaml with a safe scope
-insidia doctor         # check engines and model endpoints
-insidia scan           # run the L1 benchmark; add --policy L2 or L3 for more
-insidia report --open  # open the HTML report
+insidia init
+insidia doctor
+insidia scan --policy L1 --yes
+insidia report --open
 ```
 
-Insidia only scans hosts listed in your scope. Any host other than localhost needs an explicit `authorized: true` from you. In CI, `insidia scan` exits with `1` when the policy fails and writes SARIF for code scanning.
+`insidia init` writes `insidia.yaml` with scope limited to localhost and a chat target at `http://127.0.0.1:8080/chat`. Edit the targets before you scan. `insidia scan` exits **0** when the policy passes and **1** when it fails. Add `--json` for a machine-readable result.
 
-## Open source and Insidia Cloud
+Insidia only scans hosts listed under `scope`. A host other than localhost needs `authorized: true`, which you set. Rate limits are on by default.
 
-All of the code is open source under Apache-2.0, including Insidia Cloud. You can self-host everything. Teams pay us to run it.
+### Hand it to a coding agent
 
-<table>
-<tr>
-<th width="50%" align="left">Insidia CLI · free</th>
-<th width="50%" align="left">Insidia Cloud · paid</th>
-</tr>
-<tr>
-<td valign="top">
+Paste this into Claude Code, Cursor, Codex, or any agent that can run a shell:
 
-- Every engine and gap module, on your machine or CI
-- Bring any model, or none
-- Benchmark score, HTML report, SARIF, JSON
-- Agent skill, MCP server, GitHub Action
+```text
+Test this app with Insidia. Only scan localhost, and open the report when you're done.
+```
 
-</td>
-<td valign="top">
+You confirm the hosts. The agent should install the CLI, keep the scope you named, read `.insidia/runs/<run-id>/findings.json`, and open `report.html`. The skill is `skills/insidia/SKILL.md` (`npx skills add Rushi-Balapure/Insidia-Labs`). `insidia mcp` is the local MCP server. The CLI remains the contract: `--json`, `--yes`, and stable exit codes.
 
-- Hosted uncensored attacker and judge on our GPUs
-- Custom attacks written for your app's domain and tools
-- Adaptive multi-turn attacks and the AI pentest agent
-- Dashboard to launch, schedule, and compare scans
-- Team triage, history, compliance exports, runners for internal targets
+## What it tests
 
-</td>
-</tr>
-</table>
+| AI and agent layer | Application layer |
+| --- | --- |
+| Direct and indirect prompt injection | SQL injection, XSS, SSRF, and the rest of the web Top 10 |
+| Jailbreaks and policy bypass | BOLA/IDOR, BFLA, mass assignment, JWT |
+| System prompt and secret leakage | Secrets in code and history |
+| Tool misuse and excessive agency | Vulnerable dependencies and container images |
+| RAG and memory poisoning, cross-tenant bleed | Scripted chains from the AI layer into the app |
+| MCP and skill supply chain | |
 
-General-purpose models often refuse to write attacks. The report counts those refusals, so you can see which attack families were thin and whether a local uncensored model or Insidia Cloud would help.
+Findings map to **OWASP LLM**, **OWASP Agentic**, **OWASP Web and API**, **MITRE ATLAS**, and **CWE** when the control has that mapping. Each finding names the engine that produced it. A secret in evidence is masked, for example `[AWS_ACCESS_KEY len=20 fp=3f9a1c07]`.
+
+### Coverage
+
+| Mode | What runs |
+| --- | --- |
+| `standard` (default) | One engine per attack family, the highest-priority one |
+| `thorough` | Every engine that covers the family. Findings seen by two or more are marked cross-validated |
+
+```bash
+insidia scan --policy L2 --coverage thorough --yes
+```
+
+A scan with no model still runs every check that does not need one. Checks that need a model are skipped and listed in `benchmark.json`. A skip is not a pass.
+
+## Benchmark
+
+`insidia scan --policy L1|L2|L3` runs the open Insidia Benchmark policy:
+
+| Level | What it adds |
+| --- | --- |
+| **L1** | Baseline checks. No model. The default from `insidia init`. |
+| **L2** | Judge-scored checks, when a judge model is configured. |
+| **L3** | Model-generated attacks, when an attacker model is configured. |
+
+The run directory `.insidia/runs/<run-id>/` contains:
+
+| File | Contents |
+| --- | --- |
+| `benchmark.json` | Policy name, pass or fail, control results, skips |
+| `findings.json` | Findings, including engine, probe, severity, and taxonomy |
+| `results.sarif` | SARIF for CI code scanning |
+| `report.html` | One HTML file. `insidia report --open` opens it |
+
+The same repository publishes the scanner matrix under [`benchmark/`](benchmark): sandboxed targets and planted ground truth. That matrix is how engine adapters are accepted. It is separate from the policy you run on your own app.
+
+Point a model at any OpenAI-compatible endpoint, including Ollama, by listing it in `insidia.yaml` and adding that host to `scope`.
+
+## Insidia Cloud
+
+All of the code is Apache-2.0, including the Cloud service in [`cloud/`](cloud). The product you would pay for is hosted GPUs, the attacker and judge models, and the managed dashboard. That service is not open yet. Design-partner access is planned for December 2026. Write to [insidialabs@gmail.com](mailto:insidialabs@gmail.com).
+
+Until then, every scan you can run is the free CLI, with a model you bring or with no model at all.
+
+## Commands
+
+```text
+insidia init
+insidia doctor
+insidia engines list
+insidia engines install [ENGINE ...] [--docker]
+insidia policy list|show|validate
+insidia scan [--policy L1|L2|L3] [--coverage standard|thorough] [--json] [--yes]
+insidia report [run-id] [--open]
+```
+
+Shared flags: `--json`, `--yes`, and `--config` (default `insidia.yaml`).
 
 ## Repository
 
 | Path | What it holds |
 | --- | --- |
-| [`core/`](core) | The `insidia` package: CLI, target adapters, model providers, engine adapters, gap modules, benchmark runner, report, MCP server |
-| [`benchmark/`](benchmark) | Benchmark policies and framework mappings, plus the scanner benchmark: permutation matrix, sandboxed vulnerable targets, ground truth |
-| [`skills/insidia/`](skills/insidia) | The agent skill |
-| [`cloud/`](cloud) | Insidia Cloud: API, workers, pentest agent, model service, runner hub |
-| [`runner/`](runner) | Go runner that connects Cloud scans to internal targets |
-| [`dashboard/`](dashboard) | Hosted dashboard |
-| [`site/`](site) | Marketing site (Astro on Vercel) |
-| [`brand/`](brand/README.md) | Brand kit: logo, lockups, colors, favicons, fonts, README artwork |
-| [`docs/`](docs), [`shared/`](shared), [`deploy/`](deploy), [`plans/`](plans) | Docs, protocol and SDK, deployment templates, roadmap |
+| [`core/`](core) | The `insidia` package: CLI, scope guard, adapters, engines, modules, report |
+| [`benchmark/`](benchmark) | Policy data, framework mappings, scanner matrix, sandboxed targets |
+| [`cloud/`](cloud) | Insidia Cloud API and workers. Not required to scan |
+| [`site/`](site) | Marketing site |
+| [`docs/`](docs) | Documentation site |
+| [`brand/`](brand/README.md) | Logo, colors, and README artwork |
 
-`cloud/` is the Insidia Cloud service. `benchmark/` is the scanner benchmark and the framework mappings.
+## Development
 
-<details>
-<summary><b>Development</b></summary>
-
-<br>
-
-Local stack:
-
-```bash
-docker compose -f deploy/compose/docker-compose.yml up --build
-```
-
-The API answers `http://127.0.0.1:8000/healthz`. The dashboard is `http://127.0.0.1:5173`. Dev endpoints and the dev master key exist only when `INSIDIA_DEV_MODE=true`.
-
-Without Docker, from `cloud/`:
+CLI, from `core/`:
 
 ```bash
 uv sync
 uv run ruff check .
-uv run mypy api workers
+uv run mypy insidia
 uv run pytest
 ```
-
-Set `INSIDIA_TEST_DATABASE_URL` to a Postgres 18 superuser URL to run the row-level security tests.
 
 Marketing site, from `site/`:
 
 ```bash
 npm ci
-npm run dev    # http://127.0.0.1:4321
 npm test
-npm run build
+npm run dev    # http://127.0.0.1:4321
 ```
 
-README artwork is HTML in `brand/readme/src/`. Edit it there and run `brand/readme/render.sh` to regenerate the PNGs.
+Docs, from `docs/`:
 
-</details>
+```bash
+npm ci
+npm run check
+npm run dev
+```
 
-<details>
-<summary><b>Brand</b></summary>
+Cloud stack, when you are working on the hosted service:
 
-<br>
+```bash
+docker compose -f deploy/compose/docker-compose.yml up --build
+```
 
-<p align="center"><img src="brand/brand-sheet.png" alt="Insidia Labs brand sheet: the mark on navy and on white, the lockups, the palette, the gradient, and the Sora typeface" width="100%"></p>
-
-Use the files in [`brand/`](brand/README.md) as they are. Never recolor, retype, stretch, or add effects to the mark or the wordmark. Primary colors are Navy `#101028`, Orange `#ED7B39`, and Magenta `#E33D86`; the typeface is Sora. On orange, use navy text. The full rules, palette, and contrast ratios are in [`brand/README.md`](brand/README.md) and [`brand/colors/palette.md`](brand/colors/palette.md).
-
-</details>
+The API answers `http://127.0.0.1:8000/healthz`. Dev endpoints exist only when `INSIDIA_DEV_MODE=true`.
 
 ## Credits
 
-Insidia stands on these open-source projects. Each keeps its own license, and every finding in the report names the engine that produced it.
+Each project keeps its own license. The full notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-| AI and agent layer | Application layer | Pentest agent |
-| --- | --- | --- |
-| [garak](https://github.com/NVIDIA/garak) · Apache-2.0 | [ZAP](https://github.com/zaproxy/zaproxy) · Apache-2.0 | [Strix](https://github.com/usestrix/strix) · Apache-2.0 |
-| [promptfoo](https://github.com/promptfoo/promptfoo) · MIT | [Nuclei](https://github.com/projectdiscovery/nuclei) · MIT | |
-| [PyRIT](https://github.com/Azure/PyRIT) · MIT | [Dalfox](https://github.com/hahwul/dalfox) · MIT | |
-| [DeepTeam](https://github.com/confident-ai/deepteam) · Apache-2.0 | [Trivy](https://github.com/aquasecurity/trivy) · Apache-2.0 | |
-| [mcp-scanner](https://github.com/cisco-ai-defense/mcp-scanner) · Apache-2.0 | [osv-scanner](https://github.com/google/osv-scanner) · Apache-2.0 | |
-| | [gitleaks](https://github.com/gitleaks/gitleaks) · MIT | |
+| AI and agent layer | Application layer |
+| --- | --- |
+| [garak](https://github.com/NVIDIA/garak) · Apache-2.0 | [ZAP](https://github.com/zaproxy/zaproxy) · Apache-2.0 |
+| [promptfoo](https://github.com/promptfoo/promptfoo) · MIT | [Nuclei](https://github.com/projectdiscovery/nuclei) · MIT |
+| [PyRIT](https://github.com/Azure/PyRIT) · MIT | [Dalfox](https://github.com/hahwul/dalfox) · MIT |
+| [DeepTeam](https://github.com/confident-ai/deepteam) · Apache-2.0 | [Trivy](https://github.com/aquasecurity/trivy) · Apache-2.0 |
+| [mcp-scanner](https://github.com/cisco-ai-defense/mcp-scanner) · Apache-2.0 | [osv-scanner](https://github.com/google/osv-scanner) · Apache-2.0 |
+| [SkillSpector](https://github.com/NVIDIA/SkillSpector) · Apache-2.0 | [gitleaks](https://github.com/gitleaks/gitleaks) · MIT |
+| | [Bandit](https://github.com/PyCQA/bandit) · Apache-2.0 |
+| | [gosec](https://github.com/securego/gosec) · Apache-2.0 |
 
-The full list is in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Also [katana](https://github.com/projectdiscovery/katana) and [httpx](https://github.com/projectdiscovery/httpx), both MIT.
 
 ## License
 
-[Apache-2.0](LICENSE). The Sora font in `brand/fonts/` is under the SIL Open Font License. The Insidia Labs name and logo are trademarks and are not part of that license; see [NOTICE](NOTICE).
+[Apache-2.0](LICENSE). The Sora font in `brand/fonts/` is under the SIL Open Font License. The Insidia Labs name and logo are trademarks and are not part of the Apache license. See [NOTICE](NOTICE).
+
+Contributing and disclosure: [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md).
 
 <br>
 

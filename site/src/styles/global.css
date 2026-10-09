@@ -157,6 +157,9 @@ a:hover { color: var(--insidia-sunburst); }
   font-size: 0.85rem;
   letter-spacing: 0.01em;
 }
+a.chip { color: var(--text); text-decoration: none; }
+a.chip:hover { border-color: var(--insidia-orange); }
+.chips.tight { padding-bottom: 1rem; }
 
 section.block { padding: 4rem 0; border-top: 1px solid var(--line); }
 .muted { color: var(--muted); }
@@ -440,6 +443,76 @@ table.matrix th { color: var(--muted); font-weight: 600; }
 @keyframes grow15 { 0%, 24% { transform: scaleX(0); } 70%, 100% { transform: scaleX(0.15); } }
 @keyframes light-step { 0%, 8% { opacity: 0.28; } 22%, 100% { opacity: 1; } }
 
+.vstage { position: relative; min-height: 16rem; }
+.vstage .cap {
+  margin: 0;
+  font-weight: 600;
+  min-height: 1.4rem;
+}
+.v-hero { --dur: 14s; }
+.v-agent { --dur: 24s; }
+.v-cli { --dur: 20s; }
+.v-report { --dur: 26s; }
+.player .scrub b { animation-duration: var(--dur, 8s); }
+.vstage .beat { animation-duration: var(--dur, 14s); animation-timing-function: linear; animation-iteration-count: infinite; }
+.v-hero .term { animation-name: beat-early; }
+.v-hero .lanes-in { animation-name: beat-mid; }
+.v-hero .chain { animation-name: beat-chain; }
+.v-hero .endcard { animation-name: beat-end; }
+.v-hero .c1 { animation: cap-a var(--dur) linear infinite; }
+.v-hero .c2 { animation: cap-b var(--dur) linear infinite; }
+.v-hero .c3 { animation: cap-c var(--dur) linear infinite; }
+.v-hero .c4 { animation: cap-d var(--dur) linear infinite; }
+.v-agent .c1, .v-cli .c1, .v-report .c1 { animation: cap-a var(--dur) linear infinite; }
+.v-agent .c2, .v-cli .c2, .v-report .c2 { animation: cap-b var(--dur) linear infinite; }
+.v-agent .c3, .v-cli .c3, .v-report .c3 { animation: cap-c var(--dur) linear infinite; }
+.v-agent .c4, .v-cli .c4, .v-report .c4 { animation: cap-d var(--dur) linear infinite; }
+.v-agent .chat-a, .v-cli .t1, .v-report .term { animation-name: beat-early; }
+.v-agent .chat-b, .v-cli .t2, .v-report .bars { animation-name: beat-mid; }
+.v-agent .chat-c, .v-cli .t3, .v-report .finding { animation-name: beat-chain; }
+.v-agent .endcard, .v-cli .endcard, .v-report .endcard { animation-name: beat-end; }
+.lanes { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+.lanes div, .endcard, .finding, .chat {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.65rem;
+  background: var(--bg);
+}
+.lanes span, .lanes small, .endcard span, .finding span, .chat p { display: block; color: var(--muted); font-size: 0.78rem; }
+.lanes strong, .endcard strong, .finding strong { font-size: 0.88rem; }
+.who { margin: 0; color: var(--insidia-sunburst); font-size: 0.72rem; font-weight: 600; }
+.steps { margin: 0; padding-left: 1.1rem; font-size: 0.82rem; }
+.btn.tiny { font-size: 0.75rem; padding: 0.2rem 0.7rem; margin-top: 0.35rem; }
+.vstage pre {
+  margin: 0;
+  padding: 0.55rem 0.65rem;
+  background: #181839;
+  color: #f4f1ea;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+}
+.is-soon .stage { min-height: 8rem; }
+.hero-player { margin-top: 1.4rem; }
+.install-box {
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-md);
+  background: #181839;
+  color: #f4f1ea;
+  overflow-x: auto;
+}
+.install-box code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.82rem; }
+
+@keyframes cap-a { 0%, 12% { opacity: 1; } 16%, 100% { opacity: 0; height: 0; margin: 0; overflow: hidden; } }
+@keyframes cap-b { 0%, 14% { opacity: 0; height: 0; margin: 0; overflow: hidden; } 18%, 40% { opacity: 1; height: auto; } 44%, 100% { opacity: 0; height: 0; margin: 0; overflow: hidden; } }
+@keyframes cap-c { 0%, 42% { opacity: 0; height: 0; margin: 0; overflow: hidden; } 46%, 68% { opacity: 1; height: auto; } 72%, 100% { opacity: 0; height: 0; margin: 0; overflow: hidden; } }
+@keyframes cap-d { 0%, 70% { opacity: 0; height: 0; margin: 0; overflow: hidden; } 74%, 100% { opacity: 1; height: auto; } }
+@keyframes beat-early { 0%, 18% { opacity: 1; } 28%, 100% { opacity: 0; } }
+@keyframes beat-mid { 0%, 16% { opacity: 0; } 22%, 68% { opacity: 1; } 76%, 100% { opacity: 0; } }
+@keyframes beat-chain { 0%, 40% { opacity: 0; } 46%, 70% { opacity: 1; } 78%, 100% { opacity: 0; } }
+@keyframes beat-end { 0%, 72% { opacity: 0; } 80%, 100% { opacity: 1; } }
+
 .log-item { display: grid; grid-template-columns: 8rem 1fr; gap: 1rem; padding: 0.9rem 0; border-bottom: 1px solid var(--line); }
 .log-item time { color: var(--muted); font-size: 0.85rem; }
 
@@ -474,6 +547,8 @@ table.matrix th { color: var(--muted); font-weight: 600; }
   .packet { display: none; }
   .btn:active, button.btn:active, .icon-btn:active, .player-bar button:active { transform: none; }
   .stage *, .scrub b { animation: none; }
+  .vstage .beat, .vstage .cap { animation: none; opacity: 0; }
+  .vstage .endcard, .vstage .c4 { opacity: 1; }
   .swap-a { opacity: 0; }
   .swap-b, .run-flag, .finding-in, .step-in { opacity: 1; }
   .grow-1 { transform: scaleX(0.72); }

@@ -1,0 +1,60 @@
+name: Insidia scan
+description: Run an Insidia policy on this repository and upload SARIF. The CLI installs from the same git ref as this action.
+inputs:
+  policy:
+    description: Policy to run. L1, L2, or L3.
+    required: false
+    default: L1
+runs:
+  using: composite
+  steps:
+    - uses: astral-sh/setup-uv@v6
+    - name: Scan
+      id: scan
+      shell: bash
+      run: |
+        set +e
+        output=$(uv tool run --from "git+https://github.com/Rushi-Balapure/Insidia-Labs@${{ github.action_ref }}#subdirectory=core" insidia scan --json --policy "${{ inputs.policy }}" --yes)
+        code=$?
+        set -e
+        printf '%s\n' "$output" > "$RUNNER_TEMP/insidia.json"
+        echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+        if [ "$code" -gt 1 ]; then
+          exit "$code"
+        fi
+    - name: Collect SARIF
+      if: always()
+      id: sarif
+      shell: bash
+      run: |
+        python3 - <<'PY'
+        import json
+        import os
+        import shutil
+        from pathlib import Path
+
+        raw = Path(os.environ["RUNNER_TEMP"], "insidia.json").read_text()
+        document = json.loads(raw)
+        run_dir = document.get("run_dir")
+        if not isinstance(run_dir, str):
+            raise SystemExit(0)
+        source = Path(run_dir) / "results.sarif"
+        if not source.is_file():
+            raise SystemExit(0)
+        destination = Path(os.environ["RUNNER_TEMP"]) / "insidia.sarif"
+        shutil.copy(source, destination)
+        path = Path(os.environ["GITHUB_OUTPUT"])
+        with path.open("a") as handle:
+            handle.write(f"file={destination}\n")
+        PY
+    - name: Upload SARIF
+      if: always() && steps.sarif.outputs.file != ''
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ steps.sarif.outputs.file }}
+    - name: Return the scan result
+      if: always()
+      shell: bash
+      run: |
+        code="${{ steps.scan.outputs.exit_code }}"
+        exit "${code:-2}"

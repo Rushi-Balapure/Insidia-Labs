@@ -1,6 +1,6 @@
 # Agents working in this repository
 
-This file is for coding agents changing Insidia. The agent skill that *runs* a scan ships later, in `skills/insidia/`.
+This file is for coding agents changing Insidia. The skill that runs a scan for a user is `skills/insidia/SKILL.md`.
 
 ## Read first
 
