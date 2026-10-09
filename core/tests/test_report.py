@@ -49,6 +49,9 @@ def test_report_scores_frameworks_and_names_the_engine(tmp_path: Path) -> None:
     assert "<tr><td>OWASP Web Top 10</td><td>0</td><td>1</td><td>9</td></tr>" in html
     assert "<script" not in html
     assert "prefers-color-scheme: dark" in html
+    assert "#101028" in html
+    assert "The scan ran. Policy L1 did not pass. 1 finding." in html
+    assert "<svg" in html
     assert "owasp-llm:LLM01" in html
     assert "not tested" in html
     assert "owasp-llm:LLM06" in html

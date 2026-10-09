@@ -11,6 +11,7 @@ import sys
 import tarfile
 import urllib.request
 import zipfile
+from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
@@ -100,7 +101,12 @@ def program_for(name: str) -> str:
     return str((final / str(receipt["program"])).resolve())
 
 
-def install(names: tuple[str, ...] = (), *, docker: bool = False) -> str:
+def install(
+    names: tuple[str, ...] = (),
+    *,
+    docker: bool = False,
+    progress: Callable[[str], None] | None = None,
+) -> str:
     if docker:
         if shutil.which("docker") is None:
             raise CliError("docker is not installed")
@@ -112,7 +118,17 @@ def install(names: tuple[str, ...] = (), *, docker: bool = False) -> str:
     unknown = [name for name in names if name not in {spec.name for spec in SPECS}]
     if unknown:
         raise CliError(f"unknown engine {unknown[0]}")
-    return "; ".join(_install_one(name) for name in names)
+    lines: list[str] = []
+    specs = {spec.name: spec for spec in SPECS}
+    for name in names:
+        spec = specs[name]
+        if progress is not None:
+            progress(f"Installing {name} {spec.version}.")
+        line = _install_one(name)
+        lines.append(line)
+        if progress is not None:
+            progress(line)
+    return "; ".join(lines)
 
 
 def _install_one(name: str) -> str:

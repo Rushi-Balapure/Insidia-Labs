@@ -19,22 +19,67 @@ _HTML = """\
 <meta charset="utf-8">
 <title>Insidia scan {run_id}</title>
 <style>
-body {{ font: 16px/1.5 system-ui, sans-serif; margin: 2rem; color: #1d1d1f; background: #f5f5f7; }}
-table {{ border-collapse: collapse; width: 100%; background: #fff; }}
-th, td {{ text-align: left; border-bottom: 1px solid #d2d2d7; padding: 0.4rem; }}
+body {{
+  font: 16px/1.5 system-ui, sans-serif;
+  margin: 0;
+  color: #101028;
+  background: #F6F6FB;
+}}
+header {{
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  color: #fff;
+  background: #101028;
+}}
+header svg {{ width: 48px; height: 48px; }}
+header h1 {{ margin: 0; font-size: 1.5rem; font-weight: 600; }}
+.brand {{ margin: 0; color: #B2B2D1; font-size: 0.85rem; letter-spacing: 0.04em; }}
+main {{ padding: 1.5rem 2rem 3rem; }}
+.status {{
+  margin: 0 0 1.5rem;
+  padding: 1rem 1.25rem;
+  background: #fff;
+  border-left: 4px solid #ED7B39;
+  border-radius: 8px;
+}}
+.status.pass {{ border-left-color: #101028; }}
+.note {{ color: #454573; }}
+h2 {{ margin: 2rem 0 0.5rem; font-size: 1.1rem; }}
+table {{ border-collapse: collapse; width: 100%; background: #fff; border-radius: 8px; }}
+th, td {{
+  text-align: left;
+  border-bottom: 1px solid #2E2E56;
+  padding: 0.55rem 0.7rem;
+  vertical-align: top;
+}}
+th {{ color: #454573; font-weight: 600; }}
 code {{ font-family: ui-monospace, monospace; }}
 @media (prefers-color-scheme: dark) {{
-  body {{ color: #f5f5f7; background: #1d1d1f; }}
-  table {{ background: #2c2c2e; }}
-  th, td {{ border-bottom-color: #424245; }}
+  body {{ color: #F6F6FB; background: #101028; }}
+  .status, table {{ background: #181839; }}
+  .status {{ border-left-color: #ED7B39; }}
+  .status.pass {{ border-left-color: #F6C13F; }}
+  .note, th {{ color: #B2B2D1; }}
+  th, td {{ border-bottom-color: #2E2E56; }}
 }}
 </style>
 </head>
 <body>
-<h1>Insidia scan</h1>
-<p>This report is test evidence mapped to framework ids. It is not a certification.</p>
-<p>Policy {policy}. {result}. {count} finding(s).</p>
+<header>
+{mark}
+<div>
+<p class="brand">Insidia Labs</p>
+<h1>Scan report</h1>
+</div>
+</header>
+<main>
+<p class="status {status}">{headline}</p>
+<p class="note">This report is test evidence mapped to framework ids. It is not a certification.</p>
 <h2>Scores</h2>
+<p class="note">Failed means a check saw a problem. Passed means it did not.
+Not tested means this scan did not run that item.</p>
 <table>
 <thead><tr><th>Framework</th><th>Failed</th><th>Passed</th><th>Not tested</th></tr></thead>
 <tbody>
@@ -49,6 +94,8 @@ code {{ font-family: ui-monospace, monospace; }}
 </tbody>
 </table>
 <h2>Findings</h2>
+<p class="note">Each row is one issue. Fix this is the change to make.
+Re-run repeats the same policy.</p>
 <table>
 <thead>
 <tr>
@@ -60,6 +107,7 @@ code {{ font-family: ui-monospace, monospace; }}
 {rows}
 </tbody>
 </table>
+</main>
 </body>
 </html>
 """
@@ -96,17 +144,29 @@ def write_run(
     rows = "\n".join(_row(finding, policy) for finding in findings)
     if not rows:
         rows = "<tr><td colspan=\"7\">None</td></tr>"
+    headline = verdict_text(policy, passed, len(findings))
     html = _HTML.format(
         run_id=_escape(run_id),
-        policy=_escape(policy),
-        result="Passed" if passed else "Failed",
-        count=len(findings),
+        status="pass" if passed else "fail",
+        headline=_escape(headline),
         scores=_score_rows(scores),
         coverage=_coverage_rows(controls),
         rows=rows,
+        mark=_mark(),
     )
     (directory / "report.html").write_text(html)
     return directory
+
+
+def verdict_text(policy: str, passed: bool, findings: int) -> str:
+    if passed:
+        return f"The scan ran. Policy {policy} passed. No findings."
+    label = "finding" if findings == 1 else "findings"
+    return f"The scan ran. Policy {policy} did not pass. {findings} {label}."
+
+
+def _mark() -> str:
+    return (Path(__file__).resolve().parent / "brand" / "mark.svg").read_text().strip()
 
 
 def latest_run(root: Path) -> Path | None:

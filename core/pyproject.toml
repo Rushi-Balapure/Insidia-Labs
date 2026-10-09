@@ -24,6 +24,7 @@ packages = ["insidia"]
 "insidia/mappings/owasp-asi-2026.yaml" = "insidia/mappings/owasp-asi-2026.yaml"
 "insidia/mappings/owasp-web.yaml" = "insidia/mappings/owasp-web.yaml"
 "insidia/mappings/owasp-api.yaml" = "insidia/mappings/owasp-api.yaml"
+"insidia/brand/mark.svg" = "insidia/brand/mark.svg"
 
 [dependency-groups]
 dev = [

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -34,6 +35,7 @@ def execute(
     policy_name: str | None = None,
     coverage: str | None = None,
     assume_yes: bool = False,
+    progress: Callable[[str], None] | None = None,
 ) -> ScanOutcome:
     if needs_confirmation(project.scope) and not assume_yes:
         raise CliError("a non-local host is in scope; pass --yes to scan it")
@@ -47,21 +49,30 @@ def execute(
     hits: list[ProbeHit] = []
     controls: list[dict[str, str]] = []
     skips: list[str] = []
+    _say(
+        progress,
+        f"Scanning {len(project.targets)} target(s). Policy {policy.name}. Coverage {mode}.",
+    )
     for target in project.targets:
         _guard(target, project, root)
         if _grpc(target):
             skips.append(f"{target.name}: gRPC probes are not available in this CLI yet")
+            _say(progress, f"{target.name}: skipped. gRPC is not available in this CLI yet.")
             continue
         families = policy.families(target.kind)
         if not families:
             skips.append(f"{target.name}: no {policy.name} controls for {target.kind}")
+            _say(progress, f"{target.name}: no {policy.name} controls for {target.kind}.")
             continue
         for family in families:
             chosen = select(family, mode, model_available=model_available)
             if not chosen:
                 skips.append(f"{target.name}: {family} has no runnable probe")
                 controls.append(_recorded(policy, family, target.name, "skipped"))
+                _say(progress, f"{target.name} {family}: skipped. No runnable probe.")
                 continue
+            engines = ", ".join(capability.engine for capability in chosen)
+            _say(progress, f"{target.name} {family}: running {engines}.")
             failed = False
             for capability in chosen:
                 adapter, spec = find(capability.probe)
@@ -69,19 +80,27 @@ def execute(
                     found = run(adapter, spec, target, project, root, policy.control(family))
                 except EngineFailed as exc:
                     skips.append(f"{capability.engine}: {exc}")
+                    _say(progress, f"{capability.engine}: skipped. {exc}")
                     continue
                 hits.extend(found)
                 failed = failed or bool(found)
             result = "fail" if failed else "pass"
             controls.append(_recorded(policy, family, target.name, result))
+            _say(progress, f"{target.name} {family}: {result}.")
     if not any(item["result"] != "skipped" for item in controls):
         detail = "; ".join(skips) or "the policy did not run any controls for these targets"
         raise CliError(detail)
     findings = normalize(hits)
     passed = not any(item["result"] == "fail" for item in controls)
     run_id = new_run_id()
+    _say(progress, "Writing the report.")
     run_dir = write_run(root, run_id, policy.name, passed, findings, controls, skips)
     return ScanOutcome(run_id, run_dir, passed, findings, skips)
+
+
+def _say(progress: Callable[[str], None] | None, message: str) -> None:
+    if progress is not None:
+        progress(message)
 
 
 def _recorded(policy: Policy, family: str, target: str, result: str) -> dict[str, str]:

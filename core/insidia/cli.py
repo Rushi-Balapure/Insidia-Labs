@@ -14,7 +14,7 @@ from insidia.engines import install, list_engines
 from insidia.errors import CliError
 from insidia.mcp import serve
 from insidia.policy import POLICIES, get_policy
-from insidia.runstore import latest_run
+from insidia.runstore import latest_run, verdict_text
 from insidia.scan import execute
 
 
@@ -62,10 +62,12 @@ def main(argv: list[str] | None = None) -> int:
 
 def _run(args: argparse.Namespace) -> int:
     if args.command == "init":
+        _progress("Writing insidia.yaml in this directory.")
         path = init_config(Path.cwd())
-        _emit(args.json, {"wrote": path.name}, f"wrote {path.name}")
+        _emit(args.json, {"wrote": path.name}, f"Wrote {path.name}.")
         return 0
     if args.command == "doctor":
+        _progress("Checking Python, the config file, and installed engines.")
         checks, code = diagnose(Path(args.config))
         lines = [f"{check['name']}: {check['detail']}" for check in checks]
         _emit(args.json, {"checks": checks}, "\n".join(lines))
@@ -79,7 +81,7 @@ def _run(args: argparse.Namespace) -> int:
         _emit(args.json, {"engines": engines}, "\n".join(lines))
         return 0
     if args.command == "engines" and args.engine_command == "install":
-        message = install(tuple(args.names), docker=args.docker)
+        message = install(tuple(args.names), docker=args.docker, progress=_progress)
         _emit(args.json, {"message": message}, message)
         return 0
     if args.command == "policy" and args.policy_command == "list":
@@ -109,6 +111,22 @@ def _run(args: argparse.Namespace) -> int:
             policy_name=args.policy,
             coverage=args.coverage,
             assume_yes=args.yes,
+            progress=_progress,
+        )
+        report_path = outcome.run_dir / "report.html"
+        policy_name = args.policy if args.policy is not None else project.policy
+        opened = False
+        if not args.json:
+            try:
+                opened = bool(webbrowser.open(report_path.resolve().as_uri()))
+            except OSError:
+                opened = False
+        text = scan_message(
+            policy_name,
+            outcome.passed,
+            len(outcome.findings),
+            str(report_path),
+            opened,
         )
         document = {
             "run_id": outcome.run_id,
@@ -116,8 +134,15 @@ def _run(args: argparse.Namespace) -> int:
             "findings": [finding.as_json() for finding in outcome.findings],
             "skips": outcome.skips,
             "run_dir": str(outcome.run_dir),
+            "report": str(report_path),
+            "summary": scan_message(
+                policy_name,
+                outcome.passed,
+                len(outcome.findings),
+                str(report_path),
+                False,
+            ),
         }
-        text = f"{outcome.run_id}: {'passed' if outcome.passed else 'failed'}"
         _emit(args.json, document, text)
         return 0 if outcome.passed else 1
     if args.command == "report":
@@ -143,6 +168,17 @@ def _run_dir(run_id: str | None, config: str) -> Path:
     if latest is None:
         raise CliError("no runs yet")
     return latest
+
+
+def scan_message(policy: str, passed: bool, findings: int, report: str, opened: bool) -> str:
+    head = verdict_text(policy, passed, findings)
+    if opened:
+        return f"{head} Opened {report}."
+    return f"{head} Report: {report}."
+
+
+def _progress(message: str) -> None:
+    print(message, file=sys.stderr, flush=True)
 
 
 def _emit(as_json: bool, document: dict[str, object], text: str) -> None:

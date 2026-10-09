@@ -51,7 +51,7 @@ insidia scan --policy L1 --coverage standard --yes --json
 | `--policy` | `L1`, `L2`, `L3`. Default is the policy in the config. |
 | `--coverage` | `standard` or `thorough`. Default is the coverage in the config. |
 
-Exit 0 when the policy passes, 1 when it fails, and a non-zero `CliError` code when the scan cannot run (bad scope, no runnable controls).
+Exit 0 when the policy passes and 1 when it fails. The last line says the scan ran, whether the policy passed, and where the report is. A policy failure is not a crash. Without `--json`, the report opens in a browser when the scan finishes. Progress is printed while each control runs.
 
 ## report
 
