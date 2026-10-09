@@ -20,6 +20,10 @@ packages = ["insidia"]
 [tool.hatch.build.targets.wheel.force-include]
 "packaging/NOTICE" = "insidia/NOTICE"
 "packaging/THIRD_PARTY_NOTICES.md" = "insidia/THIRD_PARTY_NOTICES.md"
+"insidia/mappings/owasp-llm-2026.yaml" = "insidia/mappings/owasp-llm-2026.yaml"
+"insidia/mappings/owasp-asi-2026.yaml" = "insidia/mappings/owasp-asi-2026.yaml"
+"insidia/mappings/owasp-web.yaml" = "insidia/mappings/owasp-web.yaml"
+"insidia/mappings/owasp-api.yaml" = "insidia/mappings/owasp-api.yaml"
 
 [dependency-groups]
 dev = [

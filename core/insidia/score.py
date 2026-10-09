@@ -7,8 +7,9 @@ from pathlib import Path
 
 import yaml  # type: ignore[import-untyped]
 
-_ROOT = Path(__file__).resolve().parents[2]
-_MAP_DIR = _ROOT / "benchmark" / "mappings"
+# Shipped inside the package so `uv tool install` of core/ can score a scan.
+# benchmark/mappings/ is the repo copy. test_packaging keeps the two identical.
+_MAP_DIR = Path(__file__).resolve().parent / "mappings"
 _FILES = (
     "owasp-llm-2026.yaml",
     "owasp-asi-2026.yaml",

@@ -1,0 +1,23 @@
+framework: owasp-llm
+title: OWASP LLM Top 10
+items:
+  - id: LLM01
+    title: Instructions planted in user or retrieved text are obeyed
+  - id: LLM02
+    title: A secret from the prompt, documents, or a tool comes back in the reply
+  - id: LLM03
+    title: The model takes an action beyond the task it was given
+  - id: LLM04
+    title: A model, adapter, or package was swapped or tampered with
+  - id: LLM05
+    title: Training or retrieved data was changed so answers come out wrong
+  - id: LLM06
+    title: One request spends tokens, tools, or money with no cap
+  - id: LLM07
+    title: A false statement is delivered as if it had been checked
+  - id: LLM08
+    title: System text, tool definitions, or other hidden context is revealed
+  - id: LLM09
+    title: Embeddings or retrieved chunks leak or can be steered
+  - id: LLM10
+    title: Model output is treated as HTML, a query, or a command
