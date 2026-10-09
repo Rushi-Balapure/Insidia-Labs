@@ -61,3 +61,11 @@ insidia report 20261008T120000Z-abc123
 ```
 
 Opens or prints the latest run, or the run id you pass. See [Report](../concepts/report.md).
+
+## mcp
+
+```bash
+insidia mcp
+```
+
+Speaks MCP over stdio. Tools: `init`, `doctor`, `scan`, `findings`, `report`. `scan` requires `confirmed: true` and reads `insidia.yaml`. It does not accept a URL. See [Use a coding agent](../start/agent.md).

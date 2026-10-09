@@ -17,10 +17,10 @@ export default defineConfig({
           label: "Start",
           items: [
             { label: "Overview", link: "/" },
+            { label: "Use a coding agent", slug: "start/agent" },
             { label: "Install", slug: "start/install" },
             { label: "Quickstart", slug: "start/quickstart" },
             { label: "Scope", slug: "start/scope" },
-            { label: "Use a coding agent", slug: "start/agent" },
           ],
         },
         {

@@ -12,6 +12,7 @@ from insidia.config import init_config, load_project
 from insidia.doctor import diagnose
 from insidia.engines import install, list_engines
 from insidia.errors import CliError
+from insidia.mcp import serve
 from insidia.policy import POLICIES, get_policy
 from insidia.runstore import latest_run
 from insidia.scan import execute
@@ -49,6 +50,7 @@ def main(argv: list[str] | None = None) -> int:
     report = subcommands.add_parser("report", parents=[shared])
     report.add_argument("run_id", nargs="?")
     report.add_argument("--open", action="store_true")
+    subcommands.add_parser("mcp", parents=[shared])
 
     args = parser.parse_args(argv)
     try:
@@ -125,6 +127,8 @@ def _run(args: argparse.Namespace) -> int:
             webbrowser.open(report_path.resolve().as_uri())
         _emit(args.json, {"report": str(report_path)}, str(report_path))
         return 0
+    if args.command == "mcp":
+        return serve(sys.stdin.buffer, sys.stdout.buffer)
     raise CliError(f"unknown command {args.command}")
 
 

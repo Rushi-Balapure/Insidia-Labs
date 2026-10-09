@@ -7,7 +7,13 @@ Insidia tests an AI app and the application around it in one local run. The CLI 
 
 ## Using a coding agent?
 
-Paste this into Claude Code, Cursor, Codex, or any agent that can run a shell:
+Install the skill:
+
+```bash
+npx skills add Rushi-Balapure/Insidia-Labs
+```
+
+Then paste this into Claude Code, Cursor, Codex, or any agent that can run a shell:
 
 ```text
 Test this app with Insidia. Only scan localhost, and open the report when you're done.
@@ -15,7 +21,7 @@ Test this app with Insidia. Only scan localhost, and open the report when you're
 
 You confirm the hosts. The agent installs the CLI, writes `insidia.yaml`, runs the scan, reads the findings, and opens the report. Do not let it add a host you did not name.
 
-The installable skill and the MCP server ship with the public launch. Until then, the CLI is the contract. Start with [Install](start/install.md) if you would rather run it yourself.
+The skill lives at `skills/insidia/SKILL.md`. An agent that speaks MCP can run `insidia mcp`. Start with [Use a coding agent](start/agent.md), or [Install](start/install.md) if you would rather run it yourself.
 
 ## Run it yourself
 

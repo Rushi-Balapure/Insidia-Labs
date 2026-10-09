@@ -1,0 +1,24 @@
+# Insidia Labs
+
+> Local CLI that scans an AI app and the application around it, then writes one HTML report. Insidia Cloud, the hosted attacker, is a later product.
+
+The CLI is the contract. An agent installs it from GitHub, keeps the scan inside the hosts named in `insidia.yaml`, and opens the report.
+
+## Start
+
+- [Use a coding agent](https://docs.insidialabs.com/start/agent/): skill install, the prompt to paste, and the rules for scope
+- [Install](https://docs.insidialabs.com/start/install/): `uv tool install` or `pipx` from the git URL
+- [Quickstart](https://docs.insidialabs.com/start/quickstart/): init, doctor, scan, report
+- [Scope](https://docs.insidialabs.com/start/scope/): localhost is the default. Other hosts need `authorized: true`
+
+## Reference
+
+- [CLI](https://docs.insidialabs.com/reference/cli/): commands, exit codes, and `insidia mcp`
+- [GitHub Action](https://github.com/Rushi-Balapure/Insidia-Labs/blob/main/actions/scan/action.yml): `uses: Rushi-Balapure/Insidia-Labs/actions/scan@v0`
+
+## Concepts
+
+- [What it tests](https://docs.insidialabs.com/concepts/what-it-tests/)
+- [Engines](https://docs.insidialabs.com/concepts/engines/)
+- [Report](https://docs.insidialabs.com/concepts/report/)
+- [Benchmark](https://docs.insidialabs.com/concepts/benchmark/)

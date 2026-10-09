@@ -29,7 +29,7 @@ Insidia tests an AI app and the application around it in one local run. The mode
 
 **Insidia is the free command-line tool for that job.** It runs open-source engines on your machine, fills the gaps they leave, scores the run against an open policy, and writes one HTML report. Nothing in a scan requires an account.
 
-The CLI is pre-release. Commands and report fields can still change before the tagged public launch. [Insidia Cloud](#insidia-cloud), the hosted attacker, is not open yet.
+Install from GitHub today. A version tag publishes a signed wheel and a container image. [Insidia Cloud](#insidia-cloud), the hosted attacker, is not open yet.
 
 ## Install
 
@@ -45,7 +45,7 @@ pipx install "git+https://github.com/Rushi-Balapure/Insidia-Labs#subdirectory=co
 
 Pin a commit or tag by adding it before the fragment: `...Insidia-Labs@<rev>#subdirectory=core`.
 
-`insidia engines install` fetches the engine toolchains the scan needs. `insidia doctor` tells you what is missing. A signed wheel and a container image are part of the public launch, not this pre-release.
+`insidia engines install` fetches the engine toolchains the scan needs. `insidia doctor` tells you what is missing. A version tag attaches a signed wheel and publishes `ghcr.io/rushi-balapure/insidia` with every pinned engine. See [the launch note](https://insidialabs.com/launch).
 
 ## Quickstart
 
@@ -70,7 +70,7 @@ Paste this into Claude Code, Cursor, Codex, or any agent that can run a shell:
 Test this app with Insidia. Only scan localhost, and open the report when you're done.
 ```
 
-You confirm the hosts. The agent should install the CLI, keep the scope you named, read `.insidia/runs/<run-id>/findings.json`, and open `report.html`. An installable skill and an MCP server ship with the public launch. Until then, the CLI is the contract: `--json`, `--yes`, and stable exit codes.
+You confirm the hosts. The agent should install the CLI, keep the scope you named, read `.insidia/runs/<run-id>/findings.json`, and open `report.html`. The skill is `skills/insidia/SKILL.md` (`npx skills add Rushi-Balapure/Insidia-Labs`). `insidia mcp` is the local MCP server. The CLI remains the contract: `--json`, `--yes`, and stable exit codes.
 
 ## What it tests
 

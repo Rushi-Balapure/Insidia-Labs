@@ -1,0 +1,9 @@
+*
+!core/
+!core/**
+!NOTICE
+!THIRD_PARTY_NOTICES.md
+core/.venv
+core/**/__pycache__
+core/**/*.pyc
+core/dist

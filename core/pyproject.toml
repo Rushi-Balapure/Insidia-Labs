@@ -17,6 +17,10 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["insidia"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"packaging/NOTICE" = "insidia/NOTICE"
+"packaging/THIRD_PARTY_NOTICES.md" = "insidia/THIRD_PARTY_NOTICES.md"
+
 [dependency-groups]
 dev = [
   "mypy>=1.17",

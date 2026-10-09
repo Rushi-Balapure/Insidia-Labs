@@ -91,6 +91,8 @@ jobs:
       - run: uv run mypy insidia
         if: runner.os == 'Linux'
       - run: uv run pytest
+      - run: uv build --wheel
+        if: runner.os == 'Linux'
 
   go:
     runs-on: ubuntu-latest
