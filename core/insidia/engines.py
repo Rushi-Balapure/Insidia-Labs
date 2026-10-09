@@ -98,7 +98,9 @@ def program_for(name: str) -> str:
     receipt = _read_receipt(final)
     if receipt is None:
         return str(final / "missing")
-    return str((final / str(receipt["program"])).resolve())
+    # abspath, not resolve: a venv python is a symlink, and following it
+    # drops the venv's site-packages.
+    return os.path.abspath(final / str(receipt["program"]))
 
 
 def install(
@@ -218,7 +220,11 @@ def _stage(spec: EngineSpec, stage: Path) -> str:
             strategy="unsafe-best-match",
         )
         return _require(stage, _venv_script("garak"))
-    if spec.name in {"pyrit", "deepteam", "bandit"}:
+    if spec.name == "deepteam":
+        # 1.0.9 imports sentry_sdk without declaring it. The scan turns its telemetry off.
+        _venv(stage, [spec.package, "sentry-sdk==2.71.0"])
+        return _require(stage, _venv_script("python"))
+    if spec.name in {"pyrit", "bandit"}:
         _venv(stage, [spec.package])
         if spec.name == "bandit":
             return _require(stage, _venv_script("bandit"))
@@ -229,6 +235,11 @@ def _stage(spec: EngineSpec, stage: Path) -> str:
     if spec.name == "skillspector":
         _venv(stage, [spec.package])
         return _require(stage, _venv_script("skillspector"))
+    if spec.name == "nuguard":
+        # 0.9.15 imports cryptography without declaring it.
+        _venv(stage, [spec.package, "cryptography==50.0.2"])
+        _require(stage, _venv_script("nuguard"))
+        return _require(stage, _venv_script("python"))
     if spec.name == "promptfoo":
         _npm(stage, spec.package)
         return _require(stage, _npm_script("promptfoo"))
@@ -305,10 +316,22 @@ def _npm(stage: Path, package: str) -> None:
 
 
 def _checked(command: list[str], env: dict[str, str]) -> None:
+    # The tool's own chatter would scroll past the progress line. A failure
+    # keeps the last lines so the reason is not lost.
     try:
-        subprocess.run(command, check=True, env=env, shell=False)
+        subprocess.run(
+            command,
+            check=True,
+            env=env,
+            shell=False,
+            capture_output=True,
+            text=True,
+            errors="replace",
+        )
     except subprocess.CalledProcessError as exc:
-        raise CliError(f"{Path(command[0]).name} exited {exc.returncode}") from exc
+        tail = [line for line in (exc.stderr or exc.stdout or "").splitlines() if line.strip()]
+        detail = f": {' | '.join(line.strip() for line in tail[-3:])}" if tail else ""
+        raise CliError(f"{Path(command[0]).name} exited {exc.returncode}{detail}") from exc
 
 
 def _fetch_binary(spec: EngineSpec, stage: Path, *, raw: bool) -> str:

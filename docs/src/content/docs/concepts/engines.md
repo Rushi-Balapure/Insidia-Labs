@@ -13,6 +13,7 @@ Insidia runs these projects and names them on each finding. Each keeps its own l
 | [DeepTeam](https://github.com/confident-ai/deepteam) | Apache-2.0 | AI |
 | [mcp-scanner](https://github.com/cisco-ai-defense/mcp-scanner) | Apache-2.0 | MCP and skills |
 | [SkillSpector](https://github.com/NVIDIA/SkillSpector) | Apache-2.0 | MCP and skills |
+| [NuGuard](https://github.com/NuGuardAI/nuguard) | Apache-2.0 | Agent code and AI-SBOM |
 | [ZAP](https://github.com/zaproxy/zaproxy) | Apache-2.0 | Web and API |
 | [Nuclei](https://github.com/projectdiscovery/nuclei) | MIT | Web and API |
 | [Dalfox](https://github.com/hahwul/dalfox) | MIT | Web and API |

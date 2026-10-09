@@ -279,6 +279,13 @@ _CONTROLS = (
         taxonomy=("owasp-api:API2", "owasp-web:A07"),
     ),
     _control(
+        "ai.agent_posture",
+        ("repo",),
+        "Give each agent its own credentials, a tool allowlist, and a human approval step.",
+        taxonomy=("owasp-llm:LLM06", "owasp-asi:ASI02"),
+        track=_AI,
+    ),
+    _control(
         "code.sast_sinks",
         ("repo",),
         "Do not pass user code to eval.",

@@ -93,6 +93,17 @@ SPECS: tuple[EngineSpec, ...] = (
         "skillspector @ git+https://github.com/NVIDIA/SkillSpector.git@v2.12.0",
     ),
     EngineSpec(
+        "nuguard",
+        "0.9.15",
+        "Apache-2.0",
+        "repo",
+        "ai.agent_posture",
+        40,
+        ("repo",),
+        "nuguard-analyze",
+        "nuguard==0.9.15",
+    ),
+    EngineSpec(
         "zap",
         "2.17.0",
         "Apache-2.0",

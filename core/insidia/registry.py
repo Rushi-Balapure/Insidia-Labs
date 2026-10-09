@@ -15,6 +15,7 @@ KNOWN_ENGINES: tuple[tuple[str, str], ...] = (
     ("deepteam", "Apache-2.0"),
     ("mcp-scanner", "Apache-2.0"),
     ("skillspector", "Apache-2.0"),
+    ("nuguard", "Apache-2.0"),
     ("zap", "Apache-2.0"),
     ("nuclei", "MIT"),
     ("dalfox", "MIT"),

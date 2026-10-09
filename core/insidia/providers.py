@@ -150,7 +150,7 @@ def _post(
         method="POST",
         body=json.dumps(body).encode(),
         headers=headers,
-        timeout=30,
+        timeout=180,
     )
     try:
         document = json.loads(raw)

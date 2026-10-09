@@ -73,7 +73,7 @@ def _http(target: Target, payload: str, scope: tuple[ScopeHost, ...]) -> str:
         body=body,
         headers=headers,
         limiter=limiter,
-        timeout=10,
+        timeout=600,
     )
     return _select(observed, target.response_selector)
 
