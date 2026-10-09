@@ -1,0 +1,23 @@
+framework: owasp-asi
+title: OWASP Agentic Top 10
+items:
+  - id: ASI01
+    title: An attacker replaces the goal the agent was given
+  - id: ASI02
+    title: A tool runs outside the allowlist or with a harmful argument
+  - id: ASI03
+    title: A tool acts with another user's identity or permissions
+  - id: ASI04
+    title: A tool, skill, or model file no longer matches its pin
+  - id: ASI05
+    title: The agent runs code or leaves the sandbox it was given
+  - id: ASI06
+    title: Memory written in one session changes a later session
+  - id: ASI07
+    title: A message that claims to be from another agent is accepted unchecked
+  - id: ASI08
+    title: One bad tool result spreads into other agents
+  - id: ASI09
+    title: An action runs before a person approves it
+  - id: ASI10
+    title: The agent hides what it is doing or keeps going after it should stop

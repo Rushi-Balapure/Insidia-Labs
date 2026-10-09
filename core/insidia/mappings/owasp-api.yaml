@@ -1,0 +1,23 @@
+framework: owasp-api
+title: OWASP API Top 10
+items:
+  - id: API1
+    title: An object id returns someone else's record
+  - id: API2
+    title: API authentication can be skipped or forged
+  - id: API3
+    title: The client reads or writes a field it should not
+  - id: API4
+    title: One call can consume unlimited resources
+  - id: API5
+    title: A function meant for an admin runs for an ordinary caller
+  - id: API6
+    title: A sensitive business step has no extra check
+  - id: API7
+    title: The API fetches a URL the caller chose
+  - id: API8
+    title: The API is left on an insecure default
+  - id: API9
+    title: An old or unknown API stays reachable
+  - id: API10
+    title: Data from another API is trusted without a check

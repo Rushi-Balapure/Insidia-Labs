@@ -7,4 +7,4 @@ These four maps are the first slice:
 - `owasp-web.yaml` (`owasp-web`, A01–A10)
 - `owasp-api.yaml` (`owasp-api`, API1–API10)
 
-Each item is an id and a one-line title written for this repo. ATLAS, ATT&CK, CWE, CVSS, NIST, the EU AI Act, and the other frameworks are later.
+Each item is an id and a one-line title written for this repo. The CLI ships the same four files in `core/insidia/mappings/` so a git install of `core/` can score a scan. ATLAS, ATT&CK, CWE, CVSS, NIST, the EU AI Act, and the other frameworks are later.
