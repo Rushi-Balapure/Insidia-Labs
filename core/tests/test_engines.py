@@ -35,6 +35,7 @@ PHASE_1B = (
     "deepteam",
     "mcp-scanner",
     "skillspector",
+    "nuguard",
     "zap",
     "nuclei",
     "dalfox",
@@ -53,6 +54,7 @@ PINS = {
     "deepteam": "1.0.9",
     "mcp-scanner": "4.8.5",
     "skillspector": "2.12.0",
+    "nuguard": "0.9.15",
     "zap": "2.17.0",
     "nuclei": "3.11.1",
     "dalfox": "3.2.3",
@@ -66,7 +68,16 @@ PINS = {
 }
 RELAY = ("garak", "promptfoo", "pyrit", "deepteam")
 WEB = ("zap", "nuclei", "dalfox", "katana", "httpx")
-REPO = ("mcp-scanner", "skillspector", "trivy", "osv-scanner", "gitleaks", "bandit", "gosec")
+REPO = (
+    "mcp-scanner",
+    "skillspector",
+    "nuguard",
+    "trivy",
+    "osv-scanner",
+    "gitleaks",
+    "bandit",
+    "gosec",
+)
 LOCAL = (ScopeHost("127.0.0.1", False),)
 QUERY = (("module", "web"), ("fn", "ssti"), ("q", "{{payload}}"))
 
@@ -209,6 +220,12 @@ def _repo_report(engine: str) -> object:
         "skillspector": {
             "issues": [{"id": "SS-001", "category": "exec", "severity": "HIGH"}]
         },
+        "nuguard": {
+            "findings": [
+                {"finding_id": "nga-NGA-003-cf6bf33a", "severity": "high", "title": "Secrets"},
+                {"finding_id": "nga-NGA-009-aaaa1111", "severity": "low", "title": "Minor"},
+            ]
+        },
         "trivy": {
             "Results": [
                 {
@@ -271,7 +288,9 @@ def test_every_phase_1b_engine_has_an_adapter() -> None:
 
 
 def test_relay_configs_send_secret_to_the_loopback_only(tmp_path: Path) -> None:
-    endpoint = RelayEndpoint("http://127.0.0.1:9/send", "relay-token")
+    endpoint = RelayEndpoint(
+        "http://127.0.0.1:9/send", "relay-token", "http://127.0.0.1:1234/v1", "local-model"
+    )
     for name in RELAY:
         workspace = tmp_path / name
         workspace.mkdir()
@@ -325,6 +344,7 @@ def test_pyrit_is_single_turn(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setenv("INSIDIA_RELAY_URL", "http://127.0.0.1:9/send")
     monkeypatch.setenv("INSIDIA_RELAY_TOKEN", "relay-token")
     sent: list[tuple[str, str]] = []
+    timeouts: list[float] = []
     posts = _record_urlopen(monkeypatch)
 
     class HTTPTarget:
@@ -334,8 +354,10 @@ def test_pyrit_is_single_turn(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
             http_request: str,
             callback_function: object = None,
             use_tls: bool = True,
+            timeout: float = 5,
         ) -> None:
             self.http_request = http_request
+            timeouts.append(timeout)
 
     class PromptSendingAttack:
         def __init__(self, *, objective_target: HTTPTarget) -> None:
@@ -365,6 +387,7 @@ def test_pyrit_is_single_turn(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     assert [item[0] for item in sent] == ["secret"]
     assert "http://127.0.0.1:9/send" in sent[0][1]
     assert "{PROMPT}" in sent[0][1]
+    assert timeouts == [180]
     assert posts == []
     for banned in ("Crescendo", "TAP", "PAIR"):
         assert banned not in script.read_text()
@@ -375,17 +398,31 @@ def test_deepteam_callback_posts_the_static_prompt(
 ) -> None:
     adapter = _engine("deepteam")
     assert isinstance(adapter, RelayAdapter)
-    adapter.prepare(
+    invocation = adapter.prepare(
         adapter.probes[0],
-        RelayEndpoint("http://127.0.0.1:9/send", "relay-token"),
+        RelayEndpoint(
+            "http://127.0.0.1:9/send", "relay-token", "http://127.0.0.1:1234/v1", "local-model"
+        ),
         tmp_path,
     )
+    assert invocation.env["INSIDIA_MODEL_URL"] == "http://127.0.0.1:1234/v1"
+    assert invocation.env["INSIDIA_MODEL_NAME"] == "local-model"
+    assert "INSIDIA_MODEL_KEY" not in invocation.env
+    assert invocation.env["DEEPTEAM_TELEMETRY_OPT_OUT"] == "YES"
     script = tmp_path / "callback.py"
+    monkeypatch.setenv("INSIDIA_MODEL_NAME", "local-model")
     posts = _record_urlopen(monkeypatch)
     entered: list[object] = []
+    models: list[object] = []
 
     def red_team(**kwargs: object) -> None:
         entered.append(kwargs.get("model_callback"))
+        models.extend([kwargs.get("simulator_model"), kwargs.get("evaluation_model")])
+
+    class DeepEvalBaseLLM:
+        def __init__(self, model: str | None = None) -> None:
+            self.name = model
+            self.model = self.load_model()
 
     class Bias:
         def __init__(self, types: object = None) -> None:
@@ -402,9 +439,14 @@ def test_deepteam_callback_posts_the_static_prompt(
     single.Base64 = Base64
     vulnerabilities = _package("deepteam.vulnerabilities")
     vulnerabilities.Bias = Bias
+    deepeval = _package("deepeval")
+    deepeval_models = _package("deepeval.models")
+    deepeval_models.DeepEvalBaseLLM = DeepEvalBaseLLM
     _exec_main(
         script,
         {
+            "deepeval": deepeval,
+            "deepeval.models": deepeval_models,
             "deepteam": deepteam,
             "deepteam.attacks": attacks,
             "deepteam.attacks.single_turn": single,
@@ -413,9 +455,22 @@ def test_deepteam_callback_posts_the_static_prompt(
     )
     assert len(entered) == 1
     assert getattr(entered[0], "__name__", "") == "model_callback"
+    assert len(models) == 2
+    assert models[0] is models[1]
+    assert getattr(models[0], "name", "") == "local-model"
     assert posts == []
     for banned in ("Crescendo", "TAP", "PAIR"):
         assert banned not in script.read_text()
+
+
+def test_deepteam_is_skipped_without_an_openai_compatible_attacker(tmp_path: Path) -> None:
+    adapter = _engine("deepteam")
+    assert isinstance(adapter, RelayAdapter)
+    assert adapter.probes[0].requires_model is True
+    with pytest.raises(EngineFailed, match="attacker"):
+        adapter.prepare(
+            adapter.probes[0], RelayEndpoint("http://127.0.0.1:9/send", "relay-token"), tmp_path
+        )
 
 
 def test_nuclei_template_keeps_the_expression_encoded(tmp_path: Path) -> None:
@@ -480,6 +535,7 @@ def test_repo_parser_reads_each_engine_shape(tmp_path: Path) -> None:
     expected = {
         "mcp-scanner": "PROMPT_INJECTION",
         "skillspector": "SS-001",
+        "nuguard": "NGA-003",
         "trivy": "CVE-2024-0001",
         "osv-scanner": "GHSA-aaaa-bbbb-cccc",
         "gitleaks": "aws-access-key",
@@ -779,3 +835,13 @@ targets:
       concurrency: 1
 """
     )
+
+
+def test_nuguard_runs_offline_and_without_a_model(tmp_path: Path) -> None:
+    adapter = _engine("nuguard")
+    invocation = adapter.prepare(adapter.probes[0], RepoPath(tmp_path), tmp_path)  # type: ignore[attr-defined]
+    script = (tmp_path / "nuguard_run.py").read_text()
+    for flag in ("--no-llm", "--no-osv", "--supply-chain-verify", "off"):
+        assert flag in script
+    assert invocation.env["LITELLM_LOCAL_MODEL_COST_MAP"] == "True"
+    assert "OPENAI_API_KEY" not in invocation.env

@@ -11,6 +11,7 @@ import sys
 import tarfile
 import urllib.request
 import zipfile
+from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
@@ -97,10 +98,17 @@ def program_for(name: str) -> str:
     receipt = _read_receipt(final)
     if receipt is None:
         return str(final / "missing")
-    return str((final / str(receipt["program"])).resolve())
+    # abspath, not resolve: a venv python is a symlink, and following it
+    # drops the venv's site-packages.
+    return os.path.abspath(final / str(receipt["program"]))
 
 
-def install(names: tuple[str, ...] = (), *, docker: bool = False) -> str:
+def install(
+    names: tuple[str, ...] = (),
+    *,
+    docker: bool = False,
+    progress: Callable[[str], None] | None = None,
+) -> str:
     if docker:
         if shutil.which("docker") is None:
             raise CliError("docker is not installed")
@@ -112,7 +120,17 @@ def install(names: tuple[str, ...] = (), *, docker: bool = False) -> str:
     unknown = [name for name in names if name not in {spec.name for spec in SPECS}]
     if unknown:
         raise CliError(f"unknown engine {unknown[0]}")
-    return "; ".join(_install_one(name) for name in names)
+    lines: list[str] = []
+    specs = {spec.name: spec for spec in SPECS}
+    for name in names:
+        spec = specs[name]
+        if progress is not None:
+            progress(f"Installing {name} {spec.version}.")
+        line = _install_one(name)
+        lines.append(line)
+        if progress is not None:
+            progress(line)
+    return "; ".join(lines)
 
 
 def _install_one(name: str) -> str:
@@ -202,7 +220,11 @@ def _stage(spec: EngineSpec, stage: Path) -> str:
             strategy="unsafe-best-match",
         )
         return _require(stage, _venv_script("garak"))
-    if spec.name in {"pyrit", "deepteam", "bandit"}:
+    if spec.name == "deepteam":
+        # 1.0.9 imports sentry_sdk without declaring it. The scan turns its telemetry off.
+        _venv(stage, [spec.package, "sentry-sdk==2.71.0"])
+        return _require(stage, _venv_script("python"))
+    if spec.name in {"pyrit", "bandit"}:
         _venv(stage, [spec.package])
         if spec.name == "bandit":
             return _require(stage, _venv_script("bandit"))
@@ -213,6 +235,11 @@ def _stage(spec: EngineSpec, stage: Path) -> str:
     if spec.name == "skillspector":
         _venv(stage, [spec.package])
         return _require(stage, _venv_script("skillspector"))
+    if spec.name == "nuguard":
+        # 0.9.15 imports cryptography without declaring it.
+        _venv(stage, [spec.package, "cryptography==50.0.2"])
+        _require(stage, _venv_script("nuguard"))
+        return _require(stage, _venv_script("python"))
     if spec.name == "promptfoo":
         _npm(stage, spec.package)
         return _require(stage, _npm_script("promptfoo"))
@@ -289,10 +316,22 @@ def _npm(stage: Path, package: str) -> None:
 
 
 def _checked(command: list[str], env: dict[str, str]) -> None:
+    # The tool's own chatter would scroll past the progress line. A failure
+    # keeps the last lines so the reason is not lost.
     try:
-        subprocess.run(command, check=True, env=env, shell=False)
+        subprocess.run(
+            command,
+            check=True,
+            env=env,
+            shell=False,
+            capture_output=True,
+            text=True,
+            errors="replace",
+        )
     except subprocess.CalledProcessError as exc:
-        raise CliError(f"{Path(command[0]).name} exited {exc.returncode}") from exc
+        tail = [line for line in (exc.stderr or exc.stdout or "").splitlines() if line.strip()]
+        detail = f": {' | '.join(line.strip() for line in tail[-3:])}" if tail else ""
+        raise CliError(f"{Path(command[0]).name} exited {exc.returncode}{detail}") from exc
 
 
 def _fetch_binary(spec: EngineSpec, stage: Path, *, raw: bool) -> str:

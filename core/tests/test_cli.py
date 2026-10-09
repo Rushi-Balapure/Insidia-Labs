@@ -1,7 +1,10 @@
 from pathlib import Path
 
-from insidia.cli import main
+from insidia.cli import main, scan_message
 from insidia.config import load_project
+from insidia.engines import install
+from insidia.findings import Finding
+from insidia.scan import ScanOutcome
 
 
 def test_init_doctor_and_policy(tmp_path: Path, monkeypatch: object) -> None:
@@ -16,3 +19,59 @@ def test_init_doctor_and_policy(tmp_path: Path, monkeypatch: object) -> None:
     assert main(["policy", "validate"]) == 0
     assert main(["engines", "list"]) == 0
     assert main(["engines", "install"]) == 0
+
+
+def test_scan_says_the_tool_ran_and_opens_the_report(
+    tmp_path: Path,
+    monkeypatch: object,
+    capsys: object,
+) -> None:
+    monkeypatch.chdir(tmp_path)  # type: ignore[attr-defined]
+    assert main(["init"]) == 0
+    finding = Finding(
+        track="classic",
+        engine="insidia",
+        probe="insidia.web.ssti",
+        severity="high",
+        confidence="high",
+        attack="web.ssti",
+        response="49",
+        trace_ref="shop",
+        taxonomy=("owasp-web:A03",),
+        remediation="Do not evaluate user input as a template.",
+        evidence_hash="abc",
+        cross_validated=False,
+        target="shop",
+    )
+    outcome = ScanOutcome("run-1", tmp_path, False, [finding], [])
+
+    def fake_execute(*_args: object, **_kwargs: object) -> ScanOutcome:
+        return outcome
+
+    opened: list[str] = []
+
+    def fake_open(url: str) -> bool:
+        opened.append(url)
+        return True
+
+    monkeypatch.setattr("insidia.cli.execute", fake_execute)  # type: ignore[attr-defined]
+    monkeypatch.setattr("insidia.cli.webbrowser.open", fake_open)  # type: ignore[attr-defined]
+    assert main(["scan", "--policy", "L1"]) == 1
+    assert opened
+    out = capsys.readouterr().out  # type: ignore[attr-defined]
+    assert "The scan ran. Policy L1 did not pass. 1 finding. Opened" in out
+    closed = scan_message("L1", True, 0, "report.html", False)
+    assert closed == "The scan ran. Policy L1 passed. No findings. Report: report.html."
+
+
+def test_engine_install_names_each_engine(monkeypatch: object) -> None:
+    monkeypatch.setattr(  # type: ignore[attr-defined]
+        "insidia.engines._install_one",
+        lambda name: f"{name} is already installed",
+    )
+    notes: list[str] = []
+    message = install(("bandit",), progress=notes.append)
+    assert notes[0].startswith("Installing bandit ")
+    assert notes[1] == "bandit is already installed"
+    assert "bandit is already installed" in message
+

@@ -26,7 +26,7 @@ from insidia.adapters import (
     ReportAdapter,
     ScopedUrl,
 )
-from insidia.config import Project, Target
+from insidia.config import Project, Target, resolve_secret
 from insidia.errors import CliError, ConfigError, EngineFailed, ScopeError
 from insidia.policy import Control
 from insidia.process import launch_installed
@@ -126,7 +126,10 @@ def _judge_repo(
     target: Target,
     root: Path,
 ) -> list[EngineHit]:
-    text = (repo_path(target, root) / _REPO_SOURCE[spec.family]).read_text(encoding="utf-8")
+    source = repo_path(target, root) / _REPO_SOURCE[spec.family]
+    if not source.is_file():
+        raise EngineFailed(f"{source.name} is not in this repository")
+    text = source.read_text(encoding="utf-8")
     oracle = ORACLES[spec.family]
     hits: list[EngineHit] = []
     for payload in adapter.corpus[spec]:
@@ -203,7 +206,11 @@ def _relay(
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(payload)))
             self.end_headers()
-            self.wfile.write(payload)
+            try:
+                self.wfile.write(payload)
+            except (BrokenPipeError, ConnectionResetError):
+                # The engine gave up before the target answered. Nothing to send to.
+                return
 
         def log_message(self, fmt: str, *args: object) -> None:
             return
@@ -213,7 +220,7 @@ def _relay(
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        endpoint = RelayEndpoint(f"http://127.0.0.1:{port}/send", token)
+        endpoint = _with_model(RelayEndpoint(f"http://127.0.0.1:{port}/send", token), project)
         with tempfile.TemporaryDirectory(prefix=f"insidia-{adapter.engine}-") as name:
             workspace = Path(name).resolve()
             invocation = adapter.prepare(spec, endpoint, workspace)
@@ -237,6 +244,24 @@ def _relay(
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+def _with_model(endpoint: RelayEndpoint, project: Project) -> RelayEndpoint:
+    """Hand the user's own attacker model to engines that must call one."""
+    role = project.attacker
+    if role is None or role.provider != "openai-compatible":
+        return endpoint
+    if role.base_url is None or role.model is None:
+        return endpoint
+    check_url(role.base_url, project.scope)
+    key = resolve_secret(role.secret_ref) if role.secret_ref else None
+    return RelayEndpoint(
+        endpoint.url,
+        endpoint.token,
+        role.base_url.rstrip("/"),
+        role.model,
+        key,
+    )
 
 
 def _scoped_url(target: Target, scope: tuple[ScopeHost, ...]) -> ScopedUrl:

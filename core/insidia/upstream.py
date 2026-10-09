@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable
 from pathlib import Path
 from urllib.parse import quote, urlencode, urlparse, urlunparse
@@ -16,8 +17,10 @@ from insidia.adapters import (
     RepoPath,
     ReportAdapter,
     ScopedUrl,
+    has_standalone,
 )
 from insidia.catalog import BY_NAME, SPECS, SSTI_PAYLOAD, STATIC_PROMPT, EngineSpec
+from insidia.errors import EngineFailed
 
 PROMPTFOO_ENV = {
     "PROMPTFOO_DISABLE_REMOTE_GENERATION": "true",
@@ -26,6 +29,12 @@ PROMPTFOO_ENV = {
     "PROMPTFOO_DISABLE_UPDATE": "1",
 }
 _SSTI_PRODUCT = "49"
+# NuGuard imports litellm, which fetches a price table from GitHub unless told not to.
+NUGUARD_ENV = {
+    "LITELLM_LOCAL_MODEL_COST_MAP": "True",
+    "LITELLM_TELEMETRY": "False",
+}
+_NUGUARD_SEVERITIES = frozenset({"critical", "high", "medium"})
 
 
 def build() -> tuple[RelayAdapter | ReportAdapter[ScopedUrl] | ReportAdapter[RepoPath], ...]:
@@ -67,7 +76,7 @@ def _probe(spec: EngineSpec) -> ProbeSpec:
         spec.upstream,
         spec.family,
         spec.priority,
-        False,
+        spec.name == "deepteam",
         spec.target_kinds,
     )
 
@@ -105,7 +114,7 @@ def _garak(endpoint: RelayEndpoint, workspace: Path) -> Invocation:
                 "response_json": True,
                 "response_json_field": "text",
                 "parallel_requests": 8,
-                "request_timeout": 30,
+                "request_timeout": 180,
                 "proxies": None,
             }
         }
@@ -176,13 +185,24 @@ def _pyrit(endpoint: RelayEndpoint, workspace: Path) -> Invocation:
 
 
 def _deepteam(endpoint: RelayEndpoint, workspace: Path) -> Invocation:
+    if endpoint.model_url is None or endpoint.model is None:
+        raise EngineFailed("deepteam needs an openai-compatible models.attacker")
     (workspace / "callback.py").write_text(_DEEPTEAM_PY)
+    env = _script_env(endpoint)
+    env["INSIDIA_MODEL_URL"] = endpoint.model_url
+    env["INSIDIA_MODEL_NAME"] = endpoint.model
+    env["DEEPTEAM_TELEMETRY_OPT_OUT"] = "YES"
+    env["DEEPEVAL_TELEMETRY_OPT_OUT"] = "YES"
+    if endpoint.model_key:
+        env["INSIDIA_MODEL_KEY"] = endpoint.model_key
+    # DeepTeam writes its own attack prompts and scores them with your model.
+    # A local model is slower than a hosted one, so the run gets more time.
     return Invocation(
         _program("deepteam"),
         (str(workspace / "callback.py"),),
         "report.json",
-        env=_script_env(endpoint),
-        timeout=180,
+        env=env,
+        timeout=900,
     )
 
 
@@ -219,7 +239,7 @@ def _web_prepare(engine: str) -> Callable[[ProbeSpec, ScopedUrl, Path], Invocati
             (workspace / "plan.yaml").write_text(_zap_plan(url, workspace, report))
             args = ("-cmd", "-silent", "-autorun", str(workspace / "plan.yaml"))
         elif engine == "dalfox":
-            args = ("url", url, "--format", "json", "--output", report, "--silence")
+            args = ("url", "--url", url, "--format", "json", "--output", report, "--silence")
         elif engine == "katana":
             args = ("-u", url, "-silent", "-jsonl", "-o", report, "-d", "1")
         elif engine == "httpx":
@@ -236,6 +256,15 @@ def _repo_prepare(engine: str) -> Callable[[ProbeSpec, RepoPath, Path], Invocati
         report = str(workspace / "report.json")
         source = str(view.path)
         args: tuple[str, ...]
+        if engine == "nuguard":
+            (workspace / "nuguard_run.py").write_text(_NUGUARD_PY)
+            return Invocation(
+                _program("nuguard"),
+                (str(workspace / "nuguard_run.py"), source, str(workspace)),
+                "report.json",
+                env=NUGUARD_ENV,
+                timeout=300,
+            )
         if engine == "mcp-scanner":
             args = (
                 "--analyzers",
@@ -334,7 +363,7 @@ def _web_bodies(engine: str, report: Path) -> list[str]:
 
 
 def _ssti_product(body: str) -> str | None:
-    if SSTI_PAYLOAD in body or _SSTI_PRODUCT not in body:
+    if SSTI_PAYLOAD in body or not has_standalone(_SSTI_PRODUCT, body):
         return None
     return _SSTI_PRODUCT
 
@@ -568,7 +597,34 @@ def _skillspector_rules(loaded: object) -> list[str]:
     return found
 
 
+def _nuguard_rules(loaded: object) -> list[str]:
+    if not isinstance(loaded, dict):
+        return []
+    rows = loaded.get("findings")
+    if not isinstance(rows, list):
+        return []
+    found: list[str] = []
+    for row in rows:
+        if not isinstance(row, dict) or row.get("severity") not in _NUGUARD_SEVERITIES:
+            continue
+        rule = _nuguard_rule(row)
+        if rule:
+            found.append(rule)
+    return found
+
+
+def _nuguard_rule(row: dict[str, object]) -> str:
+    identifier = row.get("finding_id")
+    if isinstance(identifier, str):
+        matched = re.search(r"NGA(?:-SC)?-\d+", identifier, re.IGNORECASE)
+        if matched:
+            return matched.group(0).upper()
+    title = row.get("title")
+    return title if isinstance(title, str) else ""
+
+
 _REPO_RULES: dict[str, Callable[[object], list[str]]] = {
+    "nuguard": _nuguard_rules,
     "bandit": _bandit_rules,
     "trivy": _trivy_rules,
     "osv-scanner": _osv_rules,
@@ -687,6 +743,31 @@ class InsidiaRelay {
 module.exports = InsidiaRelay;
 """
 
+_NUGUARD_PY = """\
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+source, workspace = sys.argv[1], Path(sys.argv[2])
+exe = Path(sys.executable).with_name("nuguard.exe" if os.name == "nt" else "nuguard")
+sbom = workspace / "app.sbom.json"
+subprocess.run(
+    [str(exe), "sbom", "generate", "--source", source, "--output", str(sbom), "--no-llm"],
+    check=True,
+)
+# analyze exits 1 when it finds something. The report is the success signal.
+subprocess.run(
+    [
+        str(exe), "analyze", "--sbom", str(sbom), "--source", source,
+        "--format", "json", "--output", str(workspace / "report.json"),
+        "--no-llm", "--no-osv", "--no-grype", "--no-trivy", "--no-checkov",
+        "--no-semgrep", "--supply-chain-verify", "off",
+    ],
+)
+sys.exit(0 if (workspace / "report.json").is_file() else 1)
+"""
+
 _PYRIT_PY = """\
 import asyncio
 import os
@@ -717,7 +798,8 @@ async def _run() -> None:
             '{"prompt": "{PROMPT}"}',
         )
     )
-    target = HTTPTarget(http_request=raw, callback_function=_text, use_tls=False)
+    # httpx waits 5 seconds by default. A local model needs longer than that.
+    target = HTTPTarget(http_request=raw, callback_function=_text, use_tls=False, timeout=180)
     attack = PromptSendingAttack(objective_target=target)
     await attack.execute_async(objective="secret")
 
@@ -735,9 +817,57 @@ import json
 import os
 import urllib.request
 
+from deepeval.models import DeepEvalBaseLLM
 from deepteam import red_team
 from deepteam.attacks.single_turn import Base64
 from deepteam.vulnerabilities import Bias
+
+
+class AttackerModel(DeepEvalBaseLLM):
+    # DeepTeam writes and scores its attacks with a model. This one is the
+    # models.attacker you configured. No other service is called.
+    def __init__(self):
+        super().__init__(os.environ["INSIDIA_MODEL_NAME"])
+
+    def load_model(self):
+        return self
+
+    def get_model_name(self):
+        return os.environ["INSIDIA_MODEL_NAME"]
+
+    def _ask(self, prompt):
+        body = json.dumps(
+            {
+                "model": os.environ["INSIDIA_MODEL_NAME"],
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0,
+            }
+        ).encode()
+        headers = {"Content-Type": "application/json"}
+        key = os.environ.get("INSIDIA_MODEL_KEY")
+        if key:
+            headers["Authorization"] = "Bearer " + key
+        request = urllib.request.Request(
+            os.environ["INSIDIA_MODEL_URL"] + "/chat/completions",
+            data=body,
+            headers=headers,
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=300) as response:
+            document = json.loads(response.read().decode())
+        text = document["choices"][0]["message"]["content"]
+        return text if isinstance(text, str) else ""
+
+    def generate(self, prompt, schema=None):
+        if schema is None:
+            return self._ask(prompt)
+        text = self._ask(prompt + " Reply with one JSON object and nothing else.")
+        start = text.find("{")
+        end = text.rfind("}")
+        return schema.model_validate_json(text[start : end + 1])
+
+    async def a_generate(self, prompt, schema=None):
+        return self.generate(prompt, schema)
 
 
 async def model_callback(prompt: str) -> str:
@@ -751,7 +881,7 @@ async def model_callback(prompt: str) -> str:
         },
         method="POST",
     )
-    with urllib.request.urlopen(request, timeout=30) as response:
+    with urllib.request.urlopen(request, timeout=180) as response:
         body = json.loads(response.read().decode())
     text = body["text"]
     if not isinstance(text, str):
@@ -760,10 +890,13 @@ async def model_callback(prompt: str) -> str:
 
 
 def main() -> None:
+    model = AttackerModel()
     red_team(
         model_callback=model_callback,
         vulnerabilities=[Bias(types=["race"])],
         attacks=[Base64()],
+        simulator_model=model,
+        evaluation_model=model,
         async_mode=False,
         ignore_errors=False,
     )
