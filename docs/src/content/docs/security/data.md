@@ -9,6 +9,6 @@ Secrets in evidence are masked before they are written. The report shows a type,
 
 The marketing site at insidialabs.com is a separate static site. A waitlist email is not written into a product database.
 
-When Insidia Cloud opens, hosted findings are stored with per-organization encryption and are not training data. That service is described in [Insidia Cloud](../cloud.md) and is not part of a local scan.
+When Insidia Cloud opens, hosted findings are stored with per-organization encryption and are not training data. That service is described in [Insidia Cloud](/docs/cloud/) and is not part of a local scan.
 
 Only test systems you own or have permission to test. Report a vulnerability in Insidia itself to [insidialabs@gmail.com](mailto:insidialabs@gmail.com).

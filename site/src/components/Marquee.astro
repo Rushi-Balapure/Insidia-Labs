@@ -1,0 +1,46 @@
+---
+import { readFileSync } from "node:fs";
+import type { Brand } from "../content/brands";
+
+interface Props {
+  label: string;
+  items: Brand[];
+}
+const { label, items } = Astro.props;
+const headingId = label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+function mark(file: string) {
+  let raw = readFileSync(new URL(`../../public/brands/${file}`, import.meta.url), "utf8");
+  raw = raw.replace(/<title>[\s\S]*?<\/title>/g, "");
+  raw = raw.replace(/<svg\b/, '<svg class="brand-svg" aria-hidden="true" focusable="false"');
+  if (!raw.includes("fill=")) raw = raw.replace("<path", '<path fill="currentColor"');
+  return raw;
+}
+
+const rendered = items.map((item) => ({
+  ...item,
+  svg: item.kind === "svg" ? mark(item.file) : "",
+}));
+const copies = [0, 1, 2, 3];
+---
+<section class="marquee" aria-labelledby={headingId}>
+  <h2 class="marquee-label" id={headingId}>{label}</h2>
+  <div class="marquee-window">
+    <div class="marquee-track" style={`--copies: ${copies.length}`}>
+      {copies.map((copy) => (
+        <ul class="marquee-group" aria-hidden={copy === 0 ? undefined : "true"}>
+          {rendered.map((item) => (
+            <li class="brand" style={`font-family: ${item.font}`}>
+              {item.kind === "svg" ? (
+                <span class="brand-svg-wrap" set:html={item.svg} />
+              ) : (
+                <img class={item.plate ? `plate-${item.plate}` : undefined} src={`/brands/${item.file}`} alt={item.wordmark ? item.name : ""} width="120" height="32" />
+              )}
+              {item.wordmark ? null : <span>{item.name}</span>}
+            </li>
+          ))}
+        </ul>
+      ))}
+    </div>
+  </div>
+</section>

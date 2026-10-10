@@ -1,15 +1,44 @@
+---
+import { docsCli, docsHome, docsQuickstart } from "../lib/paths";
+
+const groups = [
+  {
+    title: "Product",
+    links: [
+      ["/#how", "How it works"],
+      ["/pricing", "Pricing"],
+      ["/changelog", "Changelog"],
+      ["/#faq", "FAQ"],
+      ["/film", "Film"],
+    ],
+  },
+  {
+    title: "Developers",
+    links: [
+      [docsHome, "Docs"],
+      [docsQuickstart, "Quickstart"],
+      [docsCli, "CLI reference"],
+      ["/credits", "Credits"],
+    ],
+  },
+  {
+    title: "Company",
+    links: [
+      ["https://github.com/Rushi-Balapure/Insidia-Labs", "GitHub"],
+      ["mailto:insidialabs@gmail.com", "Contact"],
+      ["/security", "Security"],
+    ],
+  },
+];
+---
 <footer class="site-footer">
-  <div class="wrap foot">
-    <p>Insidia Labs. Built in Pune, India. · <a href="mailto:insidialabs@gmail.com">insidialabs@gmail.com</a></p>
-    <nav aria-label="Footer">
-      <a href="/benchmark">Benchmark</a>
-      <a href="/security">Security</a>
-      <a href="/pricing">Pricing</a>
-      <a href="/launch">Launch</a>
-      <a href="/changelog">Changelog</a>
-      <a href="/licenses">Engines and licenses</a>
-      <a href="https://docs.insidialabs.com">Docs</a>
-      <a href="https://github.com/Rushi-Balapure/Insidia-Labs">GitHub</a>
-    </nav>
+  <div class="wrap foot-grid">
+    <p>Insidia Labs. Built in Pune, India.</p>
+    {groups.map((group) => (
+      <nav aria-label={group.title}>
+        <h2>{group.title}</h2>
+        {group.links.map(([href, label]) => <a href={href}>{label}</a>)}
+      </nav>
+    ))}
   </div>
 </footer>

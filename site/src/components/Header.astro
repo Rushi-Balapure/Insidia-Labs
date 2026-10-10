@@ -1,5 +1,9 @@
 ---
-const docs = "https://docs.insidialabs.com";
+import GitHubStars from "./GitHubStars.astro";
+import { GITHUB_URL } from "../content/install";
+import { githubStars } from "../lib/github";
+import { docsHome } from "../lib/paths";
+const stars = await githubStars();
 ---
 <header class="site-header material">
   <div class="wrap bar">
@@ -11,16 +15,15 @@ const docs = "https://docs.insidialabs.com";
     <nav id="site-nav" class="nav" aria-label="Primary">
       <div class="nav-links">
         <a href="/#how">How it works</a>
-        <a href="/benchmark">Benchmark</a>
-        <a href="/#engines">Engines</a>
-        <a href="/security">Security</a>
-        <a href={docs}>Docs</a>
+        <a href={docsHome}>Docs</a>
         <a href="/pricing">Pricing</a>
+        <a href="/changelog">Changelog</a>
       </div>
       <div class="nav-actions">
+        <GitHubStars count={stars} href={GITHUB_URL} />
         <button class="icon-btn" id="theme-toggle" type="button" aria-label="Switch color theme">◐</button>
-        <a class="btn ghost" href="/#cloud">Insidia Cloud</a>
-        <a class="btn" href="/#install">Get the CLI</a>
+        <a class="btn ghost" href="mailto:insidialabs@gmail.com?subject=Book%20a%20call">Book a call</a>
+        <a class="btn" href="/#install">Get started</a>
       </div>
     </nav>
   </div>
@@ -28,9 +31,16 @@ const docs = "https://docs.insidialabs.com";
 <script>
   const toggle = document.querySelector(".menu-toggle");
   const nav = document.querySelector("#site-nav");
+  function setOpen(open: boolean) {
+    nav?.classList.toggle("is-open", open);
+    toggle?.setAttribute("aria-expanded", open ? "true" : "false");
+    if (toggle) toggle.textContent = open ? "Close" : "Menu";
+  }
   toggle?.addEventListener("click", () => {
-    const open = nav?.classList.toggle("is-open");
-    toggle.setAttribute("aria-expanded", open ? "true" : "false");
+    setOpen(!nav?.classList.contains("is-open"));
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") setOpen(false);
   });
   const theme = document.querySelector("#theme-toggle");
   theme?.addEventListener("click", () => {

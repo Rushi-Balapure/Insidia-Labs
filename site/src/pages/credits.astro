@@ -3,7 +3,7 @@ import Base from "../layouts/Base.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 
-const description = "Engines Insidia runs, and the open-source licenses we accept.";
+const description = "Engines Insidia runs, and the license for each one.";
 const engines = [
   ["garak", "Apache-2.0", "https://github.com/NVIDIA/garak"],
   ["promptfoo", "MIT", "https://github.com/promptfoo/promptfoo"],
@@ -24,11 +24,11 @@ const engines = [
   ["gosec", "Apache-2.0", "https://github.com/securego/gosec"],
 ];
 ---
-<Base title="Engines and licenses | Insidia Labs" description={description} path="/licenses">
+<Base title="Credits | Insidia Labs" description={description} path="/credits">
   <Header />
-  <main id="content" class="wrap" style="padding:3rem 0 4rem">
-    <h1>Engines and licenses</h1>
-    <p class="lede">Insidia is Apache-2.0. Each engine keeps its own license. A finding names the engine that produced it.</p>
+  <main id="content" class="wrap page">
+    <h1>Credits</h1>
+    <p class="lede">A finding names the engine that produced it. Each engine keeps its own license.</p>
     <table class="matrix">
       <thead>
         <tr><th>Engine</th><th>License</th></tr>
@@ -42,8 +42,8 @@ const engines = [
         ))}
       </tbody>
     </table>
-    <p style="margin-top:1.2rem">Dependencies we ship are MIT, Apache-2.0, BSD, ISC, or reviewed MPL-2.0. The Sora font on this site is SIL Open Font License 1.1. The text is at <a href="/fonts/OFL.txt">/fonts/OFL.txt</a>.</p>
-    <p class="muted">The Insidia Labs name and logo are trademarks and are not covered by Apache-2.0.</p>
+    <p class="prose" style="margin-top:1.2rem">Dependencies we ship are MIT, Apache-2.0, BSD, ISC, or reviewed MPL-2.0. The Sora font on this site is SIL Open Font License 1.1. The text is at <a href="/fonts/OFL.txt">/fonts/OFL.txt</a>.</p>
+    <p class="muted">The Insidia Labs name and logo are trademarks.</p>
   </main>
   <Footer />
 </Base>

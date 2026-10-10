@@ -1,0 +1,50 @@
+---
+import { existsSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import Base from "../layouts/Base.astro";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import { filmVideo } from "../lib/video";
+
+const description = "A three-minute film of an Insidia scan: the finding, the evidence, and the rerun.";
+const transcriptPath = fileURLToPath(new URL("../../video/out/film-transcript.md", import.meta.url));
+const transcript = existsSync(transcriptPath) ? readFileSync(transcriptPath, "utf8") : "";
+const sections = transcript
+  .split(/\n## /)
+  .slice(1)
+  .map((block) => {
+    const [heading, ...rest] = block.trim().split("\n");
+    return {
+      time: heading.slice(0, 5),
+      title: heading.slice(6).trim(),
+      body: rest.join("\n").trim(),
+    };
+  });
+---
+<Base title="Film | Insidia Labs" description={description} path="/film">
+  <Header />
+  <main id="content" class="wrap page">
+    <h1>Insidia, in about three minutes.</h1>
+    <p class="lede">The long cut. It does not play until you start it.</p>
+    <video class="film-player" controls playsInline poster={filmVideo.poster} preload="metadata">
+      <source src={filmVideo.webm} type="video/webm" />
+      <source src={filmVideo.mp4} type="video/mp4" />
+      <track kind="chapters" src="/video/film-chapters.vtt" srclang="en" label="Chapters" />
+      <track kind="captions" src={filmVideo.vtt} srcLang="en" label="English" default />
+    </video>
+    <h2>Chapters</h2>
+    <ol class="chapters">
+      {sections.map((section) => (
+        <li><span>{section.time}</span> {section.title}</li>
+      ))}
+    </ol>
+    <h2>Transcript</h2>
+    {sections.map((section) => (
+      <section>
+        <h3>{section.time} {section.title}</h3>
+        {section.body.split("\n").filter(Boolean).map((paragraph) => <p>{paragraph}</p>)}
+      </section>
+    ))}
+  </main>
+  <Footer />
+</Base>

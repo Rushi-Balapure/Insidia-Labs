@@ -1,0 +1,17 @@
+---
+interface Props {
+  file: string;
+  code: string;
+  annotation?: string;
+  representative?: boolean;
+}
+const { file, code, annotation, representative = false } = Astro.props;
+---
+<figure class="exhibit">
+  <figcaption>
+    <span>{file}</span>
+    {representative ? <span class="rep">Representative</span> : null}
+  </figcaption>
+  <pre><code>{code}</code></pre>
+  {annotation ? <p class="exhibit-note">{annotation}</p> : null}
+</figure>

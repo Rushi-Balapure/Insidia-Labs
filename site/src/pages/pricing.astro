@@ -2,31 +2,40 @@
 import Base from "../layouts/Base.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
+import LeadForm from "../components/LeadForm.tsx";
 
-const description = "The Insidia CLI is free. Insidia Cloud is request-access. This site has no checkout.";
+const description = "The Insidia CLI is free. Insidia Cloud is early access for design partners. This site has no checkout and no price yet.";
+const endpoint = import.meta.env.PUBLIC_LEAD_ENDPOINT ?? "";
 ---
 <Base title="Pricing | Insidia Labs" description={description} path="/pricing">
   <Header />
-  <main id="content" class="wrap" style="padding:3rem 0 4rem">
-    <h1>Free CLI. Paid GPUs.</h1>
-    <p class="lede">There is no checkout on this site, and no price we have not set. You pay for hosted work. The code, including the Cloud code, stays Apache-2.0.</p>
-    <div class="grid-3" style="margin-top:2rem">
+  <main id="content" class="wrap page">
+    <h1>The CLI is free.</h1>
+    <p class="lede">No checkout on this site, and no price until one is set.</p>
+    <div class="grid-2">
       <article class="card">
         <h2>CLI</h2>
-        <p>Free. Install from GitHub and scan on your machine or in CI. Engines, Insidia modules, your own model or none, HTML, SARIF, and JSON.</p>
-        <a class="btn" href="/#install">Get the CLI</a>
+        <p class="price-label">Free</p>
+        <ul>
+          <li>Scan on your machine or in CI. No account.</li>
+          <li>AI checks and app checks in one run. Every finding names its engine.</li>
+          <li>HTML report, JSON, and SARIF.</li>
+          <li>Your model, or none. Many checks need no model.</li>
+        </ul>
+        <a class="btn" href="/#install">Get started</a>
       </article>
       <article class="card">
         <h2>Insidia Cloud</h2>
-        <p>Hosted attacker and judge, custom and multi-turn attacks, and later a dashboard to launch and schedule scans. Usage is metered. Early access opens in December 2026.</p>
-        <a class="btn ghost" href="/#waitlist">Request access</a>
-      </article>
-      <article class="card">
-        <h2>Design partner</h2>
-        <p>Three teams. Three months of access and a short call every two weeks. Staging targets only, with written authorization.</p>
-        <a class="btn ghost" href="mailto:insidialabs@gmail.com?subject=Design%20partner">Book a call</a>
+        <p class="price-label">Early access</p>
+        <p>A hosted attacker, for design partners from December 2026. Book a call. There is no price on this page.</p>
+        <a class="btn ghost" href="mailto:insidialabs@gmail.com?subject=Book%20a%20call">Book a call</a>
       </article>
     </div>
+    <section class="block" id="access">
+      <h2>Ask about design-partner access</h2>
+      <p class="muted">The CLI does not need this form. Leads stay out of the product database.</p>
+      <LeadForm client:load endpoint={endpoint} />
+    </section>
   </main>
   <Footer />
 </Base>

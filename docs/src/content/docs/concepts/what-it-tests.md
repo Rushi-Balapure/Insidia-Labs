@@ -9,7 +9,7 @@ One scan covers two layers.
 
 **Applications.** Web and API flaws such as injection, XSS, SSRF, and broken authorization, plus secrets, vulnerable dependencies, and container images.
 
-**The seam.** A scripted chain starts in the model and lands in the app. The example used in the product story is a prompt injection that becomes a tool argument, then a SQL injection. The finding shows both steps. Chains an agent discovers on its own are part of [Insidia Cloud](../cloud.md), which is not open yet.
+**The seam.** A scripted chain starts in the model and lands in the app. The example used in the product story is a prompt injection that becomes a tool argument, then a SQL injection. The finding shows both steps. Chains an agent discovers on its own are part of [Insidia Cloud](/docs/cloud/), which is not open yet.
 
 Set coverage when you scan:
 
@@ -20,4 +20,4 @@ Set coverage when you scan:
 
 Checks that need a model run only when `models.attacker` is set. Otherwise they are skipped and written to `benchmark.json`. A skip is not a pass.
 
-The engines are named in [Engines](engines.md).
+The engines are named in [Engines](/docs/concepts/engines/).

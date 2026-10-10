@@ -2,24 +2,28 @@
 import Base from "../layouts/Base.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
-import DataFlowHero from "../components/DataFlowHero.tsx";
-import LeadForm from "../components/LeadForm.tsx";
-import ScriptedDemos from "../components/ScriptedDemos.astro";
-import PlayerControls from "../components/PlayerControls.astro";
+import Marquee from "../components/Marquee.astro";
+import Exhibit from "../components/Exhibit.astro";
+import StepCard from "../components/StepCard.astro";
+import FeatureCard from "../components/FeatureCard.astro";
+import InstallLine from "../components/InstallLine.tsx";
+import TraceHero from "../components/TraceHero.tsx";
+import VideoModal from "../components/VideoModal.tsx";
 import { changelog } from "../content/changelog";
+import { engineBrands, stackBrands } from "../content/brands";
+import { filmVideo, howtoVideo } from "../lib/video";
+import { docsQuickstart, docsTests } from "../lib/paths";
 
-const description = "Insidia is an open-source CLI that tests AI apps, agents, and the web apps and APIs around them on your machine. Insidia Cloud is the hosted attacker.";
-const endpoint = import.meta.env.PUBLIC_LEAD_ENDPOINT ?? "";
-const github = "https://github.com/Rushi-Balapure/Insidia-Labs";
-const install = 'uv tool install "git+https://github.com/Rushi-Balapure/Insidia-Labs#subdirectory=core"';
+const description = "Insidia attacks your AI app and the API behind it, names the check that failed, and blocks the release until it's fixed.";
+const latest = changelog[0];
+const pill = `New · ${latest.pill}`;
 const faqs = [
-  ["Can I run Insidia today?", "Yes. Install the CLI from GitHub and scan hosts you list in insidia.yaml. The CLI is pre-release: commands and the report format can still change. Insidia Cloud, the hosted attacker, opens for design partners in December 2026."],
-  ["Does a scan leave my machine?", "Traffic goes to the target you configured and, if you set one, to your model endpoint. There is no telemetry. Insidia Cloud is optional and is not required for a scan."],
-  ["Which engines does it run?", "garak, promptfoo, PyRIT, DeepTeam, mcp-scanner, SkillSpector, and NuGuard on the AI side. ZAP, Nuclei, Dalfox, Trivy, osv-scanner, gitleaks, Bandit, and gosec on the app side. Insidia modules cover gaps such as indirect injection, RAG bleed, and scripted chains. Every finding names the engine that produced it."],
-  ["What is the Insidia Benchmark?", "An open policy. L1 is the baseline you can run, and it needs no model. L2 and L3 are not available yet. The scanner matrix in this repository is a fixture suite, not a published precision or recall score."],
-  ["Can my coding agent run it?", "Install the skill with npx skills add Rushi-Balapure/Insidia-Labs, or paste the quickstart into Claude Code, Cursor, Codex, or any agent that can run a shell. You confirm the hosts. insidia mcp is the local MCP server."],
-  ["What does Insidia Cloud add?", "A hosted uncensored attacker and judge, custom attacks for your app, and later a dashboard to launch and schedule scans. The CLI stays free. Hosted work is metered. You can self-host the Cloud code; most teams will pay us to run the GPUs."],
-  ["Will it test production?", "Only hosts in your scope. Anything other than localhost needs authorized: true, set by you. Design-partner Cloud tests run against staging, and only with written authorization."],
+  ["What does Insidia test?", `AI and agent checks, plus app and API checks, in one scan. Each result names the check and the engine. The support notes are in the docs.`],
+  ["Does anything leave my machine?", "Traffic goes to the target you configured and, if you set one, to your model. There is no telemetry."],
+  ["Which engines does it run?", "A finding names the engine that produced it. The list, with each engine's license, is on the Credits page."],
+  ["Can my coding agent run it?", "Install the skill, or paste: Test this app with Insidia. Only scan localhost. Claude Code, Cursor, or Codex can run it. You confirm the hosts."],
+  ["Will it test production?", "Only hosts you list in insidia.yaml. Anything other than localhost needs authorized: true, which you set."],
+  ["What does it cost?", "The CLI is free. It runs on your machine and does not need an account. Insidia Cloud, a hosted attacker, opens to design partners first, from December 2026. This site has no price yet."],
 ];
 const jsonLd = {
   "@context": "https://schema.org",
@@ -27,8 +31,8 @@ const jsonLd = {
     {
       "@type": "Organization",
       name: "Insidia Labs",
-      url: "https://insidialabs.com/",
-      logo: "https://insidialabs.com/brand/mark-small.svg",
+      url: "/",
+      logo: "/brand/mark-small.svg",
       email: "insidialabs@gmail.com",
       description,
     },
@@ -38,7 +42,7 @@ const jsonLd = {
       applicationCategory: "SecurityApplication",
       operatingSystem: "Linux, macOS, Windows",
       offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
-      description: "Open-source CLI for security testing of AI apps, agents, web apps, and APIs. Runs on your machine with credited open-source engines.",
+      description: "CLI for security testing of AI apps, agents, web apps, and APIs. Runs on your machine. Every finding names the engine that produced it.",
     },
     {
       "@type": "FAQPage",
@@ -50,8 +54,22 @@ const jsonLd = {
     },
   ],
 };
+const scopeYaml = `scope:
+  - host: 127.0.0.1
+  - host: staging.example.com
+    authorized: true`;
+const scanRows = `support-bot
+  ✔ ai.prompt_injection_direct     pass
+  ✘ ai.prompt_injection_indirect   FAIL
+  ✔ ai.data_leakage                pass`;
+const rerunRows = `$ insidia rerun
+  ✔ ai.prompt_injection_indirect   pass   insidia
+RELEASE OK · exit 0`;
+const retrieval = `def build_prompt(question, docs):
+    context = "\\n".join(d.text for d in docs)   # uploaded files, unfiltered
+    return SYSTEM + context + question`;
 ---
-<Base title="Insidia Labs | Open-source security testing for AI apps and the apps around them" description={description}>
+<Base title="Insidia Labs | Your AI agent is your newest attack surface." description={description}>
   <Fragment slot="head">
     <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
   </Fragment>
@@ -59,172 +77,138 @@ const jsonLd = {
   <main id="content">
     <div class="wrap hero">
       <div>
-        <p class="kicker">Open source · Apache-2.0</p>
-        <h1>Test the model and the app around it, in one run.</h1>
-        <div class="rule" aria-hidden="true"></div>
-        <p class="lede">Insidia is a free CLI. It drives garak, promptfoo, PyRIT, ZAP, Nuclei, and the rest on your machine, fills the gaps they leave, and writes one HTML report. A prompt injection that becomes SQL injection is the case the separate tools miss.</p>
+        <p class="pill"><a href="/changelog">{pill}</a></p>
+        <h1>Your AI agent is your newest attack surface.</h1>
+        <p class="lede">{description}</p>
         <div class="cta-row">
-          <a class="btn" href="#install">Get the CLI</a>
-          <a class="btn ghost" href="#cloud">Insidia Cloud</a>
-          <a class="btn ghost" href="#demo">Watch the demo</a>
-          <a class="btn ghost" href="https://docs.insidialabs.com">Read the docs</a>
+          <a class="btn" href="#install">Get started</a>
+          <VideoModal client:load sources={filmVideo} />
         </div>
+        <div id="install">
+          <InstallLine client:load />
+        </div>
+        <p class="muted install-more">Python 3.12 or newer. The <a href={docsQuickstart}>quickstart</a> is the rest of the first run.</p>
       </div>
-      <DataFlowHero client:visible />
+      <TraceHero which="blocked" live />
     </div>
 
-    <div class="wrap hero-player" id="demo">
-      <ScriptedDemos set="hero" />
-    </div>
-
-    <div class="wrap">
-      <p class="kicker">Works with</p>
-      <div class="chips" aria-label="Target types">
-        <span class="chip">Chat apps</span>
-        <span class="chip">RAG</span>
-        <span class="chip">Agents and MCP</span>
-        <span class="chip">Multi-agent</span>
-        <span class="chip">Web apps</span>
-        <span class="chip">REST, GraphQL, and gRPC APIs</span>
-        <span class="chip">Codebases</span>
-      </div>
-    </div>
-
-    <section class="block" id="engines">
+    <section class="howto-band" aria-labelledby="howto-heading">
       <div class="wrap">
-        <h2>The engines are credited, not hidden.</h2>
-        <p class="prose muted">Insidia does not pretend their findings are ours. A report names the engine and the probe. Insidia modules cover the families those projects do not.</p>
-        <div class="chips tight" aria-label="Engines">
-          <a class="chip" href="https://github.com/NVIDIA/garak">garak</a>
-          <a class="chip" href="https://github.com/promptfoo/promptfoo">promptfoo</a>
-          <a class="chip" href="https://github.com/Azure/PyRIT">PyRIT</a>
-          <a class="chip" href="https://github.com/confident-ai/deepteam">DeepTeam</a>
-          <a class="chip" href="https://github.com/zaproxy/zaproxy">ZAP</a>
-          <a class="chip" href="https://github.com/projectdiscovery/nuclei">Nuclei</a>
-          <a class="chip" href="https://github.com/hahwul/dalfox">Dalfox</a>
-          <a class="chip" href="https://github.com/aquasecurity/trivy">Trivy</a>
-          <a class="chip" href="https://github.com/gitleaks/gitleaks">gitleaks</a>
-        </div>
-        <p><a href="/licenses">Full engine list and licenses</a></p>
+        <h2 id="howto-heading">How to use Insidia</h2>
+        <video class="howto-player" controls playsInline poster={howtoVideo.poster} preload="metadata">
+          <source src={howtoVideo.webm} type="video/webm" />
+          <source src={howtoVideo.mp4} type="video/mp4" />
+          <track kind="captions" src={howtoVideo.vtt} srcLang="en" label="English" default />
+        </video>
+      </div>
+    </section>
+
+    <div class="marquee-band">
+      <Marquee label="Fits the stack you already ship" items={stackBrands} />
+      <Marquee label="Runs the engines you already trust" items={engineBrands} />
+    </div>
+
+    <section class="block" id="problem">
+      <div class="wrap">
+        <h2>Your chatbot passed review. It also obeys the PDF.</h2>
+        <Exhibit
+          file="support_bot/retrieval.py"
+          code={retrieval}
+          annotation="← a hidden line in an upload becomes an instruction. Nothing raises."
+        />
+        <ol class="beats">
+          <li>
+            <p class="kicker">01</p>
+            <h3>No error.</h3>
+            <p>The bot answers politely. Logs look clean.</p>
+          </li>
+          <li>
+            <p class="kicker">02</p>
+            <h3>Two halves, two tools.</h3>
+            <p>The model call and the API it drives usually get tested by different tools, on different days.</p>
+          </li>
+          <li>
+            <p class="kicker">03</p>
+            <h3>It ships.</h3>
+            <p>The instruction in the document reaches production with everything else.</p>
+          </li>
+        </ol>
       </div>
     </section>
 
     <section class="block" id="how">
       <div class="wrap">
-        <h2>Three steps, on your machine.</h2>
+        <h2>Point it at your app. Get the finding, the evidence, and the fix.</h2>
         <div class="grid-3">
-          <article>
-            <p class="kicker">01</p>
-            <h3>Attacks both layers</h3>
-            <p class="muted">Prompt injection, jailbreaks, RAG and memory, and tool misuse, plus template injection, command injection, path access, and SSRF. SQL injection and XSS are not separate checks yet. Standard coverage picks one engine per family. Thorough runs every installed engine that covers it.</p>
-          </article>
-          <article>
-            <p class="kicker">02</p>
-            <h3>Proves the chain</h3>
-            <p class="muted">Scripted checks follow a prompt injection through a tool call into a backend bug and confirm it with an oracle. Discovered chains are the Insidia Cloud pentest agent, which is not shipped yet.</p>
-          </article>
-          <article>
-            <p class="kicker">03</p>
-            <h3>Maps to what you report</h3>
-            <p class="muted">Findings carry OWASP LLM, OWASP Agentic, and classic web and API ids when a control has that mapping. MITRE ATLAS is not mapped yet. You get HTML, SARIF, and JSON. The policy result is in benchmark.json.</p>
-          </article>
-        </div>
-        <ScriptedDemos set="how" />
-        <blockquote class="example"><strong>Example chain (illustrative).</strong> A support chatbot reads an uploaded document. Hidden text tells the agent to look up an order with a crafted id. The agent passes that id to a tool, and the id is a SQL injection payload. A web scanner never talks to the agent. A model red-team often stops at “the model misbehaved.” Insidia tests both halves and shows the step that connected them.</blockquote>
-      </div>
-    </section>
-
-    <section class="block" id="install">
-      <div class="wrap">
-        <h2>Install from GitHub.</h2>
-        <p class="prose">No package registry. Python 3.12 or newer. Linux, macOS, and Windows.</p>
-        <pre class="install-box"><code>{install}</code></pre>
-        <p class="muted" style="margin-top:0.8rem">The same URL works with <code>pipx install</code>. Then <code>insidia init</code>, <code>insidia doctor</code>, <code>insidia scan</code>, and <code>insidia report --open</code>. A host other than localhost needs <code>authorized: true</code> in your scope.</p>
-        <p>Hand this to a coding agent: “Test this app with Insidia. Only scan localhost, and open the report when you're done.” The <a href="https://docs.insidialabs.com">docs</a> have the full quickstart.</p>
-      </div>
-    </section>
-
-    <section class="block" id="benchmark">
-      <div class="wrap">
-        <h2>An open benchmark, with three levels.</h2>
-        <div class="grid-3">
-          <article class="card"><h3>L1 Baseline</h3><p>Fast checks. No model. Safe to run on every pull request. <code>insidia scan --policy L1</code> exits 1 when the policy fails.</p></article>
-          <article class="card"><h3>L2 Standard</h3><p>Unavailable. Judge-scored checks are not a separate level yet, so a scan does not accept <code>--policy L2</code>.</p></article>
-          <article class="card"><h3>L3 Thorough</h3><p>Unavailable. Model-generated attacks are not a separate level yet, so a scan does not accept <code>--policy L3</code>.</p></article>
-        </div>
-        <p style="margin-top:1.2rem"><a href="/benchmark">How the benchmark is scored</a></p>
-      </div>
-    </section>
-
-    <section class="block" id="problem">
-      <div class="wrap">
-        <div class="grid-3">
-          <h2>One-sided tools miss the seam.</h2>
-          <div class="span-2">
-            <p>AI security tools test the model. AppSec scanners test the app. Once an agent can call tools, the damaging path starts in one place and lands in the other.</p>
-            <p class="muted">OWASP’s LLM and Agentic lists and the classic Web and API lists describe the two ends. They do not run the test. Insidia does, and it names the engine behind each finding. We do not publish customer counts or detection rates we have not measured.</p>
-          </div>
+          <StepCard n="01" title="Scope in one file." text="insidia init writes insidia.yaml. Only hosts you list get tested. Anything other than localhost needs authorized: true.">
+            <Exhibit file="insidia.yaml" code={scopeYaml} />
+          </StepCard>
+          <StepCard n="02" title="Scan both layers." text="insidia scan runs AI and app checks in one pass and names the engine behind every result. A check that couldn't run is marked incomplete, never passed.">
+            <Exhibit file="insidia scan" code={scanRows} representative />
+          </StepCard>
+          <StepCard n="03" title="Block the release, prove the fix." text="The scan exits 1 in CI. Fix the code, then insidia rerun checks again with the same config and policy.">
+            <Exhibit file="insidia rerun" code={rerunRows} representative />
+          </StepCard>
         </div>
       </div>
     </section>
 
-    <section class="block" id="cloud">
+    <section class="block" id="breaks">
       <div class="wrap">
-        <h2>The CLI is free. Insidia Cloud is the upgrade.</h2>
-        <div class="grid-3">
-          <article class="card"><h3>On your machine</h3><p>Every engine, the Insidia modules, any model you bring, and the HTML report. No account.</p></article>
-          <article class="card"><h3>On our GPUs</h3><p>A hosted attacker and judge that are built to write attacks, custom to your tools and domain. Metered. The code stays Apache-2.0, so you can self-host later.</p></article>
-          <article class="card"><h3>Design partners</h3><p>Three partners, from December 2026. Three months of access and a call every two weeks. This site does not take payment.</p></article>
+        <h2>Built for how AI apps break</h2>
+        <div class="grid-4">
+          <FeatureCard
+            title="Scope guard"
+            code={`scope:\n  - host: staging.example.com\n    authorized: true`}
+            line="It refuses to test a host you didn't list."
+          />
+          <FeatureCard
+            title="Evidence, not a score"
+            code={`engine: insidia\nprobe: prompt-injection.indirect\nevidence: [AWS_ACCESS_KEY len=20 fp=3f9a1c07]\nfix: keep uploaded text out of the system prompt`}
+            line="Every finding shows the attack, the reply, and which engine caught it."
+          />
+          <FeatureCard
+            title="Hand it to your coding agent"
+            code={`Test this app with Insidia. Only scan localhost.`}
+            line="Claude Code, Cursor, or Codex runs it. You confirm the hosts."
+          />
+          <FeatureCard
+            title="Local, your keys"
+            code={`models:\n  attacker:\n    provider: ollama`}
+            line="Scans run on your machine. Bring any model, or none: many checks need no model."
+          />
         </div>
-        <ScriptedDemos set="cloud" />
-        <p class="muted">General-purpose models often refuse to write attacks. Those families stay thin until you point the attacker at a model that will generate them.</p>
-      </div>
-    </section>
-
-    <section class="block" id="security">
-      <div class="wrap">
-        <h2>Security, stated the way it is built</h2>
-        <div class="grid-3">
-          <article class="card"><h3>Local by default</h3><p>A CLI scan stays on your machine, apart from the target and the model you chose.</p></article>
-          <article class="card"><h3>Secrets stay masked</h3><p>Evidence uses a masked token, for example [AWS_ACCESS_KEY len=20 fp=3f9a1c07]. The raw value is not written into the report.</p></article>
-          <article class="card"><h3>Cloud, when you use it</h3><p>Hosted findings use per-organization encryption and are not training data. <a href="/security">Read the security page</a>.</p></article>
-        </div>
-      </div>
-    </section>
-
-    <section class="block">
-      <div class="wrap">
-        <h2>Changelog</h2>
-        {changelog.map((entry) => (
-          <article class="log-item">
-            <time datetime={entry.date}>{entry.date}</time>
-            <div><h3>{entry.title}</h3><p class="muted">{entry.body}</p></div>
-          </article>
-        ))}
-        <a href="/changelog">Full changelog</a>
       </div>
     </section>
 
     <section class="block" id="faq">
       <div class="wrap">
         <h2>FAQ</h2>
-        {faqs.map(([q, a]) => (
+        {faqs.map(([q, a], i) => (
           <details class="faq">
             <summary>{q}</summary>
-            <p>{a}</p>
+            <p>
+              {a}
+              {i === 0 ? <> See <a href={docsTests}>what it tests</a>.</> : null}
+              {i === 2 ? <> See <a href="/credits">Credits</a>.</> : null}
+            </p>
           </details>
         ))}
       </div>
     </section>
 
-    <section class="block" id="waitlist">
-      <div class="wrap" style="max-width:40rem">
-        <h2>Ask about Insidia Cloud</h2>
-        <p class="muted">The CLI does not need this form. Use it if you want design-partner access or a call. Leads stay out of the product database. <a href={`mailto:insidialabs@gmail.com?subject=Book%20a%20call`}>Book a call</a> or <a href={github}>read the code</a>.</p>
-        <LeadForm client:load endpoint={endpoint} />
+    <section class="block end-cta">
+      <div class="wrap end-grid">
+        <div>
+          <h2>Ship AI you'd attack yourself.</h2>
+          <div class="cta-row">
+            <a class="btn" href="#install">Get started</a>
+            <a class="btn ghost" href="mailto:insidialabs@gmail.com?subject=Book%20a%20call">Book a call</a>
+          </div>
+        </div>
+        <TraceHero which="clear" />
       </div>
     </section>
   </main>
   <Footer />
-  <PlayerControls />
 </Base>

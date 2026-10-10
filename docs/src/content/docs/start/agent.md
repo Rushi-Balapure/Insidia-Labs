@@ -17,7 +17,7 @@ Test this app with Insidia. Only scan localhost, and open the report when you're
 ```
 
 3. Expect these steps, in order:
-   - Install from GitHub with `uv tool install`, or `pipx` if uv is missing. See [Install](install.md).
+   - Install from GitHub with `uv tool install`, or `pipx` if uv is missing. See [Install](/docs/start/install/).
    - Run `insidia init` if `insidia.yaml` is absent.
    - Edit targets so they match your app. Leave scope on localhost unless you named another host.
    - Run `insidia doctor`, then `insidia scan --policy L1 --yes`.

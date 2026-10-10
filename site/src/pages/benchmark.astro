@@ -3,31 +3,21 @@ import Base from "../layouts/Base.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 
-const description = "The Insidia Benchmark is an open policy for testing your own app, plus a public matrix for measuring scanners.";
+const description = "The Insidia Benchmark is the policy you run against your own app, plus a public matrix for measuring scanners.";
 ---
 <Base title="Benchmark | Insidia Labs" description={description} path="/benchmark">
   <Header />
   <main id="content" class="wrap" style="padding:3rem 0 4rem">
-    <p class="kicker">Open policy</p>
+    <p class="kicker">Policy</p>
     <h1>The Insidia Benchmark</h1>
     <p class="lede">Two things share the name. One is the policy you run against your app. The other is the public matrix we use to measure scanners, including ours.</p>
 
     <section class="block">
-      <h2>Policy levels</h2>
-      <div class="grid-3">
-        <article class="card">
-          <h3>L1 Baseline</h3>
-          <p>Checks that need no model. This is the default <code>insidia init</code> writes. Use it on every pull request. The process exits 1 when the policy fails.</p>
-        </article>
-        <article class="card">
-          <h3>L2 Standard</h3>
-          <p>Same control list, recorded as L2. Checks that need a model run only when an attacker is configured. A skip is listed in <code>benchmark.json</code> and is not a pass.</p>
-        </article>
-        <article class="card">
-          <h3>L3 Thorough</h3>
-          <p>Same control list, recorded as L3. Model-generated attacks run when an attacker model is configured. Bring your own endpoint, or use Insidia Cloud once it is open. This page does not claim a detection-rate lift.</p>
-        </article>
-      </div>
+      <h2>Policy</h2>
+      <article class="card">
+        <h3>L1 baseline</h3>
+        <p>Checks that need no model. This is what <code>insidia init</code> writes and what a scan runs. Use it on every pull request. The process exits 1 when the policy fails. L2 and L3 are not available.</p>
+      </article>
     </section>
 
     <section class="block">
@@ -39,7 +29,7 @@ const description = "The Insidia Benchmark is an open policy for testing your ow
         <li><code>results.sarif</code> — for code scanning in CI</li>
         <li><code>report.html</code> — one file, opened with <code>insidia report --open</code></li>
       </ul>
-      <p>Controls map to OWASP LLM, OWASP Agentic, OWASP Web and API, MITRE ATLAS, and CWE where the registry has a mapping. A framework score is the controls that ran, not a percentage we market on this page.</p>
+      <p>Controls map to OWASP LLM, OWASP Agentic, and OWASP Web and API where the registry has a mapping. MITRE ATLAS is not mapped yet. A framework score is the controls that ran, not a percentage we market on this page.</p>
     </section>
 
     <section class="block">

@@ -1,0 +1,14 @@
+{
+  "name": "insidia-site-video",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "preview": "node render.mjs --preview",
+    "render": "node render.mjs howto film",
+    "render:howto": "node render.mjs howto",
+    "render:film": "node render.mjs film"
+  },
+  "devDependencies": {
+    "playwright": "^1.56.0"
+  }
+}

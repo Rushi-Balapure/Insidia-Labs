@@ -3,6 +3,8 @@ import { defineConfig } from "astro/config";
 
 export default defineConfig({
   site: "https://docs.insidialabs.com",
+  base: "/docs",
+  trailingSlash: "always",
   integrations: [
     starlight({
       title: "Insidia Labs",

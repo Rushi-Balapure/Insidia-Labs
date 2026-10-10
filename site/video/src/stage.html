@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Insidia video stage</title>
+  <link rel="stylesheet" href="/stage.css">
+</head>
+<body>
+  <div id="stage"></div>
+  <input id="scrub" type="range" min="0" max="1000" value="0" aria-label="Scrub">
+  <script src="/engine.js"></script>
+  <script src="/components.js"></script>
+  <script src="/shared.js"></script>
+  <script src="/howto.js"></script>
+  <script src="/film.js"></script>
+  <script>
+    window.stageReady = (async () => {
+      const params = new URLSearchParams(location.search);
+      const name = params.get("v") || "howto";
+      const session = await (await fetch("/data/session.json")).json();
+      const video = window.VIDEOS[name](session);
+      const seek = window.V.mount(video, document.getElementById("stage"), session);
+      await document.fonts.ready;
+      await Promise.all([...document.images].map((img) => img.decode().catch(() => {})));
+      window.seek = seek;
+      window.meta = {
+        duration: video.duration,
+        placeholder: Boolean(session.placeholder),
+        captions: video.captions,
+        chapters: video.chapters,
+      };
+      seek(Number(params.get("t") || 0));
+      if (params.has("preview")) {
+        document.body.classList.add("preview");
+        const scrub = document.getElementById("scrub");
+        let start = performance.now() - Number(params.get("t") || 0) * 1000;
+        let playing = true;
+        scrub.addEventListener("input", () => {
+          playing = false;
+          seek((scrub.value / 1000) * video.duration);
+        });
+        document.addEventListener("keydown", (event) => {
+          if (event.code !== "Space") return;
+          playing = !playing;
+          start = performance.now() - (scrub.value / 1000) * video.duration * 1000;
+        });
+        const tick = () => {
+          if (playing) {
+            const t = ((performance.now() - start) / 1000) % video.duration;
+            scrub.value = (t / video.duration) * 1000;
+            seek(t);
+          }
+          requestAnimationFrame(tick);
+        };
+        tick();
+      }
+    })();
+  </script>
+</body>
+</html>

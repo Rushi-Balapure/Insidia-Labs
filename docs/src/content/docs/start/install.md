@@ -37,4 +37,4 @@ The image `ghcr.io/rushi-balapure/insidia` contains the CLI and every pinned eng
 docker run --rm -v "$PWD":/work -w /work ghcr.io/rushi-balapure/insidia:vX.Y.Z doctor
 ```
 
-Next: [Quickstart](quickstart.md).
+Next: [Quickstart](/docs/start/quickstart/).

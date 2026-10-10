@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { mailtoHref, validateLead, type LeadInput } from "../lib/lead";
+import { acknowledged, MAILTO_NOTICE, mailtoHref, validateLead, type LeadInput } from "../lib/lead";
 
 const STORAGE_KEY = "insidia-lead-at";
 
@@ -15,43 +15,67 @@ const empty: LeadInput = {
 export default function LeadForm({ endpoint = "" }: { endpoint?: string }) {
   const [values, setValues] = useState<LeadInput>(empty);
   const [message, setMessage] = useState("");
+  const [status, setStatus] = useState("");
   const [errorField, setErrorField] = useState("");
   const [sent, setSent] = useState(false);
+  const [pending, setPending] = useState(false);
 
   function update(field: keyof LeadInput, value: string) {
     setValues((current) => ({ ...current, [field]: value }));
   }
 
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage("");
+    setStatus("");
     const last = Number(sessionStorage.getItem(STORAGE_KEY) || "") || null;
     const result = validateLead(values, { endpoint, lastSubmitAt: last, now: Date.now() });
     if (!result.ok) {
-      event.preventDefault();
       setErrorField(result.field);
       setMessage(result.message);
       return;
     }
-    if (result.channel === "dropped" || result.channel === "mailto") {
-      event.preventDefault();
+    setErrorField("");
+    if (result.channel === "dropped") {
       sessionStorage.setItem(STORAGE_KEY, String(Date.now()));
       setSent(true);
-      setMessage(
-        result.channel === "mailto"
-          ? "Your mail app should open with the request. We only use it to reply about access."
-          : "Thanks. If this was a test, nothing was sent.",
-      );
-      if (result.channel === "mailto") window.location.href = mailtoHref(values);
+      setStatus("Nothing was sent.");
       return;
     }
-    sessionStorage.setItem(STORAGE_KEY, String(Date.now()));
+    if (result.channel === "mailto") {
+      sessionStorage.setItem(STORAGE_KEY, String(Date.now()));
+      setStatus(MAILTO_NOTICE);
+      window.location.href = mailtoHref(values);
+      return;
+    }
+    setPending(true);
+    try {
+      const body = new FormData(event.currentTarget);
+      const response = await fetch(endpoint, { method: "POST", body, headers: { Accept: "application/json" } });
+      if (!acknowledged(response.status)) {
+        setMessage("That did not go through. Your answers are still here.");
+        return;
+      }
+      sessionStorage.setItem(STORAGE_KEY, String(Date.now()));
+      setSent(true);
+      setStatus("Request received. We'll use it only to reply about access.");
+    } catch {
+      setMessage("That did not go through. Your answers are still here.");
+    } finally {
+      setPending(false);
+    }
   }
 
   if (sent) {
-    return <p className="muted">{message}</p>;
+    return (
+      <p className="muted" role="status">
+        {status}
+      </p>
+    );
   }
 
   return (
-    <form className="form" action={endpoint || undefined} method="post" onSubmit={onSubmit} noValidate>
+    <form className="form" method="post" onSubmit={onSubmit} noValidate aria-busy={pending}>
       <div className="form-row">
         <label>
           Work email
@@ -63,6 +87,7 @@ export default function LeadForm({ endpoint = "" }: { endpoint?: string }) {
             value={values.email}
             onChange={(event) => update("email", event.target.value)}
             aria-invalid={errorField === "email"}
+            aria-describedby={errorField === "email" ? "lead-error" : undefined}
           />
         </label>
         <label>
@@ -74,6 +99,7 @@ export default function LeadForm({ endpoint = "" }: { endpoint?: string }) {
             value={values.company}
             onChange={(event) => update("company", event.target.value)}
             aria-invalid={errorField === "company"}
+            aria-describedby={errorField === "company" ? "lead-error" : undefined}
           />
         </label>
       </div>
@@ -104,9 +130,14 @@ export default function LeadForm({ endpoint = "" }: { endpoint?: string }) {
           onChange={(event) => update("honeypot", event.target.value)}
         />
       </label>
-      {message ? <p className="field-error">{message}</p> : null}
-      <button className="btn" type="submit">
-        {values.interest === "design-partner" ? "Apply to be a design partner" : "Join the waitlist"}
+      <p id="lead-error" className="field-error" aria-live="assertive">
+        {message}
+      </p>
+      <p className="muted lead-status" role="status">
+        {status}
+      </p>
+      <button className="btn" type="submit" disabled={pending}>
+        {pending ? "Sending" : values.interest === "design-partner" ? "Apply to be a design partner" : "Join the waitlist"}
       </button>
       <p className="muted" style={{ fontSize: "0.85rem" }}>
         Early access opens in December 2026, starting with three design partners. This form does not create a product account.

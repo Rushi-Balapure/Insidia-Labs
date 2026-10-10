@@ -16,7 +16,7 @@ insidia report --open
 
 `insidia scan` exits 0 when the policy passes and 1 when it fails. `--json` prints the run id, findings, and skips as JSON. `--yes` confirms a scope that includes a non-local host. Without `--yes`, that scan stops.
 
-The run lands in `.insidia/runs/<run-id>/`. See [Report](../concepts/report.md).
+The run lands in `.insidia/runs/<run-id>/`. See [Report](/docs/concepts/report/).
 
 If doctor says an engine is missing, install it:
 
@@ -25,4 +25,4 @@ insidia engines list
 insidia engines install
 ```
 
-Next: [Scope](scope.md).
+Next: [Scope](/docs/start/scope/).

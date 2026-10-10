@@ -38,7 +38,7 @@ insidia policy show L1
 insidia policy validate
 ```
 
-`validate` loads the policy named in your config. Names are `L1`, `L2`, and `L3`. See [Benchmark](../concepts/benchmark.md).
+`validate` loads the policy named in your config. Names are `L1`, `L2`, and `L3`. See [Benchmark](/docs/concepts/benchmark/).
 
 ## scan
 
@@ -60,7 +60,7 @@ insidia report --open
 insidia report 20261008T120000Z-abc123
 ```
 
-Opens or prints the latest run, or the run id you pass. See [Report](../concepts/report.md).
+Opens or prints the latest run, or the run id you pass. See [Report](/docs/concepts/report/).
 
 ## mcp
 
@@ -68,4 +68,4 @@ Opens or prints the latest run, or the run id you pass. See [Report](../concepts
 insidia mcp
 ```
 
-Speaks MCP over stdio. Tools: `init`, `doctor`, `scan`, `findings`, `report`. `scan` requires `confirmed: true` and reads `insidia.yaml`. It does not accept a URL. See [Use a coding agent](../start/agent.md).
+Speaks MCP over stdio. Tools: `init`, `doctor`, `scan`, `findings`, `report`. `scan` requires `confirmed: true` and reads `insidia.yaml`. It does not accept a URL. See [Use a coding agent](/docs/start/agent/).

@@ -282,7 +282,7 @@ For the small deterministic beta acceptance suite, require all declared vulnerab
 
 **Work:** produce one real 45–60 second recording using F14/F15. Storyboard: 0–5s outcome; 5–12s scope/config; 12–25s actual execution; 25–40s evidence/fix; 40–55s comparable rerun; 55–60s install/report links. Label time compression. Supply captions, transcript, poster and pause controls. Replace outdated mock UI statements. Publish a sanitized failed run, its fixed rerun and an incomplete-run example with version provenance.
 
-**Files:** [video plan](/home/rushi/Desktop/Rushi/Insidia-Labs/Insidia-Labs/plans/22-website-video-scripts.md), site demo/content/public assets, README media. Actual video recording is a deliverable, not satisfied by an animated mock.
+**Files:** [video plan](/home/rushi/Desktop/Rushi/Insidia-Labs/Insidia-Labs/plans/25-video-scripts.md), site demo/content/public assets, README media. Decision (10 Oct 2026): the videos are rendered animations, not screen recordings. Every terminal line, finding, and report field in them comes from captured output of the tagged CLI (`site/video/capture/capture.py`). A video drawn from invented output does not satisfy this package.
 
 **Acceptance:** anyone can reproduce the displayed scenario with the tagged release. Terminal/evidence text is readable; no synthetic numbers are presented as measurements. AI-to-AppSec chains appear only after a real chain is independently verified. Public artifacts contain only synthetic/redacted data and functioning links.
 

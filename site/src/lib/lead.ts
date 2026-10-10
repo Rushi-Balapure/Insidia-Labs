@@ -32,6 +32,12 @@ export function validateLead(
   return { ok: true, channel: opts.endpoint.trim() ? "hosted-form" : "mailto" };
 }
 
+export const MAILTO_NOTICE = "Your mail app opened with this request. The form still has what you typed.";
+
+export function acknowledged(status: number): boolean {
+  return status >= 200 && status < 300;
+}
+
 export function mailtoHref(input: LeadInput): string {
   const subject = input.interest === "design-partner" ? "Design partner application" : "Waitlist";
   const body = [
