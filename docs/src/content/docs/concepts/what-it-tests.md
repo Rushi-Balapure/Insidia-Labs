@@ -16,7 +16,7 @@ Set coverage when you scan:
 | Flag | Behavior |
 | --- | --- |
 | `--coverage standard` | One engine per family. This is the default. |
-| `--coverage thorough` | Every installed engine that covers the family. A finding seen by more than one engine is marked cross-validated. |
+| `--coverage thorough` | Every installed engine that covers the family. A finding seen by more than one engine names each engine. That is not independent confirmation. |
 
 Checks that need a model run only when `models.attacker` is set. Otherwise they are skipped and written to `benchmark.json`. A skip is not a pass.
 

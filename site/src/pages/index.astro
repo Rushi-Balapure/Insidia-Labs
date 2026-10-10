@@ -16,7 +16,7 @@ const faqs = [
   ["Can I run Insidia today?", "Yes. Install the CLI from GitHub and scan hosts you list in insidia.yaml. The CLI is pre-release: commands and the report format can still change. Insidia Cloud, the hosted attacker, opens for design partners in December 2026."],
   ["Does a scan leave my machine?", "Traffic goes to the target you configured and, if you set one, to your model endpoint. There is no telemetry. Insidia Cloud is optional and is not required for a scan."],
   ["Which engines does it run?", "garak, promptfoo, PyRIT, DeepTeam, mcp-scanner, SkillSpector, and NuGuard on the AI side. ZAP, Nuclei, Dalfox, Trivy, osv-scanner, gitleaks, Bandit, and gosec on the app side. Insidia modules cover gaps such as indirect injection, RAG bleed, and scripted chains. Every finding names the engine that produced it."],
-  ["What is the Insidia Benchmark?", "An open policy with three levels. L1 is the fast baseline and needs no model. L2 adds judge-scored checks when you configure a model. L3 adds model-generated attacks when you configure one. The same repository publishes the scanner matrix used to measure recall."],
+  ["What is the Insidia Benchmark?", "An open policy. L1 is the baseline and needs no model. L2 and L3 currently run that same baseline; judge-scored and model-generated checks are not separate levels yet. The scanner matrix in this repository is a fixture suite, not a published precision or recall score."],
   ["Can my coding agent run it?", "Install the skill with npx skills add Rushi-Balapure/Insidia-Labs, or paste the quickstart into Claude Code, Cursor, Codex, or any agent that can run a shell. You confirm the hosts. insidia mcp is the local MCP server."],
   ["What does Insidia Cloud add?", "A hosted uncensored attacker and judge, custom attacks for your app, and later a dashboard to launch and schedule scans. The CLI stays free. Hosted work is metered. You can self-host the Cloud code; most teams will pay us to run the GPUs."],
   ["Will it test production?", "Only hosts in your scope. Anything other than localhost needs authorized: true, set by you. Design-partner Cloud tests run against staging, and only with written authorization."],
@@ -116,7 +116,7 @@ const jsonLd = {
           <article>
             <p class="kicker">01</p>
             <h3>Attacks both layers</h3>
-            <p class="muted">Prompt injection, jailbreaks, RAG and memory, and tool misuse, plus SQL injection, XSS, SSRF, and broken access control. Standard coverage picks one engine per family. Thorough runs every engine that covers it.</p>
+            <p class="muted">Prompt injection, jailbreaks, RAG and memory, and tool misuse, plus template injection, command injection, path access, and SSRF. SQL injection and XSS are not separate checks yet. Standard coverage picks one engine per family. Thorough runs every installed engine that covers it.</p>
           </article>
           <article>
             <p class="kicker">02</p>
@@ -126,7 +126,7 @@ const jsonLd = {
           <article>
             <p class="kicker">03</p>
             <h3>Maps to what you report</h3>
-            <p class="muted">Findings carry OWASP LLM, OWASP Agentic, MITRE ATLAS, and classic web and API ids. You get HTML, SARIF, and JSON. The policy result is in benchmark.json.</p>
+            <p class="muted">Findings carry OWASP LLM, OWASP Agentic, and classic web and API ids when a control has that mapping. MITRE ATLAS is not mapped yet. You get HTML, SARIF, and JSON. The policy result is in benchmark.json.</p>
           </article>
         </div>
         <ScriptedDemos set="how" />
@@ -149,8 +149,8 @@ const jsonLd = {
         <h2>An open benchmark, with three levels.</h2>
         <div class="grid-3">
           <article class="card"><h3>L1 Baseline</h3><p>Fast checks. No model. Safe to run on every pull request. <code>insidia scan --policy L1</code> exits 1 when the policy fails.</p></article>
-          <article class="card"><h3>L2 Standard</h3><p>The same controls, recorded as L2. Judge-scored checks run when a model is configured.</p></article>
-          <article class="card"><h3>L3 Thorough</h3><p>The same controls, recorded as L3. Model-generated attacks run when an attacker model is configured.</p></article>
+          <article class="card"><h3>L2 Standard</h3><p>The same baseline controls, recorded as L2. Judge-scored checks are not a separate level yet.</p></article>
+          <article class="card"><h3>L3 Thorough</h3><p>The same baseline controls, recorded as L3. Model-generated attacks are not a separate level yet.</p></article>
         </div>
         <p style="margin-top:1.2rem"><a href="/benchmark">How the benchmark is scored</a></p>
       </div>

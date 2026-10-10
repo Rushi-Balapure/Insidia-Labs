@@ -113,8 +113,7 @@ def _split(
 
 def _reject_unknown(controls: list[dict[str, str]], frameworks: tuple[Framework, ...]) -> None:
     known = {
-        framework.name: {item_id for item_id, _title in framework.items}
-        for framework in frameworks
+        framework.name: {item_id for item_id, _title in framework.items} for framework in frameworks
     }
     for control in controls:
         for tag in control.get("taxonomy", "").split(","):

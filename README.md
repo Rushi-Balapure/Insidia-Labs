@@ -76,21 +76,21 @@ You confirm the hosts. The agent should install the CLI, keep the scope you name
 
 | AI and agent layer | Application layer |
 | --- | --- |
-| Direct and indirect prompt injection | SQL injection, XSS, SSRF, and the rest of the web Top 10 |
+| Direct and indirect prompt injection | Template injection, command injection, path access, and SSRF |
 | Jailbreaks and policy bypass | BOLA/IDOR, BFLA, mass assignment, JWT |
 | System prompt and secret leakage | Secrets in code and history |
 | Tool misuse and excessive agency | Vulnerable dependencies and container images |
 | RAG and memory poisoning, cross-tenant bleed | Scripted chains from the AI layer into the app |
 | MCP and skill supply chain | |
 
-Findings map to **OWASP LLM**, **OWASP Agentic**, **OWASP Web and API**, **MITRE ATLAS**, and **CWE** when the control has that mapping. Each finding names the engine that produced it. A secret in evidence is masked, for example `[AWS_ACCESS_KEY len=20 fp=3f9a1c07]`.
+Findings map to **OWASP LLM**, **OWASP Agentic**, **OWASP Web and API**, and **CWE** when the control has that mapping. MITRE ATLAS is not mapped yet. SQL injection and XSS are not separate checks yet. Each finding names the engine that produced it. A secret in evidence is masked, for example `[AWS_ACCESS_KEY len=20 fp=3f9a1c07]`.
 
 ### Coverage
 
 | Mode | What runs |
 | --- | --- |
 | `standard` (default) | One engine per attack family, the highest-priority one |
-| `thorough` | Every engine that covers the family. Findings seen by two or more are marked cross-validated |
+| `thorough` | Every installed engine that covers the family. A finding seen by more than one engine names each engine. That is not independent confirmation |
 
 ```bash
 insidia scan --policy L2 --coverage thorough --yes
@@ -105,8 +105,8 @@ A scan with no model still runs every check that does not need one. Checks that 
 | Level | What it adds |
 | --- | --- |
 | **L1** | Baseline checks. No model. The default from `insidia init`. |
-| **L2** | Judge-scored checks, when a judge model is configured. |
-| **L3** | Model-generated attacks, when an attacker model is configured. |
+| **L2** | The same baseline as L1. Judge-scored checks are not a separate level yet. |
+| **L3** | The same baseline as L1. Model-generated attacks are not a separate level yet. |
 
 The run directory `.insidia/runs/<run-id>/` contains:
 

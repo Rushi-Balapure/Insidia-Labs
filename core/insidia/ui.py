@@ -99,11 +99,25 @@ class Terminal:
 
     def symbol(self, result: str) -> str:
         glyphs = (
-            {"pass": "✔", "fail": "✘", "skipped": "–", "note": "!", "ok": "✔"}
+            {"pass": "✔", "fail": "✘", "skipped": "–", "inconclusive": "?", "note": "!", "ok": "✔"}
             if self.unicode
-            else {"pass": "+", "fail": "x", "skipped": "-", "note": "!", "ok": "+"}
+            else {
+                "pass": "+",
+                "fail": "x",
+                "skipped": "-",
+                "inconclusive": "?",
+                "note": "!",
+                "ok": "+",
+            }
         )
-        colors = {"pass": "32", "ok": "32", "fail": "31", "skipped": "33", "note": "33"}
+        colors = {
+            "pass": "32",
+            "ok": "32",
+            "fail": "31",
+            "skipped": "33",
+            "inconclusive": "33",
+            "note": "33",
+        }
         return self.paint(glyphs[result], colors[result])
 
     # output
@@ -179,7 +193,7 @@ class ScanView:
     def __init__(self, terminal: Terminal) -> None:
         self.terminal = terminal
         self._target = ""
-        self.counts = {"pass": 0, "fail": 0, "skipped": 0}
+        self.counts = {"pass": 0, "fail": 0, "skipped": 0, "inconclusive": 0}
 
     def __call__(self, event: Event) -> None:
         term = self.terminal
@@ -204,8 +218,13 @@ class ScanView:
     def _row(self, event: Event) -> None:
         term = self.terminal
         self.counts[event.result] += 1
-        label = {"pass": "pass", "fail": "FAIL", "skipped": "skipped"}[event.result]
-        tint = {"pass": "32", "fail": "1;31", "skipped": "33"}[event.result]
+        label = {
+            "pass": "pass",
+            "fail": "FAIL",
+            "skipped": "skipped",
+            "inconclusive": "incomplete",
+        }[event.result]
+        tint = {"pass": "32", "fail": "1;31", "skipped": "33", "inconclusive": "33"}[event.result]
         right = event.detail or ", ".join(event.engines)
         timing = seconds_text(event.seconds) if event.seconds else ""
         term.line(
@@ -216,6 +235,8 @@ class ScanView:
     def totals(self) -> str:
         c = self.counts
         parts = [f"{c['pass']} passed", f"{c['fail']} failed", f"{c['skipped']} skipped"]
+        if c["inconclusive"]:
+            parts.append(f"{c['inconclusive']} inconclusive")
         return " · ".join(parts)
 
 

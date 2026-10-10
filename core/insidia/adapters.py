@@ -130,11 +130,20 @@ def canary(attack: str, response: str, target: Target) -> str | None:
 
 
 def arithmetic_echo(attack: str, response: str, target: Target) -> str | None:
+    """The rendered page is the product itself, not a page that merely mentions it.
+
+    ``This item costs 49 dollars.`` is not evidence that ``{{7*7}}`` ran.
+    """
+
     expression = _ARITHMETIC.search(attack)
     if expression is None or attack in response:
         return None
     product = str(int(expression.group(1)) * int(expression.group(2)))
-    return product if has_standalone(product, response) else None
+    stripped = response.strip()
+    substituted = attack.replace(expression.group(0), product, 1)
+    if stripped in {product, substituted}:
+        return product
+    return None
 
 
 def has_standalone(number: str, text: str) -> bool:
@@ -331,9 +340,7 @@ BUILT_IN = BuiltIn(
         _spec("web.path_lfi", _WEB_API): ("secret.txt",),
         _spec("web.ssrf", ("web",)): ("http://127.0.0.1/plant",),
         _spec("web.deserialization", _WEB_API): ("pickle", "pickle:blob"),
-        _spec("web.xxe", _WEB_API): (
-            '<!DOCTYPE a [<!ENTITY x "insidia-xxe">]><a>&x;</a>',
-        ),
+        _spec("web.xxe", _WEB_API): ('<!DOCTYPE a [<!ENTITY x "insidia-xxe">]><a>&x;</a>',),
         _spec("infra.cve", _WEB_API): ("banner",),
         _spec("infra.tls", _WEB_API): ("proto",),
         _spec("api.bola_idor", ("api",)): ("2",),
@@ -345,6 +352,7 @@ BUILT_IN = BuiltIn(
         _spec("deps.sca", ("repo",)): ("pyyaml==5.3.1",),
     },
 )
+
 
 def _upstream() -> tuple[Adapter, ...]:
     from insidia.upstream import build

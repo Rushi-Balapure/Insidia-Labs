@@ -17,3 +17,7 @@ class ScopeError(CliError):
 
 class EngineFailed(CliError):
     """An upstream engine is missing or did not produce a report."""
+
+
+class ProbeError(CliError):
+    """This check did not receive a usable response from the target."""

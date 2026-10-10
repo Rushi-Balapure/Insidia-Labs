@@ -460,5 +460,3 @@ def _read_receipt(directory: Path) -> dict[str, object] | None:
     if not isinstance(loaded, dict):
         return None
     return cast(dict[str, object], loaded)
-
-

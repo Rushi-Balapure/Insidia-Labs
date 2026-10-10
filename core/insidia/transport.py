@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextvars
 import json
 import os
 import socket
@@ -11,21 +12,30 @@ import time
 import urllib.error
 import urllib.request
 from base64 import b64encode
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlencode, urljoin, urlparse, urlunparse
 
 from insidia.config import Target, resolve_secret
-from insidia.errors import CliError, ConfigError, ScopeError
+from insidia.errors import CliError, ConfigError, ProbeError, ScopeError
 from insidia.scope import ScopeHost, check_url, hostname
 
 _MAX_BODY = 1_000_000
 _REDIRECTS = frozenset({301, 302, 303, 307, 308})
 
 
+Budget = dict[str, tuple["RateLimiter", threading.Semaphore]]
+_budget: contextvars.ContextVar[Budget | None] = contextvars.ContextVar(
+    "insidia_budget", default=None
+)
+
+
 @dataclass
 class RateLimiter:
     rps: float
+    clock: Callable[[], float] = time.monotonic
+    sleep: Callable[[float], None] = time.sleep
 
     def __post_init__(self) -> None:
         self._interval = 1.0 / self.rps
@@ -34,11 +44,28 @@ class RateLimiter:
 
     def wait(self) -> None:
         with self._lock:
-            now = time.monotonic()
+            now = self.clock()
             delay = self._next - now if now < self._next else 0.0
             self._next = (self._next if delay else now) + self._interval
         if delay:
-            time.sleep(delay)
+            self.sleep(delay)
+
+
+def bind_budget(targets: tuple[Target, ...]) -> contextvars.Token[Budget | None]:
+    """One limiter and one concurrency slot per target, shared by every engine."""
+
+    table = {
+        target.name: (
+            RateLimiter(target.rate_limit.rps),
+            threading.Semaphore(target.rate_limit.concurrency),
+        )
+        for target in targets
+    }
+    return _budget.set(table)
+
+
+def reset_budget(token: contextvars.Token[Budget | None]) -> None:
+    _budget.reset(token)
 
 
 def exchange(target: Target, payload: str, scope: tuple[ScopeHost, ...], root: Path) -> str:
@@ -61,20 +88,23 @@ def exchange(target: Target, payload: str, scope: tuple[ScopeHost, ...], root: P
 
 def _http(target: Target, payload: str, scope: tuple[ScopeHost, ...]) -> str:
     assert target.url is not None
-    limiter = RateLimiter(target.rate_limit.rps)
+    limiter, gate = _slot(target)
     url = _with_query(target.url, target.query, payload)
     method = target.method
     body = _body(target, payload)
     headers = _headers(target, body is not None)
-    observed = read_url(
-        url,
-        scope,
-        method=method,
-        body=body,
-        headers=headers,
-        limiter=limiter,
-        timeout=600,
-    )
+    with gate:
+        observed = read_url(
+            url,
+            scope,
+            method=method,
+            body=body,
+            headers=headers,
+            limiter=limiter,
+            timeout=600,
+        )
+    if target.kind in {"chat", "agent", "rag", "mcp"} and _login_page(observed):
+        raise ProbeError(f"{target.name} returned an HTML login page")
     return _select(observed, target.response_selector)
 
 
@@ -154,9 +184,14 @@ def read_url(
                 raw = response.read(_MAX_BODY)
                 if not isinstance(raw, bytes):
                     raise CliError("response was not bytes")
+                if status >= 400:
+                    raise ProbeError(f"target returned HTTP {status}")
                 return raw.decode("utf-8", "replace")
         except urllib.error.URLError as exc:
-            raise CliError("endpoint is unreachable") from exc
+            reason = exc.reason
+            if isinstance(reason, TimeoutError | socket.timeout):
+                raise ProbeError("target timed out") from exc
+            raise ProbeError("endpoint is unreachable") from exc
     raise CliError("redirected too many times")
 
 
@@ -226,29 +261,43 @@ def _fill(template: str, payload: str) -> str:
     )
 
 
+def _slot(target: Target) -> tuple[RateLimiter, threading.Semaphore]:
+    table = _budget.get()
+    if table is not None and target.name in table:
+        return table[target.name]
+    return RateLimiter(target.rate_limit.rps), threading.Semaphore(target.rate_limit.concurrency)
+
+
+def _login_page(body: str) -> bool:
+    sample = body[:4000].lower()
+    if "<html" not in sample and "<!doctype html" not in sample:
+        return False
+    return "password" in sample or "sign in" in sample or "log in" in sample
+
+
 def _select(body: str, selector: str | None) -> str:
     if not selector:
         return body
     try:
         value: object = json.loads(body)
-    except json.JSONDecodeError:
-        return body
+    except json.JSONDecodeError as exc:
+        raise ProbeError("response was not JSON for the configured selector") from exc
     path = selector[2:] if selector.startswith("$.") else selector
     for part in path.split("."):
         name, _, index_text = part.partition("[")
         if name:
             if not isinstance(value, dict) or name not in value:
-                return body
+                raise ProbeError(f"response selector {selector} did not match")
             value = value[name]
         if index_text:
             if not index_text.endswith("]"):
-                return body
+                raise ProbeError(f"response selector {selector} did not match")
             try:
                 index = int(index_text[:-1])
-            except ValueError:
-                return body
-            if not isinstance(value, list) or index >= len(value):
-                return body
+            except ValueError as exc:
+                raise ProbeError(f"response selector {selector} did not match") from exc
+            if not isinstance(value, list) or index >= len(value) or index < 0:
+                raise ProbeError(f"response selector {selector} did not match")
             value = value[index]
     if isinstance(value, str):
         return value

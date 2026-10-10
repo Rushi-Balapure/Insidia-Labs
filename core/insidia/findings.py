@@ -37,7 +37,7 @@ def normalize(hits: list[ProbeHit]) -> list[Finding]:
     grouped: dict[tuple[str, str, str], list[Finding]] = {}
     order: list[tuple[str, str, str]] = []
     for hit in hits:
-        response = mask(hit.response)[:500]
+        response = _around(mask(hit.response), mask(hit.evidence) if hit.evidence else "")
         finding = Finding(
             hit.track,
             hit.engine,
@@ -71,6 +71,19 @@ def normalize(hits: list[ProbeHit]) -> list[Finding]:
         )
         merged.append(finding)
     return merged
+
+
+def _around(text: str, needle: str) -> str:
+    """Keep the matched evidence even when it is past the first 500 characters."""
+
+    if not needle:
+        return text[:500]
+    at = text.find(needle)
+    if at < 0:
+        return text[:500]
+    start = max(0, at - 120)
+    end = min(len(text), at + len(needle) + 120)
+    return text[start:end]
 
 
 def _evidence_hash(text: str) -> str:

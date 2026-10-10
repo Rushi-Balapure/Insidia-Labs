@@ -16,6 +16,23 @@ from insidia.transport import RateLimiter, exchange
 from tests.support import start_fixture, stop_fixture, target
 
 
+def test_rate_limiter_uses_the_supplied_clock() -> None:
+    now = [0.0]
+    slept: list[float] = []
+
+    def clock() -> float:
+        return now[0]
+
+    def sleep(delay: float) -> None:
+        slept.append(delay)
+        now[0] += delay
+
+    limiter = RateLimiter(10, clock=clock, sleep=sleep)
+    limiter.wait()
+    limiter.wait()
+    assert slept == [0.1]
+
+
 def test_rate_limiter_spaces_calls() -> None:
     limiter = RateLimiter(10)
     started = time.monotonic()

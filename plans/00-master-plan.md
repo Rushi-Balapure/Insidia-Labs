@@ -29,6 +29,9 @@ todos:
   - id: phase1e
     content: "Phase 1E: agent skill at the top of the docs, MCP server, llms.txt, GitHub Action, install from GitHub (uv/pipx from git, GHCR Docker image, release wheels), public launch"
     status: completed
+  - id: phase1f
+    content: "Phase 1F: reliability, evidence, independently verified coverage, onboarding, reports, and product presentation; see 23-productization-plan.md. F00 and F01 are underway."
+    status: in_progress
   - id: phase2a
     content: "Phase 2A: Insidia Cloud model service - hosted uncensored attacker/judge behind an API key, used by the CLI for custom attack generation (metered)"
     status: pending
@@ -53,7 +56,9 @@ Plans are stored in both `/home/rushi/Desktop/Rushi/Insidia-Labs/plans/` and thi
 
 ## Status
 
-Update this table in the same change that starts or finishes a phase. The next row to build is **2A**.
+Update this table in the same change that starts or finishes a phase. The next row to build is **1F**, starting with F00/F01 in [23-productization-plan.md](23-productization-plan.md). Phase 2A follows its readiness and product-validation gates.
+
+The 10 October 2026 review found that earlier implementation-complete labels and green matrix cells do not establish independent detector or product readiness. The historical rows below are retained as implementation history. Phase 1F owns revalidation, accurate capability claims, and release acceptance; do not treat the earlier counts as scanner precision/recall measurements.
 
 | Phase | Status | Where it stands |
 | --- | --- | --- |
@@ -66,7 +71,8 @@ Update this table in the same change that starts or finishes a phase. The next r
 | 1C Gap modules | Done | 556 cells. The built-in scan proves the sandbox plants. Juice Shop, crAPI, and DVGA are hit on the running apps. The AgentDojo workspace tools run in process. `email-validator` is Unlicense and is allowed for those tools. |
 | 1D Benchmark and report | Done | One scan writes the four OWASP scores, a static coverage matrix, fix guidance, and a re-run command. Light and dark follow the system theme. |
 | 1E Agents and launch | Done | The skill, MCP server, llms.txt, and GitHub Action are in the tree. A v* tag builds a signed wheel and the GHCR image with every pinned engine. The launch note is on the site. |
-| 2A Model service | Not started | |
+| 1F Reliability and productization | In progress | F00–F05 are in the working tree: result contract, target status, shared budgets, redaction, and staged reports. F06–F22 are not finished. [Execution plan](23-productization-plan.md). |
+| 2A Model service | Not started | After Phase 1F readiness and product-validation gates. |
 | 2B Custom attacks and pentest agent | Not started | |
 | 2C Hosted dashboard | Not started | |
 | 3 Depth | Not started | 44 cells (SDK, predictive ML, smuggling, client-side). |
@@ -109,6 +115,7 @@ Each file opens with the phase it belongs to.
 | [20-admin-console.md](20-admin-console.md) | Staff console, 2C |
 | [21-marketing-website.md](21-marketing-website.md) | Marketing site, Phase W |
 | [22-website-video-scripts.md](22-website-video-scripts.md) | Scripts for the site's demo videos |
+| [23-productization-plan.md](23-productization-plan.md) | Phase 1F implementation contracts, ordered work packages, acceptance tests, and release gates |
 
 ## Scope
 Insidia Labs is an **AI-native application security toolkit**. It covers two tracks:
@@ -130,7 +137,7 @@ Competitors: AI-side (Mindgard, Lakera, HiddenLayer, promptfoo's commercial tier
 - **Model-agnostic.** One provider layer with two roles, `attacker` and `judge`. Each role points at any OpenAI-compatible endpoint (Ollama, llama.cpp, vLLM, LM Studio, OpenRouter, OpenAI, Azure), Anthropic, Gemini, Bedrock, or Insidia Cloud. A scan without any model still runs every static corpus and deterministic oracle. If an attacker model refuses generations, the report counts the refusals and says which families were thin, so the user sees why a hosted or local uncensored model helps.
 - **OS-agnostic.** Linux, macOS, and Windows. `core` is pure Python 3.12+, installed straight from GitHub with `uv tool install` or `pipx install` from the git URL, or run as the Docker image. Engines that need another runtime (ZAP needs Java; Nuclei, Dalfox, and gitleaks are Go binaries; promptfoo needs Node) are fetched into a managed toolchain directory by `insidia engines install`, or run as pinned containers with `--engines docker`. `insidia doctor` explains what is missing.
 - **Python version split.** `core` targets 3.12+ so users can install it on common systems. Insidia Cloud services stay on Python 3.14 as built in Phase 0.
-- **Test-first stays.** Phase T's matrix gates every phase: a phase exits when the cells it owns are green. The same matrix and sandboxed targets are published as the scanner benchmark.
+- **Test-first stays, with independent release validation.** Phase T's matrix remains a fixture/transport regression gate. Phase 1F separates that evidence from adapter contracts and independent evaluation of the released CLI. A phase exits only when its applicable implementation, negative-control, execution-completeness, and artifact acceptance gates pass; green fixture permutations alone are insufficient. Publish the distinct suites and their methodology.
 - **Local safety for an open tool.** The CLI scans only hosts listed in the project's `insidia.yaml` scope. Each non-local host needs an explicit `authorized: true` the user sets. Rate limits are on by default. The agent skill tells agents never to add a host the user did not name. Cloud scans add ownership verification and fixed-IP egress controls.
 - **Privacy by default in the CLI.** Nothing leaves the machine except traffic to the target and to the model the user configured. No telemetry unless the user opts in. Secrets found in evidence are masked in the report (`[AWS_ACCESS_KEY len=20 fp=3f9a1c07]`).
 - **Cloud keeps the security-first database.** Insidia Cloud stores customers' unfixed vulnerabilities, so Phase 0's design stands: per-org envelope encryption, RLS, no plaintext customer values. See [14-database-schema.md](14-database-schema.md).

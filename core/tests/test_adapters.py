@@ -177,10 +177,11 @@ def test_builtin_ssti_hits_a_web_target_and_skips_a_chat_target(tmp_path: Path) 
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:  # noqa: N802
             body = self.rfile.read(int(self.headers.get("Content-Length", "0")))
-            seen.append(json.loads(body)["prompt"])
+            prompt = json.loads(body)["prompt"]
+            seen.append(prompt)
             self.send_response(200)
             self.end_headers()
-            self.wfile.write(b"rendered 49")
+            self.wfile.write(prompt.replace("{{7*7}}", "49").encode())
 
         def log_message(self, fmt: str, *args: object) -> None:
             return

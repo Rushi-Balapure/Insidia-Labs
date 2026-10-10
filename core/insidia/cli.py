@@ -134,10 +134,15 @@ def _run(args: argparse.Namespace) -> int:
             len(outcome.findings),
             str(report_path),
             opened,
+            execution_status=outcome.execution_status,
+            policy_verdict=outcome.policy_verdict or None,
         )
         document = {
+            "schema_version": "2.0",
             "run_id": outcome.run_id,
             "passed": outcome.passed,
+            "execution_status": outcome.execution_status,
+            "policy_verdict": outcome.policy_verdict or ("pass" if outcome.passed else "fail"),
             "findings": [finding.as_json() for finding in outcome.findings],
             "skips": outcome.skips,
             "run_dir": str(outcome.run_dir),
@@ -148,13 +153,17 @@ def _run(args: argparse.Namespace) -> int:
                 len(outcome.findings),
                 str(report_path),
                 False,
+                execution_status=outcome.execution_status,
+                policy_verdict=outcome.policy_verdict or None,
             ),
         }
         _emit(args.json, document, text)
-        return 0 if outcome.passed else 1
+        return outcome.exit_code()
     if args.command == "report":
         directory = _run_dir(args.run_id, args.config)
         report_path = directory / "report.html"
+        if not report_path.is_file():
+            raise CliError(f"run {directory.name} has no report")
         if args.open:
             webbrowser.open(report_path.resolve().as_uri())
         _emit(args.json, {"report": str(report_path)}, str(report_path))
@@ -177,8 +186,23 @@ def _run_dir(run_id: str | None, config: str) -> Path:
     return latest
 
 
-def scan_message(policy: str, passed: bool, findings: int, report: str, opened: bool) -> str:
-    head = verdict_text(policy, passed, findings)
+def scan_message(
+    policy: str,
+    passed: bool,
+    findings: int,
+    report: str,
+    opened: bool,
+    *,
+    execution_status: str = "complete",
+    policy_verdict: str | None = None,
+) -> str:
+    head = verdict_text(
+        policy,
+        passed,
+        findings,
+        execution_status=execution_status,
+        policy_verdict=policy_verdict,
+    )
     if opened:
         return f"{head} Opened {report}."
     return f"{head} Report: {report}."

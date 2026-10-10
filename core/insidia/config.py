@@ -14,6 +14,28 @@ from insidia.scope import ScopeHost
 
 _ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _KINDS = frozenset({"chat", "agent", "rag", "mcp", "web", "api", "repo"})
+_PROJECT_FIELDS = frozenset({"version", "policy", "coverage", "scope", "targets", "models"})
+_SCOPE_FIELDS = frozenset({"host", "authorized"})
+_TARGET_FIELDS = frozenset(
+    {
+        "kind",
+        "url",
+        "path",
+        "method",
+        "request_template",
+        "response_selector",
+        "query",
+        "headers",
+        "auth",
+        "rate_limit",
+        "api",
+        "canary",
+        "command",
+    }
+)
+_MODEL_FIELDS = frozenset({"provider", "base_url", "model", "secret_ref"})
+_AUTH_FIELDS = frozenset({"header", "secret_ref", "scheme"})
+_RATE_FIELDS = frozenset({"rps", "concurrency"})
 _INIT = """\
 version: 1
 policy: L1
@@ -99,8 +121,14 @@ def init_config(directory: Path) -> Path:
 def load_project(path: Path) -> Project:
     if not path.is_file():
         raise ConfigError(f"missing {path}")
-    loaded = yaml.safe_load(path.read_text())
+    try:
+        loaded = yaml.safe_load(path.read_text())
+    except yaml.YAMLError as exc:
+        mark = getattr(exc, "problem_mark", None)
+        where = f" at line {mark.line + 1}" if mark is not None else ""
+        raise ConfigError(f"insidia.yaml could not be parsed{where}") from exc
     document = _mapping(loaded, "insidia.yaml")
+    _unknown(document, _PROJECT_FIELDS, "insidia.yaml")
     version = document.get("version")
     if version != 1:
         raise ConfigError("version must be 1")
@@ -133,6 +161,7 @@ def _scope(value: object) -> tuple[ScopeHost, ...]:
     seen: set[str] = set()
     for item in value:
         entry = _mapping(item, "scope entry")
+        _unknown(entry, _SCOPE_FIELDS, "scope")
         host = _text(entry.get("host"), "scope host").lower()
         if host in seen:
             raise ConfigError(f"scope lists {host} more than once")
@@ -151,6 +180,7 @@ def _targets(value: object) -> tuple[Target, ...]:
     targets: list[Target] = []
     for name, raw in document.items():
         entry = _mapping(raw, f"target {name}")
+        _unknown(entry, _TARGET_FIELDS, name)
         kind = _text(entry.get("kind"), f"{name}.kind")
         if kind not in _KINDS:
             raise ConfigError(f"{name}.kind is not supported")
@@ -189,6 +219,7 @@ def _models(value: object) -> tuple[ModelRole | None, ModelRole | None]:
     if value is None:
         return None, None
     document = _mapping(value, "models")
+    _unknown(document, frozenset({"attacker", "judge"}), "models")
     return _model("attacker", document.get("attacker")), _model("judge", document.get("judge"))
 
 
@@ -196,6 +227,7 @@ def _model(name: str, value: object) -> ModelRole | None:
     if value is None:
         return None
     entry = _mapping(value, f"models.{name}")
+    _unknown(entry, _MODEL_FIELDS, f"models.{name}")
     provider = _text(entry.get("provider"), f"models.{name}.provider")
     return ModelRole(
         name,
@@ -210,6 +242,7 @@ def _auth(value: object, target: str) -> Auth | None:
     if value is None:
         return None
     entry = _mapping(value, f"{target}.auth")
+    _unknown(entry, _AUTH_FIELDS, f"{target}.auth")
     return Auth(
         _text(entry.get("header"), f"{target}.auth.header"),
         _text(entry.get("secret_ref"), f"{target}.auth.secret_ref"),
@@ -219,6 +252,7 @@ def _auth(value: object, target: str) -> Auth | None:
 
 def _rate_limit(value: object) -> RateLimit:
     entry = _mapping(value, "rate_limit")
+    _unknown(entry, _RATE_FIELDS, "rate_limit")
     rps = entry.get("rps", 5)
     concurrency = entry.get("concurrency", 1)
     if isinstance(rps, bool) or not isinstance(rps, int | float) or rps <= 0:
@@ -244,6 +278,12 @@ def _string_map(value: object, label: str) -> dict[str, str]:
             raise ConfigError(f"{label}.{key} must be a string")
         result[key] = item
     return result
+
+
+def _unknown(document: dict[str, object], allowed: frozenset[str], label: str) -> None:
+    unknown = sorted(set(document) - allowed)
+    if unknown:
+        raise ConfigError(f"{label}.{unknown[0]} is not a known field")
 
 
 def _mapping(value: object, label: str) -> dict[str, object]:

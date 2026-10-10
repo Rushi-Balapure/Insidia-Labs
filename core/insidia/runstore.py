@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import secrets
 import time
@@ -9,7 +10,9 @@ from dataclasses import asdict
 from pathlib import Path
 
 from insidia import __version__
+from insidia.errors import CliError
 from insidia.findings import Finding
+from insidia.results import SCHEMA_VERSION, legacy_passed
 from insidia.score import Score, coverage, score_frameworks
 
 _HTML = """\
@@ -126,25 +129,43 @@ def write_run(
     findings: list[Finding],
     controls: list[dict[str, str]],
     skips: list[str],
+    *,
+    execution_status: str = "complete",
+    policy_verdict: str | None = None,
 ) -> Path:
-    directory = root / ".insidia" / "runs" / run_id
-    directory.mkdir(parents=True, exist_ok=False)
+    runs = root / ".insidia" / "runs"
+    staging = runs / f".{run_id}.partial"
+    directory = runs / run_id
+    if staging.exists():
+        raise CliError(f"run {run_id} is already being written")
+    staging.mkdir(parents=True)
+    verdict = policy_verdict or ("pass" if passed else "fail")
+    passed = legacy_passed(execution_status, verdict)
     payload = [finding.as_json() for finding in findings]
-    (directory / "findings.json").write_text(json.dumps(payload, indent=2) + "\n")
-    (directory / "results.sarif").write_text(json.dumps(_sarif(findings), indent=2) + "\n")
+    (staging / "findings.json").write_text(json.dumps(payload, indent=2) + "\n")
+    (staging / "results.sarif").write_text(json.dumps(_sarif(findings), indent=2) + "\n")
     scores = score_frameworks(controls)
     benchmark = {
+        "schema_version": SCHEMA_VERSION,
         "policy": policy,
         "passed": passed,
+        "execution_status": execution_status,
+        "policy_verdict": verdict,
         "controls": controls,
         "skips": skips,
         "scores": [asdict(score) for score in scores],
     }
-    (directory / "benchmark.json").write_text(json.dumps(benchmark, indent=2) + "\n")
+    (staging / "benchmark.json").write_text(json.dumps(benchmark, indent=2) + "\n")
     rows = "\n".join(_row(finding, policy) for finding in findings)
     if not rows:
-        rows = "<tr><td colspan=\"7\">None</td></tr>"
-    headline = verdict_text(policy, passed, len(findings))
+        rows = '<tr><td colspan="7">None</td></tr>'
+    headline = verdict_text(
+        policy,
+        passed,
+        len(findings),
+        execution_status=execution_status,
+        policy_verdict=verdict,
+    )
     html = _HTML.format(
         run_id=_escape(run_id),
         status="pass" if passed else "fail",
@@ -154,14 +175,46 @@ def write_run(
         rows=rows,
         mark=_mark(),
     )
-    (directory / "report.html").write_text(html)
+    (staging / "report.html").write_text(html)
+    manifest = {
+        "schema_version": SCHEMA_VERSION,
+        "run_id": run_id,
+        "execution_status": execution_status,
+        "policy_verdict": verdict,
+        "files": {
+            name: hashlib.sha256((staging / name).read_bytes()).hexdigest()
+            for name in ("findings.json", "results.sarif", "benchmark.json", "report.html")
+        },
+    }
+    (staging / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    staging.rename(directory)
     return directory
 
 
-def verdict_text(policy: str, passed: bool, findings: int) -> str:
-    if passed:
-        return f"The scan ran. Policy {policy} passed. No findings."
+def verdict_text(
+    policy: str,
+    passed: bool,
+    findings: int,
+    *,
+    execution_status: str = "complete",
+    policy_verdict: str | None = None,
+) -> str:
+    verdict = policy_verdict or ("pass" if passed else "fail")
     label = "finding" if findings == 1 else "findings"
+    if execution_status != "complete":
+        if verdict == "fail":
+            return (
+                f"The scan did not finish. Policy {policy} did not pass. "
+                f"{findings} {label}. Execution {execution_status}."
+            )
+        return (
+            f"The scan did not finish. Policy {policy} is inconclusive. "
+            f"Execution {execution_status}."
+        )
+    if verdict == "pass":
+        return f"The scan ran. Policy {policy} passed. No findings."
+    if verdict == "inconclusive":
+        return f"The scan ran. Policy {policy} is inconclusive."
     return f"The scan ran. Policy {policy} did not pass. {findings} {label}."
 
 
@@ -173,7 +226,9 @@ def latest_run(root: Path) -> Path | None:
     runs = root / ".insidia" / "runs"
     if not runs.is_dir():
         return None
-    names = sorted(path.name for path in runs.iterdir() if path.is_dir())
+    names = sorted(
+        path.name for path in runs.iterdir() if path.is_dir() and not path.name.startswith(".")
+    )
     if not names:
         return None
     return runs / names[-1]

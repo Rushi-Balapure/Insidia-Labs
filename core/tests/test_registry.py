@@ -15,6 +15,25 @@ def test_standard_keeps_the_highest_priority_probe() -> None:
     assert [item.engine for item in thorough] == ["offline", "insidia", "other"]
 
 
+def test_a_match_after_the_first_500_characters_is_kept() -> None:
+    evidence = "insidia-plant-canary-7f3a"
+    hit = ProbeHit(
+        "app",
+        "ai.data_leakage",
+        "insidia",
+        "insidia.ai.data_leakage",
+        ("x" * 600) + evidence,
+        "high",
+        "medium",
+        "ai",
+        ("owasp-llm:LLM02",),
+        "Stop returning secrets.",
+        evidence=evidence,
+    )
+    findings = normalize([hit])
+    assert evidence in findings[0].response
+
+
 def test_two_engines_mark_a_finding_cross_validated() -> None:
     hit = ProbeHit(
         "app",

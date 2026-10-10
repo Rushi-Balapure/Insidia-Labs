@@ -74,4 +74,3 @@ def test_engine_install_names_each_engine(monkeypatch: object) -> None:
     assert notes[0].startswith("Installing bandit ")
     assert notes[1] == "bandit is already installed"
     assert "bandit is already installed" in message
-

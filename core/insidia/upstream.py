@@ -338,8 +338,6 @@ def _web_parser(engine: str) -> Callable[[Path, ProbeSpec], list[EngineHit]]:
 def _repo_parser(engine: str) -> Callable[[Path, ProbeSpec], list[EngineHit]]:
     def parse(report: Path, spec: ProbeSpec) -> list[EngineHit]:
         loaded = _load_json(report)
-        if loaded is None:
-            return []
         reader = _REPO_RULES.get(engine)
         if reader is None:
             return []
@@ -349,9 +347,13 @@ def _repo_parser(engine: str) -> Callable[[Path, ProbeSpec], list[EngineHit]]:
 
 
 def _web_bodies(engine: str, report: Path) -> list[str]:
-    if engine in {"httpx", "katana"} or not report.is_file():
-        return []
+    if not report.is_file():
+        raise EngineFailed("engine report is missing")
     text = report.read_text(errors="replace")
+    if not text.strip():
+        raise EngineFailed("engine report is empty")
+    if engine in {"httpx", "katana"}:
+        return []
     if engine == "nuclei":
         return _nuclei_bodies(text)
     loaded = _loads(text)
@@ -434,8 +436,7 @@ def _dalfox_bodies(loaded: object) -> list[str]:
 
 def _dalfox_ssti(row: dict[str, object]) -> bool:
     text = " ".join(
-        str(row.get(key, ""))
-        for key in ("message_str", "inject_type", "cwe", "type_description")
+        str(row.get(key, "")) for key in ("message_str", "inject_type", "cwe", "type_description")
     ).lower()
     return "ssti" in text or "template injection" in text or "cwe-1336" in text
 
@@ -447,10 +448,16 @@ def _http_body(raw: str) -> str:
     return raw
 
 
-def _load_json(report: Path) -> object | None:
+def _load_json(report: Path) -> object:
     if not report.is_file():
-        return None
-    return _loads(report.read_text(errors="replace").strip())
+        raise EngineFailed("engine report is missing")
+    text = report.read_text(errors="replace").strip()
+    if not text:
+        raise EngineFailed("engine report is empty")
+    loaded = _loads(text)
+    if loaded is None:
+        raise EngineFailed("engine report is empty")
+    return loaded
 
 
 def _loads(text: str) -> object | None:
@@ -458,8 +465,8 @@ def _loads(text: str) -> object | None:
         return None
     try:
         loaded: object = json.loads(text)
-    except json.JSONDecodeError:
-        return None
+    except json.JSONDecodeError as exc:
+        raise EngineFailed("engine report is not valid JSON") from exc
     return loaded
 
 

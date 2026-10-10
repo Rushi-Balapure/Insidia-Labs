@@ -100,8 +100,11 @@ def _scan(arguments: dict[str, object]) -> dict[str, object]:
     project = load_project(Path("insidia.yaml"))
     outcome = execute(project, Path.cwd(), policy_name=policy_name, assume_yes=True)
     return {
+        "schema_version": "2.0",
         "run_id": outcome.run_id,
         "passed": outcome.passed,
+        "execution_status": outcome.execution_status,
+        "policy_verdict": outcome.policy_verdict or ("pass" if outcome.passed else "fail"),
         "findings": len(outcome.findings),
         "run_dir": str(outcome.run_dir),
     }

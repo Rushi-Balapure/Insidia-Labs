@@ -217,9 +217,7 @@ def _repo_report(engine: str) -> object:
                 },
             }
         ],
-        "skillspector": {
-            "issues": [{"id": "SS-001", "category": "exec", "severity": "HIGH"}]
-        },
+        "skillspector": {"issues": [{"id": "SS-001", "category": "exec", "severity": "HIGH"}]},
         "nuguard": {
             "findings": [
                 {"finding_id": "nga-NGA-003-cf6bf33a", "severity": "high", "title": "Secrets"},
@@ -633,10 +631,7 @@ def test_child_process_drops_proxies_and_secrets(
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     out = tmp_path / "env.json"
     script = tmp_path / "env.py"
-    script.write_text(
-        "import json, os\n"
-        f"json.dump(dict(os.environ), open({str(out)!r}, 'w'))\n"
-    )
+    script.write_text(f"import json, os\njson.dump(dict(os.environ), open({str(out)!r}, 'w'))\n")
     invocation = Invocation(
         sys.executable,
         (str(script),),
