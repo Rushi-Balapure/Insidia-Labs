@@ -71,7 +71,7 @@ The 10 October 2026 review found that earlier implementation-complete labels and
 | 1C Gap modules | Done | 556 cells. The built-in scan proves the sandbox plants. Juice Shop, crAPI, and DVGA are hit on the running apps. The AgentDojo workspace tools run in process. `email-validator` is Unlicense and is allowed for those tools. |
 | 1D Benchmark and report | Done | One scan writes the four OWASP scores, a static coverage matrix, fix guidance, and a re-run command. Light and dark follow the system theme. |
 | 1E Agents and launch | Done | The skill, MCP server, llms.txt, and GitHub Action are in the tree. A v* tag builds a signed wheel and the GHCR image with every pinned engine. The launch note is on the site. |
-| 1F Reliability and productization | In progress | F00–F05 are in the working tree: result contract, target status, shared budgets, redaction, and staged reports. F06–F22 are not finished. [Execution plan](23-productization-plan.md). |
+| 1F Reliability and productization | In progress | F00–F06 are in the tree: result contract, target status, shared budgets, redaction, staged reports, and finding identity. F07–F22 are not finished. [Execution plan](23-productization-plan.md). |
 | 2A Model service | Not started | After Phase 1F readiness and product-validation gates. |
 | 2B Custom attacks and pentest agent | Not started | |
 | 2C Hosted dashboard | Not started | |

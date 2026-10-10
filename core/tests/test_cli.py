@@ -4,6 +4,7 @@ from insidia.cli import main, scan_message
 from insidia.config import load_project
 from insidia.engines import install
 from insidia.findings import Finding
+from insidia.runstore import write_run
 from insidia.scan import ScanOutcome
 
 
@@ -62,6 +63,35 @@ def test_scan_says_the_tool_ran_and_opens_the_report(
     assert "The scan ran. Policy L1 did not pass. 1 finding. Opened" in out
     closed = scan_message("L1", True, 0, "report.html", False)
     assert closed == "The scan ran. Policy L1 passed. No findings. Report: report.html."
+
+
+def test_rerun_refuses_a_changed_configuration(tmp_path: Path) -> None:
+    (tmp_path / "insidia.yaml").write_text(
+        """
+version: 1
+policy: L1
+coverage: standard
+scope:
+  - host: localhost
+targets:
+  app:
+    kind: chat
+    url: http://127.0.0.1:9/chat
+"""
+    )
+    write_run(
+        tmp_path,
+        "run-1",
+        "L1",
+        True,
+        [],
+        [],
+        [],
+        config_digest="0" * 64,
+        coverage="standard",
+    )
+    code = main(["rerun", "run-1", "--config", str(tmp_path / "insidia.yaml"), "--quiet"])
+    assert code == 2
 
 
 def test_engine_install_names_each_engine(monkeypatch: object) -> None:

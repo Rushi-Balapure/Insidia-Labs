@@ -61,7 +61,44 @@ def test_two_engines_mark_a_finding_cross_validated() -> None:
     )
     findings = normalize([hit, other])
     assert len(findings) == 1
-    assert findings[0].cross_validated
+    assert findings[0].cross_validated is False
     assert findings[0].engine == "insidia"
     assert findings[0].engines == ("insidia", "garak")
-    assert findings[0].as_json()["engines"] == ["insidia", "garak"]
+    assert findings[0].as_json()["reported_by"] == 2
+    assert [item.engine for item in findings[0].observations] == ["insidia", "garak"]
+
+
+def test_the_same_rule_at_two_locations_is_two_findings() -> None:
+    def hit(location: str) -> ProbeHit:
+        return ProbeHit(
+            "repo",
+            "code.secrets",
+            "gitleaks",
+            "gitleaks.secrets",
+            "AKIAIOSFODNN7EXAMPLE",
+            "high",
+            "high",
+            "classic",
+            ("owasp-web:A05",),
+            "Remove the key.",
+            location=location,
+        )
+
+    findings = normalize([hit("a.py:3"), hit("b.py:9")])
+    assert [item.location for item in findings] == ["a.py:3", "b.py:9"]
+
+
+def test_an_unknown_severity_is_explicit() -> None:
+    hit = ProbeHit(
+        "app",
+        "web.ssti",
+        "insidia",
+        "insidia.web.ssti",
+        "49",
+        "severe",
+        "high",
+        "classic",
+        ("owasp-web:A03",),
+        "Do not evaluate user input as a template.",
+    )
+    assert normalize([hit])[0].severity == "unspecified"

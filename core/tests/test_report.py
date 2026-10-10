@@ -56,7 +56,7 @@ def test_report_scores_frameworks_and_names_the_engine(tmp_path: Path) -> None:
     assert "not tested" in html
     assert "owasp-llm:LLM06" in html
     assert "Stop returning secrets." in html
-    assert "insidia scan --policy L1" in html
+    assert "insidia rerun run-1" in html
     assert _SECRET not in html
     assert "AKIA" not in html
     benchmark = json.loads((directory / "benchmark.json").read_text())

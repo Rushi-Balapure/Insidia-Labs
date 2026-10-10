@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -219,6 +220,8 @@ def _run_targets(
         skips,
         execution_status=execution_status,
         policy_verdict=policy_verdict,
+        config_digest=hashlib.sha256(project.path.read_bytes()).hexdigest(),
+        coverage=mode,
     )
     return ScanOutcome(
         run_id,

@@ -132,6 +132,8 @@ def write_run(
     *,
     execution_status: str = "complete",
     policy_verdict: str | None = None,
+    config_digest: str = "",
+    coverage: str = "standard",
 ) -> Path:
     runs = root / ".insidia" / "runs"
     staging = runs / f".{run_id}.partial"
@@ -156,7 +158,7 @@ def write_run(
         "scores": [asdict(score) for score in scores],
     }
     (staging / "benchmark.json").write_text(json.dumps(benchmark, indent=2) + "\n")
-    rows = "\n".join(_row(finding, policy) for finding in findings)
+    rows = "\n".join(_row(finding, run_id) for finding in findings)
     if not rows:
         rows = '<tr><td colspan="7">None</td></tr>'
     headline = verdict_text(
@@ -179,8 +181,11 @@ def write_run(
     manifest = {
         "schema_version": SCHEMA_VERSION,
         "run_id": run_id,
+        "policy": policy,
         "execution_status": execution_status,
         "policy_verdict": verdict,
+        "config_digest": config_digest,
+        "coverage": coverage,
         "files": {
             name: hashlib.sha256((staging / name).read_bytes()).hexdigest()
             for name in ("findings.json", "results.sarif", "benchmark.json", "report.html")
@@ -255,9 +260,11 @@ def _coverage_rows(controls: list[dict[str, str]]) -> str:
     return "\n".join(lines)
 
 
-def _row(finding: Finding, policy: str) -> str:
+def _row(finding: Finding, run_id: str) -> str:
     engines = ", ".join(finding.engines) if finding.engines else finding.engine
-    rerun = f"insidia scan --policy {policy}"
+    count = len(finding.engines) or 1
+    engines = f"{engines} (reported by {count})"
+    rerun = f"insidia rerun {run_id}"
     cells = (
         finding.target,
         engines,
@@ -268,6 +275,30 @@ def _row(finding: Finding, policy: str) -> str:
         rerun,
     )
     return "<tr>" + "".join(f"<td>{_escape(cell)}</td>" for cell in cells) + "</tr>"
+
+
+def _sarif_level(severity: str) -> str:
+    if severity in {"critical", "high"}:
+        return "error"
+    if severity == "unspecified":
+        return "none"
+    return "warning"
+
+
+def _sarif_location(location: str) -> dict[str, object] | None:
+    if not location:
+        return None
+    if "://" in location:
+        return {"physicalLocation": {"artifactLocation": {"uri": location}}}
+    path, separator, line = location.rpartition(":")
+    if separator and line.isdigit() and path:
+        return {
+            "physicalLocation": {
+                "artifactLocation": {"uri": path},
+                "region": {"startLine": int(line)},
+            }
+        }
+    return {"physicalLocation": {"artifactLocation": {"uri": location}}}
 
 
 def _escape(value: str) -> str:
@@ -282,14 +313,16 @@ def _sarif(findings: list[Finding]) -> dict[str, object]:
         if finding.probe not in seen:
             seen.add(finding.probe)
             rules.append({"id": finding.probe, "name": finding.attack})
-        results.append(
-            {
-                "ruleId": finding.probe,
-                "level": "error" if finding.severity == "high" else "warning",
-                "message": {"text": f"{finding.engine}: {finding.attack} on {finding.target}"},
-                "properties": {"engine": finding.engine},
-            }
-        )
+        result: dict[str, object] = {
+            "ruleId": finding.probe,
+            "level": _sarif_level(finding.severity),
+            "message": {"text": f"{finding.engine}: {finding.attack} on {finding.target}"},
+            "properties": {"engine": finding.engine, "severity": finding.severity},
+        }
+        location = _sarif_location(finding.location)
+        if location is not None:
+            result["locations"] = [location]
+        results.append(result)
     return {
         "version": "2.1.0",
         "$schema": "https://json.schemastore.org/sarif-2.1.0.json",

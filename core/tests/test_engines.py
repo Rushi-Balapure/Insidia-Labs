@@ -771,10 +771,12 @@ def test_thorough_scan_cross_validates_without_a_model(tmp_path: Path) -> None:
     leak = next(item for item in document if item["attack"] == "ai.data_leakage")
     web = next(item for item in document if item["attack"] == "web.ssti")
     assert leak["engine"] == "insidia"
-    assert leak["cross_validated"] is True, outcome.skips
+    assert leak["cross_validated"] is False, outcome.skips
+    assert leak["reported_by"] >= 2, outcome.skips
     assert set(leak["engines"]) >= {"insidia", "garak", "promptfoo"}, outcome.skips
     assert web["engine"] == "insidia"
-    assert web["cross_validated"] is True, outcome.skips
+    assert web["cross_validated"] is False, outcome.skips
+    assert web["reported_by"] >= 2, outcome.skips
     assert "insidia" in web["engines"]
     assert "nuclei" in web["engines"] or "zap" in web["engines"]
 

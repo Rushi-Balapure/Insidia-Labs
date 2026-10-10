@@ -251,5 +251,6 @@ def test_same_evidence_in_different_responses_is_one_cross_validated_finding() -
         )
 
     findings = normalize([hit("insidia", "rendered 49"), hit("nuclei", "HTTP/1.1 200\r\n\r\n49")])
-    assert [(item.engine, item.cross_validated) for item in findings] == [("insidia", True)]
+    assert [(item.engine, item.cross_validated) for item in findings] == [("insidia", False)]
     assert findings[0].engines == ("insidia", "nuclei")
+    assert len(findings[0].observations) == 2

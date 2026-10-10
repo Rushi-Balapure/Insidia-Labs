@@ -1,4 +1,4 @@
-"""Normalize probe hits into findings and merge cross-engine duplicates."""
+"""Normalize probe hits. Several engines can report one location. They do not confirm each other."""
 
 from __future__ import annotations
 
@@ -7,6 +7,16 @@ from dataclasses import asdict, dataclass, replace
 
 from insidia.mask import mask
 from insidia.probes import ProbeHit
+
+_SEVERITIES = frozenset({"critical", "high", "medium", "low", "informational"})
+
+
+@dataclass(frozen=True)
+class Observation:
+    engine: str
+    probe: str
+    severity: str
+    location: str
 
 
 @dataclass(frozen=True)
@@ -25,24 +35,29 @@ class Finding:
     cross_validated: bool
     target: str
     engines: tuple[str, ...] = ()
+    location: str = ""
+    observations: tuple[Observation, ...] = ()
 
     def as_json(self) -> dict[str, object]:
         document = asdict(self)
         document["taxonomy"] = list(self.taxonomy)
         document["engines"] = list(self.engines)
+        document["observations"] = [asdict(item) for item in self.observations]
+        document["reported_by"] = len(self.engines) or 1
         return document
 
 
 def normalize(hits: list[ProbeHit]) -> list[Finding]:
-    grouped: dict[tuple[str, str, str], list[Finding]] = {}
-    order: list[tuple[str, str, str]] = []
+    grouped: dict[tuple[str, str, str, str], list[Finding]] = {}
+    order: list[tuple[str, str, str, str]] = []
     for hit in hits:
         response = _around(mask(hit.response), mask(hit.evidence) if hit.evidence else "")
+        severity = hit.severity if hit.severity in _SEVERITIES else "unspecified"
         finding = Finding(
             hit.track,
             hit.engine,
             hit.probe,
-            hit.severity,
+            severity,
             hit.confidence,
             hit.family,
             response,
@@ -52,8 +67,10 @@ def normalize(hits: list[ProbeHit]) -> list[Finding]:
             _evidence_hash(mask(hit.evidence) if hit.evidence else response),
             False,
             hit.target,
+            location=hit.location,
+            observations=(Observation(hit.engine, hit.probe, severity, hit.location),),
         )
-        key = (finding.target, finding.attack, finding.evidence_hash)
+        key = (finding.target, finding.attack, finding.location, finding.evidence_hash)
         if key not in grouped:
             order.append(key)
             grouped[key] = []
@@ -62,13 +79,8 @@ def normalize(hits: list[ProbeHit]) -> list[Finding]:
     for key in order:
         items = grouped[key]
         names = tuple(dict.fromkeys(item.engine for item in items))
-        cross = len(set(names)) >= 2
-        finding = replace(
-            items[0],
-            cross_validated=cross,
-            confidence="high" if cross else items[0].confidence,
-            engines=names,
-        )
+        observations = tuple(item.observations[0] for item in items)
+        finding = replace(items[0], engines=names, observations=observations)
         merged.append(finding)
     return merged
 

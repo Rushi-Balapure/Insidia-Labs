@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 import webbrowser
@@ -53,6 +54,8 @@ def main(argv: list[str] | None = None) -> int:
     report = subcommands.add_parser("report", parents=[shared])
     report.add_argument("run_id", nargs="?")
     report.add_argument("--open", action="store_true")
+    rerun = subcommands.add_parser("rerun", parents=[shared])
+    rerun.add_argument("run_id", nargs="?")
     subcommands.add_parser("mcp", parents=[shared])
 
     args = parser.parse_args(argv)
@@ -159,6 +162,8 @@ def _run(args: argparse.Namespace) -> int:
         }
         _emit(args.json, document, text)
         return outcome.exit_code()
+    if args.command == "rerun":
+        return _rerun(args)
     if args.command == "report":
         directory = _run_dir(args.run_id, args.config)
         report_path = directory / "report.html"
@@ -171,6 +176,33 @@ def _run(args: argparse.Namespace) -> int:
     if args.command == "mcp":
         return serve(sys.stdin.buffer, sys.stdout.buffer)
     raise CliError(f"unknown command {args.command}")
+
+
+def _rerun(args: argparse.Namespace) -> int:
+    directory = _run_dir(args.run_id, args.config)
+    manifest_path = directory / "manifest.json"
+    if not manifest_path.is_file():
+        raise CliError(f"run {directory.name} has no manifest, so it cannot be rerun")
+    manifest = json.loads(manifest_path.read_text())
+    if not isinstance(manifest, dict):
+        raise CliError(f"run {directory.name} has an unreadable manifest")
+    project = load_project(Path(args.config))
+    digest = hashlib.sha256(project.path.read_bytes()).hexdigest()
+    recorded = manifest.get("config_digest")
+    if not isinstance(recorded, str) or not recorded:
+        raise CliError(f"run {directory.name} does not record its configuration")
+    if recorded != digest and not args.yes:
+        raise CliError("configuration changed since that run; pass --yes to scan the current file")
+    policy = manifest.get("policy")
+    if policy != "L1":
+        raise CliError(f"run used policy {policy}, which is not available. Use L1.")
+    coverage = manifest.get("coverage")
+    if coverage not in {"standard", "thorough"}:
+        raise CliError(f"run {directory.name} does not record its coverage")
+    args.policy = "L1"
+    args.coverage = coverage
+    args.command = "scan"
+    return _run(args)
 
 
 def _run_dir(run_id: str | None, config: str) -> Path:

@@ -50,6 +50,7 @@ class ProbeHit:
     remediation: str
     upstream: str = ""
     evidence: str = ""
+    location: str = ""
 
 
 def run(

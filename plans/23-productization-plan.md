@@ -1,6 +1,6 @@
 # Phase 1F — Insidia reliability, evidence, and productization
 
-Status: **in progress**. F00–F05 are started. F06–F22 are not finished.
+Status: **in progress**. F00–F06 are started. F07–F22 are not finished.
 
 Inputs: [review and evidence](/home/rushi/Desktop/Rushi/Insidia-Labs/Insidia-Labs/plans/2026-10-10-product-review.md), [product brief](/home/rushi/Desktop/Rushi/Insidia-Labs/Insidia-Labs/plans/PRODUCT-BRIEF.md), and [master plan](/home/rushi/Desktop/Rushi/Insidia-Labs/Insidia-Labs/plans/00-master-plan.md).
 
@@ -104,7 +104,7 @@ Write to a hidden staging directory under the same runs filesystem; publish the 
 
 ## 4. Work packages and merge sequence
 
-IDs are stable issue/PR references. F00–F05 are started. F06–F22 are **not finished**. A package may need multiple focused PRs. The listed dependencies are prerequisites for marking it complete, not a ban on preparing independent documents/tests.
+IDs are stable issue/PR references. F00–F06 are started. F07–F22 are **not finished**. A package may need multiple focused PRs. The listed dependencies are prerequisites for marking it complete, not a ban on preparing independent documents/tests.
 
 | ID | Deliverable | Depends on | Release gate |
 | --- | --- | --- | --- |
