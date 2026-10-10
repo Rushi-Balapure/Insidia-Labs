@@ -338,6 +338,10 @@ def _web_parser(engine: str) -> Callable[[Path, ProbeSpec], list[EngineHit]]:
 def _repo_parser(engine: str) -> Callable[[Path, ProbeSpec], list[EngineHit]]:
     def parse(report: Path, spec: ProbeSpec) -> list[EngineHit]:
         loaded = _load_json(report)
+        if engine == "gitleaks":
+            return _gitleaks_hits(loaded, spec)
+        if isinstance(loaded, dict) and "error" in loaded and "Results" not in loaded:
+            raise EngineFailed(f"{engine} reported an error")
         reader = _REPO_RULES.get(engine)
         if reader is None:
             return []
@@ -351,6 +355,8 @@ def _web_bodies(engine: str, report: Path) -> list[str]:
         raise EngineFailed("engine report is missing")
     text = report.read_text(errors="replace")
     if not text.strip():
+        if engine == "nuclei":
+            return []
         raise EngineFailed("engine report is empty")
     if engine in {"httpx", "katana"}:
         return []
@@ -472,7 +478,7 @@ def _loads(text: str) -> object | None:
 
 def _bandit_rules(loaded: object) -> list[str]:
     if not isinstance(loaded, dict):
-        return []
+        raise EngineFailed("bandit report has an unexpected shape")
     rows = loaded.get("results")
     if not isinstance(rows, list):
         return []
@@ -488,12 +494,43 @@ def _bandit_rules(loaded: object) -> list[str]:
     return found
 
 
+def _gitleaks_hits(loaded: object, spec: ProbeSpec) -> list[EngineHit]:
+    if not isinstance(loaded, list):
+        raise EngineFailed("gitleaks report has an unexpected shape")
+    hits: list[EngineHit] = []
+    for row in loaded:
+        if not isinstance(row, dict):
+            raise EngineFailed("gitleaks report has a malformed record")
+        rule = row.get("RuleID")
+        if not isinstance(rule, str) or not rule:
+            raise EngineFailed("gitleaks report has a malformed record")
+        file = row.get("File")
+        line = row.get("StartLine")
+        location = ""
+        if isinstance(file, str) and file:
+            location = f"{file}:{line}" if isinstance(line, int) else file
+        evidence = row.get("Match")
+        if not isinstance(evidence, str) or not evidence:
+            evidence = rule
+        severity = row.get("Severity")
+        hits.append(
+            EngineHit(
+                spec.upstream,
+                spec.probe,
+                evidence,
+                evidence,
+                location,
+                severity if isinstance(severity, str) else "",
+            )
+        )
+    return hits
+
+
 def _trivy_rules(loaded: object) -> list[str]:
-    if not isinstance(loaded, dict):
-        return []
-    results = loaded.get("Results")
-    if not isinstance(results, list):
-        return []
+    if not isinstance(loaded, dict) or not isinstance(loaded.get("Results"), list):
+        raise EngineFailed("trivy report has an unexpected shape")
+    results = loaded["Results"]
+    assert isinstance(results, list)
     found: list[str] = []
     for result in results:
         if not isinstance(result, dict):

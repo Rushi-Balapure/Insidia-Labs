@@ -1,4 +1,5 @@
 import json
+import re
 import threading
 from dataclasses import replace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -179,9 +180,11 @@ def test_builtin_ssti_hits_a_web_target_and_skips_a_chat_target(tmp_path: Path) 
             body = self.rfile.read(int(self.headers.get("Content-Length", "0")))
             prompt = json.loads(body)["prompt"]
             seen.append(prompt)
+            match = re.search(r"\{\{(\d+)\*(\d+)\}\}", prompt)
+            rendered = str(int(match.group(1)) * int(match.group(2))) if match else "baseline-ok"
             self.send_response(200)
             self.end_headers()
-            self.wfile.write(prompt.replace("{{7*7}}", "49").encode())
+            self.wfile.write(rendered.encode())
 
         def log_message(self, fmt: str, *args: object) -> None:
             return
@@ -196,11 +199,12 @@ def test_builtin_ssti_hits_a_web_target_and_skips_a_chat_target(tmp_path: Path) 
         skipped = run(adapter, spec, target(kind="chat", url=url), _project(), tmp_path, control)
     finally:
         server.shutdown()
-    assert [(hit.engine, hit.probe, hit.evidence) for hit in hits] == [
-        ("insidia", "insidia.web.ssti", "49")
-    ]
-    assert skipped == []
-    assert seen == ["{{7*7}}"]
+    assert len(hits.hits) == 1
+    assert hits.hits[0].evidence.isdigit()
+    assert hits.error == ""
+    assert skipped.hits == ()
+    assert "baseline" in seen
+    assert any(item.startswith("{{") for item in seen)
 
 
 def test_report_adapter_hit_is_stamped_with_the_adapter_engine(tmp_path: Path) -> None:
@@ -208,7 +212,7 @@ def test_report_adapter_hit_is_stamped_with_the_adapter_engine(tmp_path: Path) -
     web = target(kind="web", url="http://127.0.0.1:8080/call")
     control = get_policy("L1").control("web.ssti")
     hits = run(REPORT_ENGINE, SSTI, web, _project(), tmp_path, control, launch=launch)
-    assert [(hit.engine, hit.probe, hit.upstream, hit.evidence) for hit in hits] == [
+    assert [(hit.engine, hit.probe, hit.upstream, hit.evidence) for hit in hits.hits] == [
         ("fixture-nuclei", "fixture.web.ssti", "insidia-ssti-arith", "49")
     ]
     assert launch.invocations[0].args[:2] == ("-u", "http://127.0.0.1:8080/call")

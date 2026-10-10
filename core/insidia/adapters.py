@@ -79,6 +79,9 @@ class EngineHit:
     attack: str
     response: str
     evidence: str
+    location: str = ""
+    severity: str = ""
+    confidence: str = ""
 
 
 @dataclass(frozen=True)

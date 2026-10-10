@@ -227,6 +227,36 @@ def _mark() -> str:
     return (Path(__file__).resolve().parent / "brand" / "mark.svg").read_text().strip()
 
 
+def read_manifest(directory: Path) -> dict[str, object] | None:
+    """Check a finalized manifest. A legacy run with no manifest is left unchanged."""
+
+    path = directory / "manifest.json"
+    if not path.is_file():
+        return None
+    try:
+        loaded = json.loads(path.read_text())
+    except json.JSONDecodeError as exc:
+        raise CliError(f"run {directory.name} manifest is not valid JSON") from exc
+    if not isinstance(loaded, dict):
+        raise CliError(f"run {directory.name} manifest is not valid JSON")
+    files = loaded.get("files")
+    if not isinstance(files, dict):
+        raise CliError(f"run {directory.name} manifest does not list its files")
+    root = directory.resolve()
+    for name, digest in files.items():
+        if not isinstance(name, str) or not isinstance(digest, str) or "/" in name:
+            raise CliError(f"run {directory.name} manifest has an invalid file entry")
+        artifact = (directory / name).resolve()
+        if root != artifact and root not in artifact.parents:
+            raise CliError(f"run {directory.name} manifest escapes the run directory")
+        if not artifact.is_file():
+            raise CliError(f"run {directory.name} is missing {name}")
+        actual = hashlib.sha256(artifact.read_bytes()).hexdigest()
+        if actual != digest:
+            raise CliError(f"run {directory.name} {name} does not match the manifest")
+    return loaded
+
+
 def latest_run(root: Path) -> Path | None:
     runs = root / ".insidia" / "runs"
     if not runs.is_dir():

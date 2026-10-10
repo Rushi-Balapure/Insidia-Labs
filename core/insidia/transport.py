@@ -68,6 +68,27 @@ def reset_budget(token: contextvars.Token[Budget | None]) -> None:
     _budget.reset(token)
 
 
+def current_budget() -> Budget | None:
+    return _budget.get()
+
+
+class BoundBudget:
+    """Apply a budget captured on the scan thread inside a worker thread."""
+
+    def __init__(self, table: Budget | None) -> None:
+        self._table = table
+        self._token: contextvars.Token[Budget | None] | None = None
+
+    def __enter__(self) -> BoundBudget:
+        if self._table is not None:
+            self._token = _budget.set(self._table)
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        if self._token is not None:
+            _budget.reset(self._token)
+
+
 def exchange(target: Target, payload: str, scope: tuple[ScopeHost, ...], root: Path) -> str:
     if target.kind == "repo":
         repo_path(target, root)
@@ -187,6 +208,8 @@ def read_url(
                 if status >= 400:
                     raise ProbeError(f"target returned HTTP {status}")
                 return raw.decode("utf-8", "replace")
+        except TimeoutError as exc:
+            raise ProbeError("target timed out") from exc
         except urllib.error.URLError as exc:
             reason = exc.reason
             if isinstance(reason, TimeoutError | socket.timeout):

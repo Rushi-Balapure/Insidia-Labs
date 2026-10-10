@@ -12,6 +12,7 @@ from insidia.adapters import find
 from insidia.config import Project, Target
 from insidia.errors import CliError, EngineFailed, ProbeError
 from insidia.findings import Finding, normalize
+from insidia.mask import bind_secrets, mask
 from insidia.policy import Policy, get_policy
 from insidia.probes import ProbeHit, run
 from insidia.providers import build_provider
@@ -65,6 +66,8 @@ def execute(
             "It runs the same checks as L1, so it is not a higher assurance level. Use L1."
         )
     mode = coverage or project.coverage
+    config_digest = hashlib.sha256(project.path.read_bytes()).hexdigest()
+    bind_secrets(_configured_secrets(project))
     if project.attacker is not None:
         build_provider(project.attacker, project.scope)
     if project.judge is not None:
@@ -98,6 +101,7 @@ def execute(
             controls,
             skips,
             progress,
+            config_digest,
         )
     finally:
         reset_budget(token)
@@ -114,6 +118,7 @@ def _run_targets(
     controls: list[dict[str, str]],
     skips: list[str],
     progress: Callable[[Event], None] | None,
+    config_digest: str,
 ) -> ScanOutcome:
     for target in project.targets:
         _guard(target, project, root)
@@ -162,13 +167,27 @@ def _run_targets(
             for capability in chosen:
                 adapter, spec = find(capability.probe)
                 try:
-                    found = run(adapter, spec, target, project, root, policy.control(family))
+                    attempt = run(adapter, spec, target, project, root, policy.control(family))
                 except (EngineFailed, ProbeError) as exc:
-                    reason = short(str(exc))
+                    attempt_hits: tuple[ProbeHit, ...] = ()
+                    error = str(exc)
+                else:
+                    attempt_hits = attempt.hits
+                    error = attempt.error
+                hits.extend(attempt_hits)
+                if error:
+                    reason = short(mask(error))
                     reasons.append(reason)
-                    skips.append(f"{capability.engine}: {exc}")
+                    skips.append(f"{capability.engine}: {reason}")
                     family_records.append(
-                        CheckRecord(target.name, family, capability.engine, ERROR, reason)
+                        CheckRecord(
+                            target.name,
+                            family,
+                            capability.engine,
+                            ERROR,
+                            reason,
+                            finding_count=len(attempt_hits),
+                        )
                     )
                     _say(
                         progress,
@@ -180,14 +199,13 @@ def _run_targets(
                         ),
                     )
                     continue
-                hits.extend(found)
                 family_records.append(
                     CheckRecord(
                         target.name,
                         family,
                         capability.engine,
                         COMPLETE,
-                        finding_count=len(found),
+                        finding_count=len(attempt_hits),
                     )
                 )
             records.extend(family_records)
@@ -220,7 +238,7 @@ def _run_targets(
         skips,
         execution_status=execution_status,
         policy_verdict=policy_verdict,
-        config_digest=hashlib.sha256(project.path.read_bytes()).hexdigest(),
+        config_digest=config_digest,
         coverage=mode,
     )
     return ScanOutcome(
@@ -237,6 +255,20 @@ def _run_targets(
 def _say(progress: Callable[[Event], None] | None, event: Event) -> None:
     if progress is not None:
         progress(event)
+
+
+def _configured_secrets(project: Project) -> tuple[str, ...]:
+    from insidia.config import resolve_secret
+
+    found: list[str] = []
+    for target in project.targets:
+        if target.auth is None:
+            continue
+        try:
+            found.append(resolve_secret(target.auth.secret_ref))
+        except CliError:
+            continue
+    return tuple(found)
 
 
 def _family_result(records: list[CheckRecord]) -> str:

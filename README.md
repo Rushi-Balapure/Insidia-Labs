@@ -93,20 +93,20 @@ Findings map to **OWASP LLM**, **OWASP Agentic**, **OWASP Web and API**, and **C
 | `thorough` | Every installed engine that covers the family. A finding seen by more than one engine names each engine. That is not independent confirmation |
 
 ```bash
-insidia scan --policy L2 --coverage thorough --yes
+insidia scan --policy L1 --coverage thorough --yes
 ```
 
 A scan with no model still runs every check that does not need one. Checks that need a model are skipped and listed in `benchmark.json`. A skip is not a pass.
 
 ## Benchmark
 
-`insidia scan --policy L1|L2|L3` runs the open Insidia Benchmark policy:
+`insidia scan --policy L1` runs the open Insidia Benchmark baseline. L2 and L3 are defined and **not available** until they run different checks.
 
 | Level | What it adds |
 | --- | --- |
-| **L1** | Baseline checks. No model. The default from `insidia init`. |
-| **L2** | The same baseline as L1. Judge-scored checks are not a separate level yet. |
-| **L3** | The same baseline as L1. Model-generated attacks are not a separate level yet. |
+| **L1** | Baseline checks. No model. The default from `insidia init`. Available. |
+| **L2** | Unavailable. It is not a separate judge-scored level yet. |
+| **L3** | Unavailable. It is not a separate model-generated level yet. |
 
 The run directory `.insidia/runs/<run-id>/` contains:
 

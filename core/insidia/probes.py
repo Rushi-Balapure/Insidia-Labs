@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hmac
 import json
+import random
 import secrets
 import tempfile
 import threading
@@ -25,13 +26,14 @@ from insidia.adapters import (
     RepoPath,
     ReportAdapter,
     ScopedUrl,
+    has_standalone,
 )
 from insidia.config import Project, Target, resolve_secret
-from insidia.errors import CliError, ConfigError, EngineFailed, ScopeError
+from insidia.errors import CliError, ConfigError, EngineFailed, ProbeError, ScopeError
 from insidia.policy import Control
 from insidia.process import launch_installed
 from insidia.scope import ScopeHost, check_url
-from insidia.transport import exchange, repo_path
+from insidia.transport import BoundBudget, current_budget, exchange, repo_path
 
 Launch = Callable[[Invocation, Path], None]
 
@@ -53,6 +55,14 @@ class ProbeHit:
     location: str = ""
 
 
+@dataclass(frozen=True)
+class Attempt:
+    """Observations from one engine, plus an error if that engine did not finish."""
+
+    hits: tuple[ProbeHit, ...] = ()
+    error: str = ""
+
+
 def run(
     adapter: Adapter,
     spec: ProbeSpec,
@@ -62,37 +72,39 @@ def run(
     control: Control,
     *,
     launch: Launch = launch_installed,
-) -> list[ProbeHit]:
+) -> Attempt:
     if target.kind not in spec.target_kinds:
-        return []
+        return Attempt()
     match adapter:
         case BuiltIn():
-            found = _judge(adapter, spec, target, project.scope, root)
+            found, error = _judge(adapter, spec, target, project.scope, root)
         case RelayAdapter():
-            found = _relay(adapter, spec, target, project, root, launch)
+            found, error = _relay(adapter, spec, target, project, root, launch)
         case ReportAdapter() if _over_url(adapter):
-            found = _report(adapter, spec, _scoped_url(target, project.scope), launch)
+            found, error = _report(adapter, spec, _scoped_url(target, project.scope), launch)
         case ReportAdapter() if _over_repo(adapter):
-            found = _report(adapter, spec, RepoPath(repo_path(target, root)), launch)
+            found, error = _report(adapter, spec, RepoPath(repo_path(target, root)), launch)
         case _:
             raise CliError(f"{adapter.engine}: no adapter arm")
-    return [
+    hits = tuple(
         ProbeHit(
             target.name,
             spec.family,
             adapter.engine,
             spec.probe,
             hit.response,
-            control.severity,
-            "high",
+            hit.severity or control.severity,
+            hit.confidence or "high",
             control.track,
             control.taxonomy,
             control.remediation,
             hit.upstream,
             hit.evidence,
+            hit.location,
         )
         for hit in found
-    ]
+    )
+    return Attempt(hits, error)
 
 
 _REPO_SOURCE = {
@@ -108,17 +120,55 @@ def _judge(
     target: Target,
     scope: tuple[ScopeHost, ...],
     root: Path,
-) -> list[EngineHit]:
+) -> tuple[list[EngineHit], str]:
+    if spec.family == "web.ssti" and target.kind != "repo":
+        return _paired_ssti(target, scope, root)
     oracle = ORACLES[spec.family]
     if target.kind == "repo":
-        return _judge_repo(adapter, spec, target, root)
+        return _judge_repo(adapter, spec, target, root), ""
     hits: list[EngineHit] = []
     for payload in adapter.corpus[spec]:
-        response = exchange(target, payload, scope, root)
+        try:
+            response = exchange(target, payload, scope, root)
+        except ProbeError as exc:
+            return hits, str(exc)
         evidence = oracle(payload, response, target)
         if evidence is not None:
             hits.append(EngineHit(spec.upstream, payload, response, evidence))
-    return hits
+    return hits, ""
+
+
+def _paired_ssti(
+    target: Target,
+    scope: tuple[ScopeHost, ...],
+    root: Path,
+) -> tuple[list[EngineHit], str]:
+    """A fresh product must appear in the attack response and not in the baseline."""
+
+    left = random.randint(13, 97)
+    right = random.randint(13, 97)
+    product = str(left * right)
+    attack = "{{" + f"{left}*{right}" + "}}"
+    fixed = "{{7*7}}"
+    try:
+        baseline = exchange(target, "baseline", scope, root)
+        rendered = exchange(target, attack, scope, root)
+        planted = exchange(target, fixed, scope, root)
+    except ProbeError as exc:
+        return [], str(exc)
+    if (
+        attack not in rendered
+        and has_standalone(product, rendered)
+        and not has_standalone(product, baseline)
+    ):
+        return [EngineHit("insidia-ssti-arith", attack, rendered, product)], ""
+    if (
+        fixed not in planted
+        and has_standalone("49", planted)
+        and not has_standalone("49", baseline)
+    ):
+        return [EngineHit("insidia-ssti-arith", fixed, planted, "49")], ""
+    return [], ""
 
 
 def _judge_repo(
@@ -145,15 +195,21 @@ def _report[View: (ScopedUrl, RepoPath)](
     spec: ProbeSpec,
     view: View,
     launch: Launch,
-) -> list[EngineHit]:
+) -> tuple[list[EngineHit], str]:
     with tempfile.TemporaryDirectory(prefix=f"insidia-{adapter.engine}-") as name:
         workspace = Path(name).resolve()
         invocation = adapter.prepare(spec, view, workspace)
         report = (workspace / invocation.report).resolve()
         if workspace not in report.parents:
             raise ScopeError(f"{adapter.engine} report path leaves its workspace")
-        launch(invocation, workspace)
-        return adapter.parse(report, spec)
+        try:
+            launch(invocation, workspace)
+        except EngineFailed as exc:
+            return [], str(exc)
+        try:
+            return adapter.parse(report, spec), ""
+        except EngineFailed as exc:
+            return [], str(exc)
 
 
 def _relay(
@@ -163,9 +219,10 @@ def _relay(
     project: Project,
     root: Path,
     launch: Launch,
-) -> list[EngineHit]:
+) -> tuple[list[EngineHit], str]:
     token = secrets.token_hex(16)
     pairs: list[tuple[str, str]] = []
+    budget = current_budget()
 
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:  # noqa: N802
@@ -196,7 +253,8 @@ def _relay(
                 self.end_headers()
                 return
             try:
-                response = exchange(target, prompt, project.scope, root)
+                with BoundBudget(budget):
+                    response = exchange(target, prompt, project.scope, root)
             except (CliError, OSError):
                 self.send_response(502)
                 self.end_headers()
@@ -236,11 +294,11 @@ def _relay(
                 evidence = oracle(prompt, response, target)
                 if evidence is not None:
                     hits.append(EngineHit(spec.upstream, prompt, response, evidence))
-            if hits:
-                return hits
             if failed is not None:
-                raise failed
-            return []
+                return hits, str(failed)
+            if not pairs:
+                return [], "engine finished without contacting the target"
+            return hits, ""
     finally:
         server.shutdown()
         server.server_close()

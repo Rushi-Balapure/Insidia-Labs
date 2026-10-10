@@ -17,6 +17,7 @@ class Observation:
     probe: str
     severity: str
     location: str
+    evidence: str = ""
 
 
 @dataclass(frozen=True)
@@ -68,7 +69,15 @@ def normalize(hits: list[ProbeHit]) -> list[Finding]:
             False,
             hit.target,
             location=hit.location,
-            observations=(Observation(hit.engine, hit.probe, severity, hit.location),),
+            observations=(
+                Observation(
+                    hit.engine,
+                    hit.probe,
+                    severity,
+                    hit.location,
+                    mask(hit.evidence) if hit.evidence else "",
+                ),
+            ),
         )
         key = (finding.target, finding.attack, finding.location, finding.evidence_hash)
         if key not in grouped:
@@ -93,9 +102,8 @@ def _around(text: str, needle: str) -> str:
     at = text.find(needle)
     if at < 0:
         return text[:500]
-    start = max(0, at - 120)
-    end = min(len(text), at + len(needle) + 120)
-    return text[start:end]
+    start = max(0, at - 80)
+    return text[start : start + 500]
 
 
 def _evidence_hash(text: str) -> str:

@@ -15,7 +15,7 @@ from insidia.engines import install, list_engines
 from insidia.errors import CliError
 from insidia.mcp import serve
 from insidia.policy import POLICIES, get_policy
-from insidia.runstore import latest_run, verdict_text
+from insidia.runstore import latest_run, read_manifest, verdict_text
 from insidia.scan import execute
 from insidia.ui import InstallView, ScanView, Terminal
 
@@ -92,21 +92,33 @@ def _run(args: argparse.Namespace) -> int:
         _emit(args.json, {"message": message}, message)
         return 0
     if args.command == "policy" and args.policy_command == "list":
-        names = list(POLICIES)
-        _emit(args.json, {"policies": names}, "\n".join(names))
+        rows = [{"name": name, "available": name == "L1"} for name in POLICIES]
+        lines = [
+            f"{row['name']} {'available' if row['available'] else 'unavailable'}" for row in rows
+        ]
+        _emit(args.json, {"policies": rows}, "\n".join(lines))
         return 0
     if args.command == "policy" and args.policy_command == "show":
         policy = get_policy(args.name)
         controls = [control.family for control in policy.controls]
+        available = policy.name == "L1"
+        summary = policy.summary if available else f"{policy.summary} Not available yet."
         _emit(
             args.json,
-            {"name": policy.name, "summary": policy.summary, "controls": controls},
-            f"{policy.name}: {policy.summary}",
+            {
+                "name": policy.name,
+                "summary": summary,
+                "available": available,
+                "controls": controls,
+            },
+            f"{policy.name}: {summary}",
         )
         return 0
     if args.command == "policy" and args.policy_command == "validate":
         project = load_project(Path(args.config))
         get_policy(project.policy)
+        if project.policy != "L1":
+            raise CliError(f"policy {project.policy} is not available. Use L1.")
         _emit(args.json, {"policy": project.policy, "valid": True}, f"{project.policy} is valid")
         return 0
     if args.command == "scan":
@@ -166,6 +178,7 @@ def _run(args: argparse.Namespace) -> int:
         return _rerun(args)
     if args.command == "report":
         directory = _run_dir(args.run_id, args.config)
+        read_manifest(directory)
         report_path = directory / "report.html"
         if not report_path.is_file():
             raise CliError(f"run {directory.name} has no report")
@@ -180,12 +193,9 @@ def _run(args: argparse.Namespace) -> int:
 
 def _rerun(args: argparse.Namespace) -> int:
     directory = _run_dir(args.run_id, args.config)
-    manifest_path = directory / "manifest.json"
-    if not manifest_path.is_file():
+    manifest = read_manifest(directory)
+    if manifest is None:
         raise CliError(f"run {directory.name} has no manifest, so it cannot be rerun")
-    manifest = json.loads(manifest_path.read_text())
-    if not isinstance(manifest, dict):
-        raise CliError(f"run {directory.name} has an unreadable manifest")
     project = load_project(Path(args.config))
     digest = hashlib.sha256(project.path.read_bytes()).hexdigest()
     recorded = manifest.get("config_digest")

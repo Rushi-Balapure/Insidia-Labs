@@ -1,4 +1,5 @@
 import json
+import re
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -12,8 +13,12 @@ def test_graphql_target_sends_the_query_and_reports_ssti(tmp_path: Path) -> None
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:  # noqa: N802
             length = int(self.headers.get("Content-Length", "0"))
-            seen.append(json.loads(self.rfile.read(length)))
-            body = b"49"
+            document = json.loads(self.rfile.read(length))
+            seen.append(document)
+            query = str(document.get("query", ""))
+            match = re.search(r"\{\{(\d+)\*(\d+)\}\}", query)
+            rendered = str(int(match.group(1)) * int(match.group(2))) if match else "ok"
+            body = rendered.encode()
             self.send_response(200)
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()

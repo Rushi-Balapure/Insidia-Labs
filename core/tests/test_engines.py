@@ -552,7 +552,8 @@ def test_repo_parser_reads_each_engine_shape(tmp_path: Path) -> None:
         report = tmp_path / f"foreign-{name}.json"
         report.write_text(leaked)
         adapter = _engine(name)
-        assert adapter.parse(report, adapter.probes[0]) == []  # type: ignore[attr-defined]
+        with pytest.raises(EngineFailed, match="unexpected|error"):
+            adapter.parse(report, adapter.probes[0])  # type: ignore[attr-defined]
     empty = tmp_path / "empty.json"
     empty.write_text("[]")
     assert _engine("gitleaks").parse(empty, _engine("gitleaks").probes[0]) == []  # type: ignore[attr-defined]
@@ -583,7 +584,7 @@ def test_nuclei_report_cannot_rename_the_engine(tmp_path: Path) -> None:
         get_policy("L1").control("web.ssti"),
         launch=Launch(),
     )
-    assert [(hit.engine, hit.evidence) for hit in hits] == [("nuclei", "49")]
+    assert [(hit.engine, hit.evidence) for hit in hits.hits] == [("nuclei", "49")]
 
 
 def test_availability_follows_a_receipt_written_in_this_process(

@@ -11,7 +11,7 @@ from insidia.catalog import SPECS
 from insidia.cli import main
 from insidia.errors import EngineFailed
 from insidia.policy import POLICIES, Policy
-from insidia.probes import ProbeHit
+from insidia.probes import Attempt, ProbeHit
 from insidia.readiness import ABSENT_CAPABILITIES, REVIEW, UNSCHEDULED_FAMILIES, inventory
 from insidia.registry import Capability
 from insidia.upstream import _load_json
@@ -52,30 +52,32 @@ def test_a_failed_engine_keeps_the_other_engines_finding(
             chosen.append(Capability(family, "garak", "garak.ai.data_leakage", 50, False, True))
         return chosen
 
-    def fake_run(*args: object, **kwargs: object) -> list[ProbeHit]:
+    def fake_run(*args: object, **kwargs: object) -> Attempt:
         del kwargs
         adapter = args[0]
         spec = args[1]
         engine = getattr(adapter, "engine", "")
         family = getattr(spec, "family", "")
         if engine == "garak":
-            raise EngineFailed("garak report missing")
+            return Attempt((), "garak report missing")
         if family == "ai.data_leakage":
-            return [
-                ProbeHit(
-                    "app",
-                    family,
-                    "insidia",
-                    f"insidia.{family}",
-                    "secret",
-                    "high",
-                    "high",
-                    "ai",
-                    ("owasp-llm:LLM02",),
-                    "Stop returning secrets.",
+            return Attempt(
+                (
+                    ProbeHit(
+                        "app",
+                        family,
+                        "insidia",
+                        f"insidia.{family}",
+                        "secret",
+                        "high",
+                        "high",
+                        "ai",
+                        ("owasp-llm:LLM02",),
+                        "Stop returning secrets.",
+                    ),
                 )
-            ]
-        return []
+            )
+        return Attempt()
 
     monkeypatch.setattr("insidia.scan.select", fake_select)
     monkeypatch.setattr("insidia.scan.run", fake_run)
@@ -157,6 +159,76 @@ def test_unknown_config_field_is_rejected(tmp_path: Path) -> None:
     path.write_text(path.read_text().replace("coverage: standard", "covrage: thorough"))
     code = main(["scan", "--config", str(path), "--quiet"])
     assert code == 2
+
+
+def test_a_later_transport_error_keeps_the_earlier_finding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from insidia.adapters import find
+    from insidia.errors import ProbeError
+    from insidia.policy import get_policy
+    from insidia.probes import run
+    from tests.support import target
+
+    calls = {"n": 0}
+
+    def fake_exchange(*args: object, **kwargs: object) -> str:
+        del args, kwargs
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return "insidia-plant-canary-7f3a"
+        raise ProbeError("target timed out")
+
+    monkeypatch.setattr("insidia.probes.exchange", fake_exchange)
+    adapter, spec = find("insidia.ai.data_leakage")
+    attempt = run(
+        adapter,
+        spec,
+        target(url="http://127.0.0.1:9/chat"),
+        _project(tmp_path),
+        tmp_path,
+        get_policy("L1").control("ai.data_leakage"),
+    )
+    assert attempt.hits
+    assert "timed out" in attempt.error
+
+
+def _project(root: Path) -> object:
+    from insidia.config import Project
+    from insidia.scope import ScopeHost
+
+    return Project(
+        root / "insidia.yaml",
+        1,
+        "L1",
+        "standard",
+        (ScopeHost("127.0.0.1", False),),
+        (),
+        None,
+        None,
+    )
+
+
+def test_a_clean_nuclei_report_is_not_a_failure(tmp_path: Path) -> None:
+    from insidia.errors import EngineFailed
+    from insidia.upstream import _web_bodies
+
+    report = tmp_path / "report.jsonl"
+    report.write_text("")
+    assert _web_bodies("nuclei", report) == []
+    with pytest.raises(EngineFailed, match="empty"):
+        _web_bodies("zap", report)
+
+
+def test_trivy_error_object_is_not_a_clean_result(tmp_path: Path) -> None:
+    from insidia.errors import EngineFailed
+    from insidia.upstream import build
+
+    report = tmp_path / "report.json"
+    report.write_text('{"error":"synthetic engine failure"}')
+    adapter = next(item for item in build() if item.engine == "trivy")
+    with pytest.raises(EngineFailed, match="error"):
+        adapter.parse(report, adapter.probes[0])
 
 
 def test_price_49_is_not_template_execution() -> None:
