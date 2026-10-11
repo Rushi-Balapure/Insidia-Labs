@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { cpSync, createReadStream, existsSync, mkdirSync, statSync } from "node:fs";
+import { cpSync, createReadStream, existsSync, mkdirSync, rmSync, statSync } from "node:fs";
 import { dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import react from "@astrojs/react";
@@ -30,6 +30,8 @@ if (building || !existsSync(join(docsPublic, "index.html"))) {
     execSync("npm ci", { cwd: docsRoot, stdio: "inherit" });
   }
   execSync("npm run build", { cwd: docsRoot, stdio: "inherit" });
+  // Replace generated docs so removed pages and old search assets cannot survive a rebuild.
+  rmSync(docsPublic, { recursive: true, force: true });
   cpSync(docsDist, docsPublic, { recursive: true });
 }
 
