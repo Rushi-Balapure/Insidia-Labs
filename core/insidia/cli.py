@@ -19,44 +19,133 @@ from insidia.runstore import latest_run, read_manifest, verdict_text
 from insidia.scan import execute
 from insidia.ui import InstallView, ScanView, Terminal
 
+_HELP = """\
+global options, placed after the command:
+  --config PATH   file to read (default: insidia.yaml)
+  --json          print a JSON object instead of text
+  --yes           do not ask before scanning a host other than localhost
+  --quiet, -q     print only the result
+  --no-color      plain text, no color
+"""
+
 
 def main(argv: list[str] | None = None) -> int:
     shared = argparse.ArgumentParser(add_help=False)
-    shared.add_argument("--json", action="store_true")
-    shared.add_argument("--yes", action="store_true")
-    shared.add_argument("--config", default="insidia.yaml")
+    shared.add_argument("--json", action="store_true", help="print a JSON object instead of text")
+    shared.add_argument(
+        "--yes",
+        action="store_true",
+        help="do not ask before scanning a host other than localhost",
+    )
+    shared.add_argument(
+        "--config",
+        default="insidia.yaml",
+        help="file to read (default: insidia.yaml)",
+    )
     shared.add_argument("--quiet", "-q", action="store_true", help="print only the result")
     shared.add_argument("--no-color", action="store_true", help="plain text, no color")
 
-    parser = argparse.ArgumentParser(prog="insidia")
-    subcommands = parser.add_subparsers(dest="command", required=True)
-    subcommands.add_parser("init", parents=[shared])
-    subcommands.add_parser("doctor", parents=[shared])
+    parser = argparse.ArgumentParser(
+        prog="insidia",
+        description="Test an AI app and the API around it. Settings live in insidia.yaml.",
+        epilog=_HELP,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    subcommands = parser.add_subparsers(
+        dest="command",
+        required=True,
+        title="commands",
+        metavar="COMMAND",
+    )
+    subcommands.add_parser(
+        "init",
+        parents=[shared],
+        help="write insidia.yaml in this directory",
+        description="Write insidia.yaml in this directory. Refuses to overwrite an existing file.",
+    )
+    subcommands.add_parser(
+        "doctor",
+        parents=[shared],
+        help="check Python, the config file, and installed engines",
+        description="Check Python, the config file, and installed engines.",
+    )
 
-    engines = subcommands.add_parser("engines", parents=[shared])
-    engine_commands = engines.add_subparsers(dest="engine_command", required=True)
-    engine_commands.add_parser("list")
-    install_parser = engine_commands.add_parser("install")
-    install_parser.add_argument("names", nargs="*", metavar="ENGINE")
-    install_parser.add_argument("--docker", action="store_true")
+    engines = subcommands.add_parser(
+        "engines",
+        parents=[shared],
+        help="list engines or install the ones you name",
+        description="List engines or install the ones you name.",
+    )
+    engine_commands = engines.add_subparsers(dest="engine_command", required=True, title="commands")
+    engine_commands.add_parser(
+        "list",
+        help="show each engine, its license, and whether it is installed",
+    )
+    install_parser = engine_commands.add_parser(
+        "install",
+        help="install the named engines",
+        description="Install the named engines. With no names, built-in probes stay as they are.",
+    )
+    install_parser.add_argument("names", nargs="*", metavar="ENGINE", help="engine to install")
+    install_parser.add_argument(
+        "--docker",
+        action="store_true",
+        help="check that Docker is installed; engine images are not in this release",
+    )
 
-    policy = subcommands.add_parser("policy", parents=[shared])
-    policy_commands = policy.add_subparsers(dest="policy_command", required=True)
-    policy_commands.add_parser("list")
-    show = policy_commands.add_parser("show")
-    show.add_argument("name")
-    policy_commands.add_parser("validate")
+    policy = subcommands.add_parser(
+        "policy",
+        parents=[shared],
+        help="list, show, or validate a scan policy",
+        description="List, show, or validate a scan policy. L1 is the policy a scan can run.",
+    )
+    policy_commands = policy.add_subparsers(dest="policy_command", required=True, title="commands")
+    policy_commands.add_parser("list", help="show which policy names exist and which can run")
+    show = policy_commands.add_parser("show", help="print one policy and the checks it names")
+    show.add_argument("name", help="policy name, such as L1")
+    policy_commands.add_parser("validate", help="check the policy named in the config file")
 
-    scan = subcommands.add_parser("scan", parents=[shared])
-    scan.add_argument("--policy", choices=sorted(POLICIES))
-    scan.add_argument("--coverage", choices=("standard", "thorough"))
+    scan = subcommands.add_parser(
+        "scan",
+        parents=[shared],
+        help="run the checks in the config file and write a report",
+        description="Run the checks in the config file and write a report.",
+    )
+    scan.add_argument(
+        "--policy",
+        choices=sorted(POLICIES),
+        help="policy to run (default: the policy in the config file). Only L1 runs.",
+    )
+    scan.add_argument(
+        "--coverage",
+        choices=("standard", "thorough"),
+        help="how many engines run per check (default: the coverage in the config file)",
+    )
 
-    report = subcommands.add_parser("report", parents=[shared])
-    report.add_argument("run_id", nargs="?")
-    report.add_argument("--open", action="store_true")
-    rerun = subcommands.add_parser("rerun", parents=[shared])
-    rerun.add_argument("run_id", nargs="?")
-    subcommands.add_parser("mcp", parents=[shared])
+    report = subcommands.add_parser(
+        "report",
+        parents=[shared],
+        help="print or open the HTML report from a run",
+        description="Print or open the HTML report from a run.",
+    )
+    report.add_argument("run_id", nargs="?", help="run to open (default: the latest run)")
+    report.add_argument("--open", action="store_true", help="open the report in a browser")
+    rerun = subcommands.add_parser(
+        "rerun",
+        parents=[shared],
+        help="scan again with the policy and config recorded for a run",
+        description="Scan again with the policy and config recorded for a run.",
+    )
+    rerun.add_argument("run_id", nargs="?", help="run to repeat (default: the latest run)")
+    subcommands.add_parser(
+        "mcp",
+        parents=[shared],
+        help="serve local MCP tools on stdin and stdout",
+        description=(
+            "Serve local MCP tools on stdin and stdout. "
+            "The tools read insidia.yaml and do not take a URL."
+        ),
+    )
 
     args = parser.parse_args(argv)
     try:
