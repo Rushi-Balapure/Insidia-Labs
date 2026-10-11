@@ -47,6 +47,13 @@
   --sl-color-bg-sidebar: #14142e;
 }
 
+:root[data-theme="light"] {
+  --sl-color-accent-low: #fce9db;
+  --sl-color-accent: #a64716;
+  --sl-color-accent-high: #71300f;
+  --sl-color-text-accent: #a64716;
+}
+
 .sl-link-button.primary {
   background: #ed7b39;
   color: #101028;

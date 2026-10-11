@@ -76,6 +76,8 @@
   --text: var(--insidia-white);
   --muted: var(--insidia-navy-300);
   --accent: var(--insidia-orange);
+  --link: var(--insidia-orange);
+  --link-hover: var(--insidia-sunburst);
   --header: rgba(16, 16, 40, 0.72);
   --header-solid: var(--insidia-navy-900);
   --input: var(--insidia-navy-800);
@@ -91,6 +93,8 @@
   --text: var(--insidia-navy-900);
   --muted: var(--insidia-navy-600);
   --accent: var(--insidia-orange);
+  --link: #a64716;
+  --link-hover: #71300f;
   --header: rgba(246, 246, 251, 0.82);
   --header-solid: var(--insidia-navy-50);
   --input: #ffffff;
