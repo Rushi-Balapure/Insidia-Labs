@@ -19,6 +19,26 @@
   --sl-color-accent: #ed7b39;
   --sl-color-accent-high: #f6c13f;
   --sl-color-text-accent: #ed7b39;
+  --sl-content-width: 100%;
+  --sl-content-pad-x: 1.75rem;
+}
+
+/* The article was capped at 45rem and pinned beside the page outline, leaving an empty gap. */
+@media (min-width: 72rem) {
+  html[data-has-sidebar][data-has-toc] .main-pane {
+    width: calc(100% - 16.5rem);
+    --sl-content-margin-inline: 0;
+  }
+  .right-sidebar-container {
+    width: 16.5rem;
+  }
+  .main-pane .sl-container {
+    max-width: none;
+    margin-inline: 0;
+  }
+}
+.sl-markdown-content table {
+  width: 100%;
 }
 
 :root[data-theme="dark"] {
