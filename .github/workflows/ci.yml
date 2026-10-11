@@ -154,6 +154,7 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      - run: npm run links
       - run: node scripts/secrets.mjs dist
 
   compose:

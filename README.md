@@ -168,6 +168,8 @@ Marketing site, from `site/`:
 ```bash
 npm ci
 npm test
+npm run build  # builds the marketing site and docs
+npm run links  # checks built links, anchors, and assets
 npm run dev    # http://127.0.0.1:4321
 ```
 
