@@ -109,7 +109,7 @@ Leave this as `{}` when the checks do not need a model. L1 does not require one.
 
 | Field | What to put |
 | --- | --- |
-| `provider` | Required. The name of the provider, such as `ollama` or `openai`. |
+| `provider` | Required. `openai-compatible`, `anthropic`, or `gemini`. For Ollama or OpenAI, use `openai-compatible`. |
 | `base_url` | Optional endpoint. Its host must also be listed in `scope`. |
 | `model` | Optional model name. |
 | `secret_ref` | Optional. `env:NAME`, same rule as target auth. |
@@ -117,7 +117,7 @@ Leave this as `{}` when the checks do not need a model. L1 does not require one.
 ```yaml
 models:
   attacker:
-    provider: ollama
-    base_url: http://127.0.0.1:11434
+    provider: openai-compatible
+    base_url: http://127.0.0.1:11434/v1
     model: llama3.1
 ```

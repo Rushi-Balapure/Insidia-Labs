@@ -13,13 +13,13 @@ insidia scan --policy L1 --yes
 | Policy | What the CLI records |
 | --- | --- |
 | `L1` | Baseline checks. This is what `insidia init` selects. No model is required. |
-| `L2` | The same control list, labeled L2. Judge-scored checks run when a model is configured. |
-| `L3` | The same control list, labeled L3. Model-generated attacks run when an attacker model is configured. |
+| `L2` | Not available. A separate judge-scored level has not shipped. |
+| `L3` | Not available. A separate model-generated level has not shipped. |
 
-L1, L2, and L3 share one control list in this pre-release. The policy name is stored on the run so later levels can add checks without a new command. `insidia policy show L2` prints the summary the CLI ships with.
+The CLI lists all three policy names, but scans and policy validation accept only L1. `insidia policy show L2` can display its definition; that does not mean you can scan with it.
 
-`benchmark.json` in the run directory has the policy name, pass or fail, each control's result, and the skips. A control is `fail` when a probe hit it, `pass` when the probes ran clean, and `skipped` when nothing runnable was available.
+`benchmark.json` records the policy verdict, execution status, control results, and skips. A completed scan can pass or fail. Missing, unsupported, or interrupted required checks make the run incomplete; an incomplete run cannot pass. A skip is not a pass.
 
-## Matrix that measures scanners
+## Scanner regression matrix
 
-[`benchmark/`](https://github.com/Rushi-Balapure/Insidia-Labs/tree/main/benchmark) in the repository is a different thing: sandboxed vulnerable targets and a matrix of planted bugs. Engine work is accepted when the cells it owns find those plants. That matrix is not the score of your application.
+[`benchmark/`](https://github.com/Rushi-Balapure/Insidia-Labs/tree/main/benchmark) contains sandboxed targets with planted vulnerabilities. The matrix tests adapter and transport behavior against these fixtures. Passing it does not measure detector accuracy on real applications or establish release readiness. Independent validation is part of the current productization work. Your application's policy result is separate.

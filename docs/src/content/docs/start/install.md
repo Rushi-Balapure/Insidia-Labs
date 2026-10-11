@@ -20,10 +20,10 @@ Pin a commit or tag by adding it before `#subdirectory=core`.
 Check the install:
 
 ```bash
-insidia doctor
+insidia --help
 ```
 
-`insidia engines install` fetches engine toolchains into a directory Insidia manages.
+Run `insidia init` in your project before `insidia doctor`; doctor needs a configuration file. Install specific engine toolchains into Insidia's managed directory by naming them, for example `insidia engines install garak zap`. With no names, `insidia engines install` only reports that built-in probes are available.
 
 A version tag attaches a wheel, `SHA256SUMS`, and a Sigstore bundle. Verify the bundle, then:
 
