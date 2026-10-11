@@ -7,8 +7,8 @@ interface Props {
   path?: string;
 }
 const { title, description, path = "/" } = Astro.props;
-const canonical = path === "/" ? "/" : path.endsWith("/") ? path : `${path}/`;
-const image = "/og-image.png";
+const canonical = new URL(path === "/" ? "/" : path.endsWith("/") ? path : `${path}/`, Astro.site);
+const image = new URL("/og-image.png", Astro.site);
 ---
 <!doctype html>
 <html lang="en">
