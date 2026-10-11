@@ -10,6 +10,10 @@ Global flags, accepted on every command:
 | `--json` | Print a JSON object instead of text. |
 | `--yes` | Do not ask for confirmation. Required when scope contains a non-local host. |
 | `--config PATH` | Config file. Default `insidia.yaml`. |
+| `--quiet`, `-q` | Print only the result. |
+| `--no-color` | Plain text, no color. |
+
+What goes in the config file is [insidia.yaml](/docs/start/config/). `insidia -h` prints the same command list, with one line on what each command does.
 
 ## init
 
@@ -61,6 +65,15 @@ insidia report 20261008T120000Z-abc123
 ```
 
 Opens or prints the latest run, or the run id you pass. See [Report](/docs/concepts/report/).
+
+## rerun
+
+```bash
+insidia rerun
+insidia rerun 20261008T120000Z-abc123
+```
+
+Scans again with the policy and coverage recorded for that run. If `insidia.yaml` changed, the command stops until you pass `--yes`.
 
 ## mcp
 

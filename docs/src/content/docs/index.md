@@ -27,4 +27,5 @@ The skill lives at `skills/insidia/SKILL.md`. An agent that speaks MCP can run `
 
 1. [Install](/docs/start/install/) the CLI.
 2. Follow the [quickstart](/docs/start/quickstart/).
-3. Read [scope](/docs/start/scope/) before you add a host.
+3. Read [insidia.yaml](/docs/start/config/) for every field in the config file.
+4. Read [scope](/docs/start/scope/) before you add a host.

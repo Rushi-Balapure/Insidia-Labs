@@ -2,7 +2,6 @@ import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
 
 export default defineConfig({
-  site: "https://docs.insidialabs.com",
   base: "/docs",
   trailingSlash: "always",
   integrations: [
@@ -22,6 +21,7 @@ export default defineConfig({
             { label: "Use a coding agent", slug: "start/agent" },
             { label: "Install", slug: "start/install" },
             { label: "Quickstart", slug: "start/quickstart" },
+            { label: "insidia.yaml", slug: "start/config" },
             { label: "Scope", slug: "start/scope" },
           ],
         },
