@@ -1,0 +1,36 @@
+---
+title: Documentation
+description: Run your first Insidia scan, understand the findings, and automate checks for your app.
+tableOfContents: false
+prev: false
+next: false
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+Insidia tests your AI app and the application around it in one local run. Start with a running app on localhost, then review the evidence in the HTML report. The CLI is free and pre-release.
+
+## Run your first scan
+
+<CardGrid>
+  <LinkCard title="Run it yourself" href="/docs/start/quickstart/" description="Install the CLI, configure your app, and run an L1 scan." />
+  <LinkCard title="Use a coding agent" href="/docs/start/agent/" description="Give your agent a local scope and have it set up the scan with you." />
+</CardGrid>
+
+## After the scan
+
+<CardGrid>
+  <LinkCard title="Read your report" href="/docs/concepts/report/" description="Understand execution status, policy results, evidence, and reruns." />
+  <LinkCard title="Understand coverage" href="/docs/concepts/what-it-tests/" description="See what L1 checks and where the current release has limits." />
+</CardGrid>
+
+## Find a specific answer
+
+- [Configuration](/docs/start/config/): target types, request formats, credentials, and model endpoints.
+- [CLI reference](/docs/reference/cli/): commands, flags, and exit codes.
+- [Scope](/docs/start/scope/): which hosts a scan may contact.
+- [Engines](/docs/concepts/engines/): install optional tools and choose coverage.
+- [Benchmark](/docs/concepts/benchmark/): how the scanner is evaluated.
+- [Data handling](/docs/security/data/): what stays local and what is stored in a run.
+
+[Insidia Cloud](/docs/cloud/), the hosted attacker, is planned for December 2026. It is not required to use the local CLI.

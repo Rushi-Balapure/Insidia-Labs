@@ -41,6 +41,16 @@
   width: 100%;
 }
 
+/* Keep prose readable while letting code, tables, and navigation use the article width. */
+.sl-markdown-content > :is(p, ul, ol, blockquote) {
+  max-width: 72ch;
+}
+
+.sl-link-card:focus-within {
+  outline: 2px solid var(--sl-color-text-accent);
+  outline-offset: 3px;
+}
+
 :root[data-theme="dark"] {
   --sl-color-bg: #101028;
   --sl-color-bg-nav: #101028;
