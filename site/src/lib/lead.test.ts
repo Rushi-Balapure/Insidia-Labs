@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { mailtoHref, acknowledged, validateLead } from "./lead";
-import { installCommands, truncatedInstall } from "../content/install";
+import { installCommands } from "../content/install";
 import sampleRun from "../content/sample-run.json";
 
 const valid = {
@@ -83,13 +83,13 @@ describe("marketing copy", () => {
     expect(hits).toEqual([]);
   });
 
-  it("marks the homepage trace as a stand-in and copies the full install command", () => {
+  it("marks the homepage trace as a stand-in and displays the full install command", () => {
     expect(sampleRun.representative).toBe(true);
     expect(sampleRun.blocked.header).toContain("policy L1");
     expect(JSON.stringify(sampleRun)).not.toMatch(/L2|L3|sql/i);
-    const shown = truncatedInstall(installCommands.uv);
-    expect(shown).toContain("github.com/…/");
-    expect(shown).not.toContain("Rushi-Balapure");
+    const component = readFileSync(path.resolve("src/components/InstallLine.tsx"), "utf8");
+    expect(component).toContain("<code>{command}</code>");
+    expect(installCommands.uv).not.toContain("…");
     expect(installCommands.uv).toContain("Rushi-Balapure/Insidia-Labs#subdirectory=core");
     expect(installCommands.pipx.startsWith("pipx install ")).toBe(true);
   });

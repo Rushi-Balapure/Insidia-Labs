@@ -1,0 +1,33 @@
+---
+import mark from "../assets/mark.svg";
+---
+
+<div class="brand">
+  <a class="site-title" href="/" aria-label="Insidia Labs home">
+    <img src={mark.src} alt="" width="24" height="24" />
+    <span>Insidia Labs</span>
+  </a>
+  <a class="back-link" href="/">← Back to site</a>
+</div>
+
+<style>
+  .brand { display: grid; gap: 0.15rem; }
+  .site-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--sl-color-white);
+    font-size: 1rem;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  img { width: 1.5rem; height: 1.5rem; }
+  .back-link {
+    width: fit-content;
+    color: var(--sl-color-text-accent);
+    font-size: 0.75rem;
+    text-decoration: none;
+  }
+  .back-link:hover { text-decoration: underline; }
+</style>

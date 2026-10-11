@@ -33,16 +33,4 @@ Rules for the agent:
 
 `insidia mcp` is a local MCP server over stdio. Its tools are `init`, `doctor`, `scan`, `findings`, and `report`. `scan` does not take a URL. It runs only when `confirmed` is true and only against `insidia.yaml`.
 
-In CI, pin the action to a release tag:
-
-```yaml
-permissions:
-  security-events: write
-steps:
-  - uses: actions/checkout@v4
-  - uses: Rushi-Balapure/Insidia-Labs/actions/scan@v0
-    with:
-      policy: L1
-```
-
-The action installs the CLI from that same git ref and uploads `results.sarif`.
+To automate the same scan, follow [Run in CI](/docs/guides/ci/). That guide covers runner setup, action revisions, SARIF, and preserving reports after a failure.

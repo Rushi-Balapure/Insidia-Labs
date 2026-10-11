@@ -1,5 +1,5 @@
 import { useId, useState, type KeyboardEvent } from "react";
-import { installCommands, truncatedInstall, type Installer } from "../content/install";
+import { installCommands, type Installer } from "../content/install";
 
 const order: Installer[] = ["uv", "pipx"];
 
@@ -51,6 +51,7 @@ export default function InstallLine() {
             role="tab"
             className={which === name ? "on" : undefined}
             aria-selected={which === name}
+            aria-controls={`${base}-command`}
             tabIndex={which === name ? 0 : -1}
             onClick={() => {
               setWhich(name);
@@ -61,9 +62,9 @@ export default function InstallLine() {
           </button>
         ))}
       </div>
-      <div className="install-row">
+      <div className="install-row" id={`${base}-command`} role="tabpanel" aria-labelledby={`${base}-${which}`}>
         <pre className="install-box" tabIndex={0}>
-          <code>$ {truncatedInstall(command)}</code>
+          <code>{command}</code>
         </pre>
         <button className="btn" type="button" onClick={copy}>
           {copied ? "Copied" : "Copy"}

@@ -40,7 +40,13 @@ const stars = await githubStars();
     setOpen(!nav?.classList.contains("is-open"));
   });
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") setOpen(false);
+    if (event.key === "Escape" && nav?.classList.contains("is-open")) {
+      setOpen(false);
+      if (toggle instanceof HTMLButtonElement) toggle.focus();
+    }
+  });
+  nav?.querySelectorAll("a").forEach((link) => {
+    link.addEventListener("click", () => setOpen(false));
   });
   const theme = document.querySelector("#theme-toggle");
   theme?.addEventListener("click", () => {

@@ -1,28 +1,57 @@
 ---
-title: Quickstart
+title: Your first scan
 description: Write a config, scan localhost, and open the report.
 ---
 
-From the project you want to test:
+You need [the CLI installed](/docs/start/install/) and your app running on localhost. This guide uses L1, the policy available in the current release. A model is optional for L1.
+
+## 1. Create the configuration
+
+Open a terminal in the project you want to test:
 
 ```bash
 insidia init
+```
+
+This writes `insidia.yaml`. If you already have that file, keep it and review its targets.
+
+## 2. Point it at your app
+
+Open `insidia.yaml` **before you scan**. The generated target is a sample chat endpoint at `http://127.0.0.1:8080/chat`; replace it with your app's endpoint. Match `kind`, `request_template`, and `response_selector` to the request and response your app actually uses.
+
+Keep `scope` on localhost for this first run. See [Configuration](/docs/start/config/) for target types and examples, and [Scope](/docs/start/scope/) before adding a host.
+
+## 3. Check the setup
+
+```bash
 insidia doctor
-insidia scan --policy L1 --yes
+```
+
+Doctor checks Python, the config, configured model endpoints, and installed engines. It does not check that your target app responds correctly. Review its output and confirm your app is running.
+
+## 4. Run L1
+
+```bash
+insidia scan --policy L1
+```
+
+| Exit code | Meaning | Next step |
+| --- | --- | --- |
+| `0` | The run completed and the policy passed. | Review the report's coverage and findings. |
+| `1` | The run completed and the policy failed. | Review the findings and fix the issues. |
+| `2` | The run was incomplete, or an error stopped it. | Read the error or skipped checks; resolve setup problems before treating the result as a pass. |
+| `130` | The run was cancelled. | Run it again when ready. |
+
+For a local scope, `--yes` is unnecessary. A non-local host needs both your authorization in the config and `--yes` at scan time.
+
+## 5. Review and repeat
+
+```bash
 insidia report --open
 ```
 
-`insidia init` writes `insidia.yaml` in the current directory. The scope is localhost, and the sample target is a chat endpoint at `http://127.0.0.1:8080/chat`. Change `targets` to match your app before you treat the result as meaningful. Target kinds are `chat`, `agent`, `rag`, `mcp`, `web`, `api`, and `repo`.
+The run is saved in `.insidia/runs/<run-id>/`. [Read the report](/docs/concepts/report/) to check execution status, inspect the evidence, and choose fixes. After changing your app, run `insidia scan --policy L1` again to check it.
 
-`insidia scan` exits 0 when the policy passes and 1 when it fails. `--json` prints the run id, findings, and skips as JSON. `--yes` confirms a scope that includes a non-local host. Without `--yes`, that scan stops.
+Built-in probes work without installing extra engines. See [Install engines](/docs/concepts/engines/) when you want to add tools or compare coverage.
 
-The run lands in `.insidia/runs/<run-id>/`. See [Report](/docs/concepts/report/).
-
-If doctor says an engine is missing, install it:
-
-```bash
-insidia engines list
-insidia engines install
-```
-
-Next: [Scope](/docs/start/scope/).
+If the run stops or is incomplete, use [Troubleshooting](/docs/guides/troubleshooting/). Once it works locally, [run it in CI](/docs/guides/ci/).

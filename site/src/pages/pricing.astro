@@ -4,14 +4,14 @@ import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 import LeadForm from "../components/LeadForm.tsx";
 
-const description = "The Insidia CLI is free. Insidia Cloud is early access for design partners. This site has no checkout and no price yet.";
+const description = "Run the Insidia CLI for free. Insidia Cloud is in development, with design-partner access planned for December 2026.";
 const endpoint = import.meta.env.PUBLIC_LEAD_ENDPOINT ?? "";
 ---
 <Base title="Pricing | Insidia Labs" description={description} path="/pricing">
   <Header />
   <main id="content" class="wrap page">
     <h1>The CLI is free.</h1>
-    <p class="lede">No checkout on this site, and no price until one is set.</p>
+    <p class="lede">Run scans on your machine or in CI. No account required.</p>
     <div class="grid-2">
       <article class="card">
         <h2>CLI</h2>
@@ -26,14 +26,14 @@ const endpoint = import.meta.env.PUBLIC_LEAD_ENDPOINT ?? "";
       </article>
       <article class="card">
         <h2>Insidia Cloud</h2>
-        <p class="price-label">Early access</p>
-        <p>A hosted attacker, for design partners from December 2026. Book a call. There is no price on this page.</p>
+        <p class="price-label">In development</p>
+        <p>Hosted attack generation, with design-partner access planned for December 2026. Pricing has not been announced. Get in touch to discuss your team's needs.</p>
         <a class="btn ghost" href="mailto:insidialabs@gmail.com?subject=Book%20a%20call">Book a call</a>
       </article>
     </div>
     <section class="block" id="access">
       <h2>Ask about design-partner access</h2>
-      <p class="muted">The CLI does not need this form. Leads stay out of the product database.</p>
+      <p class="muted">Tell us what you are building and what you need to test. You can use the CLI today without joining the waitlist.</p>
       <LeadForm client:load endpoint={endpoint} />
     </section>
   </main>

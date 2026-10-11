@@ -140,7 +140,7 @@ export default function LeadForm({ endpoint = "" }: { endpoint?: string }) {
         {pending ? "Sending" : values.interest === "design-partner" ? "Apply to be a design partner" : "Join the waitlist"}
       </button>
       <p className="muted" style={{ fontSize: "0.85rem" }}>
-        Early access opens in December 2026, starting with three design partners. This form does not create a product account.
+        Design-partner access is planned for December 2026. This form does not create a product account.
       </p>
     </form>
   );

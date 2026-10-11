@@ -1,11 +1,35 @@
 from pathlib import Path
 
+import pytest
 from insidia.cli import main, scan_message
 from insidia.config import load_project
 from insidia.engines import install
 from insidia.findings import Finding
 from insidia.runstore import write_run
 from insidia.scan import ScanOutcome
+
+
+def test_help_explains_every_command(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as caught:
+        main(["-h"])
+    assert caught.value.code == 0
+    text = capsys.readouterr().out
+    for line in (
+        "write insidia.yaml in this directory",
+        "check Python, the config file, and installed engines",
+        "list engines or install the ones you name",
+        "list, show, or validate a scan policy",
+        "run the checks in the config file and write a report",
+        "print or open the HTML report from a run",
+        "scan again with the policy and config recorded for a run",
+        "serve local MCP tools on stdin and stdout",
+        "--config PATH",
+        "--json",
+        "--yes",
+        "--quiet, -q",
+        "--no-color",
+    ):
+        assert line in text
 
 
 def test_init_doctor_and_policy(tmp_path: Path, monkeypatch: object) -> None:

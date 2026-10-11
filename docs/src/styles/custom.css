@@ -19,12 +19,49 @@
   --sl-color-accent: #ed7b39;
   --sl-color-accent-high: #f6c13f;
   --sl-color-text-accent: #ed7b39;
+  --sl-content-width: 100%;
+  --sl-content-pad-x: 1.75rem;
+}
+
+/* The article was capped at 45rem and pinned beside the page outline, leaving an empty gap. */
+@media (min-width: 72rem) {
+  html[data-has-sidebar][data-has-toc] .main-pane {
+    width: calc(100% - 16.5rem);
+    --sl-content-margin-inline: 0;
+  }
+  .right-sidebar-container {
+    width: 16.5rem;
+  }
+  .main-pane .sl-container {
+    max-width: none;
+    margin-inline: 0;
+  }
+}
+.sl-markdown-content table {
+  width: 100%;
+}
+
+/* Keep prose readable while letting code, tables, and navigation use the article width. */
+.sl-markdown-content > :is(p, ul, ol, blockquote) {
+  max-width: 72ch;
+}
+
+.sl-link-card:focus-within {
+  outline: 2px solid var(--sl-color-text-accent);
+  outline-offset: 3px;
 }
 
 :root[data-theme="dark"] {
   --sl-color-bg: #101028;
   --sl-color-bg-nav: #101028;
   --sl-color-bg-sidebar: #14142e;
+}
+
+:root[data-theme="light"] {
+  --sl-color-accent-low: #fce9db;
+  --sl-color-accent: #a64716;
+  --sl-color-accent-high: #71300f;
+  --sl-color-text-accent: #a64716;
 }
 
 .sl-link-button.primary {

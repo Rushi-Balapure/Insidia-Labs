@@ -7,9 +7,9 @@ One scan covers two layers.
 
 **AI and agents.** Direct and indirect prompt injection, jailbreaks, hidden-context extraction, secret leakage, tool misuse, RAG and memory poisoning, and MCP or skill supply chain.
 
-**Applications.** Web and API flaws such as injection, XSS, SSRF, and broken authorization, plus secrets, vulnerable dependencies, and container images.
+**Applications.** Template and command injection, path access, SSRF, broken object and function authorization, mass assignment, and JWT checks, plus repository secrets and dependency checks. SQL injection and XSS are not separate policy checks in this release. Installing an engine that supports them does not add them to the policy.
 
-**The seam.** A scripted chain starts in the model and lands in the app. The example used in the product story is a prompt injection that becomes a tool argument, then a SQL injection. The finding shows both steps. Chains an agent discovers on its own are part of [Insidia Cloud](/docs/cloud/), which is not open yet.
+**The seam.** Agent checks include dangerous tool arguments, secondary injection through tool output, and tool-chain hijacking. Coverage depends on the target type and the evidence the adapter can observe. Adaptive attack discovery is planned for [Insidia Cloud](/docs/cloud/), which is not open yet.
 
 Set coverage when you scan:
 
@@ -18,6 +18,6 @@ Set coverage when you scan:
 | `--coverage standard` | One engine per family. This is the default. |
 | `--coverage thorough` | Every installed engine that covers the family. A finding seen by more than one engine names each engine. That is not independent confirmation. |
 
-Checks that need a model run only when `models.attacker` is set. Otherwise they are skipped and written to `benchmark.json`. A skip is not a pass.
+L1 is the baseline and requires no model. A check that cannot run is recorded in the run artifacts. A skip is not a pass, and an incomplete run cannot pass. Review execution status as well as findings before treating a scan as a CI gate.
 
 The engines are named in [Engines](/docs/concepts/engines/).
