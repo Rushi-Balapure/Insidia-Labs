@@ -14,7 +14,7 @@ import { engineBrands, stackBrands } from "../content/brands";
 import { filmVideo, howtoVideo } from "../lib/video";
 import { docsQuickstart, docsTests } from "../lib/paths";
 
-const description = "Insidia attacks your AI app and the API behind it, names the check that failed, and blocks the release until it's fixed.";
+const description = "Test your AI app and the API behind it. Review findings, trace the evidence, and check your fixes before you ship.";
 const latest = changelog[0];
 const pill = `New · ${latest.pill}`;
 const faqs = [
@@ -23,7 +23,7 @@ const faqs = [
   ["Which engines does it run?", "A finding names the engine that produced it. The list, with each engine's license, is on the Credits page."],
   ["Can my coding agent run it?", "Install the skill, or paste: Test this app with Insidia. Only scan localhost. Claude Code, Cursor, or Codex can run it. You confirm the hosts."],
   ["Will it test production?", "Only hosts you list in insidia.yaml. Anything other than localhost needs authorized: true, which you set."],
-  ["What does it cost?", "The CLI is free. It runs on your machine and does not need an account. Insidia Cloud, a hosted attacker, opens to design partners first, from December 2026. This site has no price yet."],
+  ["What does it cost?", "The CLI is free. It runs on your machine and does not need an account. Insidia Cloud is in development, with design-partner access planned for December 2026. Cloud pricing has not been announced."],
 ];
 const jsonLd = {
   "@context": "https://schema.org",
@@ -31,8 +31,8 @@ const jsonLd = {
     {
       "@type": "Organization",
       name: "Insidia Labs",
-      url: "/",
-      logo: "/brand/mark-small.svg",
+      url: Astro.site?.href,
+      logo: new URL("/brand/mark-small.svg", Astro.site).href,
       email: "insidialabs@gmail.com",
       description,
     },
@@ -64,7 +64,7 @@ const scanRows = `support-bot
   ✔ ai.data_leakage                pass`;
 const rerunRows = `$ insidia rerun
   ✔ ai.prompt_injection_indirect   pass   insidia
-RELEASE OK · exit 0`;
+POLICY PASSED · exit 0`;
 const retrieval = `def build_prompt(question, docs):
     context = "\\n".join(d.text for d in docs)   # uploaded files, unfiltered
     return SYSTEM + context + question`;
@@ -87,7 +87,7 @@ const retrieval = `def build_prompt(question, docs):
         <div id="install">
           <InstallLine client:load />
         </div>
-        <p class="muted install-more">Python 3.12 or newer. The <a href={docsQuickstart}>quickstart</a> is the rest of the first run.</p>
+        <p class="muted install-more">Free CLI · Python 3.12 or newer. Follow the <a href={docsQuickstart}>quickstart</a> to configure your app and run your first scan.</p>
       </div>
       <TraceHero which="blocked" live />
     </div>
@@ -114,7 +114,7 @@ const retrieval = `def build_prompt(question, docs):
         <Exhibit
           file="support_bot/retrieval.py"
           code={retrieval}
-          annotation="← a hidden line in an upload becomes an instruction. Nothing raises."
+          annotation="Uploaded text is mixed with trusted instructions. An attacker can use it to redirect the bot."
         />
         <ol class="beats">
           <li>
@@ -146,7 +146,7 @@ const retrieval = `def build_prompt(question, docs):
           <StepCard n="02" title="Scan both layers." text="insidia scan runs AI and app checks in one pass and names the engine behind every result. A check that couldn't run is marked incomplete, never passed.">
             <Exhibit file="insidia scan" code={scanRows} representative />
           </StepCard>
-          <StepCard n="03" title="Block the release, prove the fix." text="The scan exits 1 in CI. Fix the code, then insidia rerun checks again with the same config and policy.">
+          <StepCard n="03" title="Fix it. Run the checks again." text="Use the scan's exit code as a CI gate: 1 for a completed policy failure, 2 for an incomplete run. After fixing the code, insidia rerun repeats the checks with the recorded policy and coverage.">
             <Exhibit file="insidia rerun" code={rerunRows} representative />
           </StepCard>
         </div>
@@ -163,9 +163,9 @@ const retrieval = `def build_prompt(question, docs):
             line="It refuses to test a host you didn't list."
           />
           <FeatureCard
-            title="Evidence, not a score"
+            title="Findings with evidence"
             code={`engine: insidia\nprobe: prompt-injection.indirect\nevidence: [AWS_ACCESS_KEY len=20 fp=3f9a1c07]\nfix: keep uploaded text out of the system prompt`}
-            line="Every finding shows the attack, the reply, and which engine caught it."
+            line="Review the available evidence, remediation guidance, and the engine behind each finding."
           />
           <FeatureCard
             title="Hand it to your coding agent"
@@ -174,8 +174,8 @@ const retrieval = `def build_prompt(question, docs):
           />
           <FeatureCard
             title="Local, your keys"
-            code={`models:\n  attacker:\n    provider: ollama`}
-            line="Scans run on your machine. Bring any model, or none: many checks need no model."
+            code={`models:\n  attacker:\n    provider: openai-compatible\n    base_url: http://127.0.0.1:11434/v1\n    model: llama3.1`}
+            line="Scans run on your machine. Use a supported model endpoint, or run the baseline without a model."
           />
         </div>
       </div>
@@ -200,7 +200,8 @@ const retrieval = `def build_prompt(question, docs):
     <section class="block end-cta">
       <div class="wrap end-grid">
         <div>
-          <h2>Ship AI you'd attack yourself.</h2>
+          <h2>Find the weaknesses before you ship.</h2>
+          <p class="lede">Scan your app, review the evidence, and rerun the checks after each fix.</p>
           <div class="cta-row">
             <a class="btn" href="#install">Get started</a>
             <a class="btn ghost" href="mailto:insidialabs@gmail.com?subject=Book%20a%20call">Book a call</a>

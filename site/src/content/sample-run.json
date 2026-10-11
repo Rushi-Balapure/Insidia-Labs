@@ -4,7 +4,7 @@
   "blocked": {
     "findingId": "a1b2c3",
     "figure": "Fig. 1 — an injection, traced",
-    "banner": "RELEASE BLOCKED · exit 1",
+    "banner": "POLICY FAILED · exit 1",
     "tone": "blocked",
     "header": "insidia · scan · policy L1 · coverage standard · 2 targets",
     "targets": [
@@ -65,7 +65,7 @@
   "clear": {
     "findingId": "a1b2c3",
     "figure": "Fig. 1 — the same check, after the fix",
-    "banner": "RELEASE OK · exit 0",
+    "banner": "POLICY PASSED · exit 0",
     "tone": "clear",
     "header": "insidia · rerun · policy L1 · coverage standard · 2 targets",
     "targets": [
