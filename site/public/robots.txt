@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://insidialabs.com/sitemap.xml
+Sitemap: https://insidialabs.com/sitemap-index.xml
+Sitemap: https://insidialabs.com/docs/sitemap-index.xml
