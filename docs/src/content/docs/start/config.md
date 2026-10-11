@@ -68,7 +68,7 @@ The key under `targets` is the target name. These are the fields inside it.
 | `kind` | yes | `chat`, `agent`, `rag`, `mcp`, `web`, `api`, or `repo`. |
 | `url` | for every kind except `repo` | Where to send the check, such as `http://127.0.0.1:8080/chat`. |
 | `path` | for `repo` | Directory to scan, such as `.` or `services/api`. |
-| `command` | instead of `url` on a non-repo target | A list of strings. Insidia runs that command instead of calling a URL. |
+| `command` | no | A list of strings accepted by the schema. Local command execution is not available in this release; use a URL target. |
 | `method` | no | HTTP method. Default `POST`. |
 | `request_template` | no | Body template. `{{conversation_json}}` is replaced with the messages for that check. |
 | `response_selector` | no | JSONPath into the response. The sample uses `$.choices[0].message.content`. |
@@ -110,8 +110,8 @@ Leave this as `{}` when the checks do not need a model. L1 does not require one.
 | Field | What to put |
 | --- | --- |
 | `provider` | Required. `openai-compatible`, `anthropic`, or `gemini`. For Ollama or OpenAI, use `openai-compatible`. |
-| `base_url` | Optional endpoint. Its host must also be listed in `scope`. |
-| `model` | Optional model name. |
+| `base_url` | Required when configuring a role for a scan. Its host must also be listed in `scope`. |
+| `model` | Required when configuring a role for a scan. The model name served by the endpoint. |
 | `secret_ref` | Optional. `env:NAME`, same rule as target auth. |
 
 ```yaml
@@ -121,3 +121,5 @@ models:
     base_url: http://127.0.0.1:11434/v1
     model: llama3.1
 ```
+
+This example also needs `127.0.0.1` in `scope`. The full generated config above already includes it.

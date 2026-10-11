@@ -31,6 +31,8 @@ export default defineConfig({
           items: [
             { label: "Read a report", slug: "concepts/report" },
             { label: "Install engines", slug: "concepts/engines" },
+            { label: "Run in CI", slug: "guides/ci" },
+            { label: "Troubleshooting", slug: "guides/troubleshooting" },
           ],
         },
         {

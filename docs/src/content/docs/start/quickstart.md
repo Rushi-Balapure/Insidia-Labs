@@ -53,3 +53,5 @@ insidia report --open
 The run is saved in `.insidia/runs/<run-id>/`. [Read the report](/docs/concepts/report/) to check execution status, inspect the evidence, and choose fixes. After changing your app, run `insidia scan --policy L1` again to check it.
 
 Built-in probes work without installing extra engines. See [Install engines](/docs/concepts/engines/) when you want to add tools or compare coverage.
+
+If the run stops or is incomplete, use [Troubleshooting](/docs/guides/troubleshooting/). Once it works locally, [run it in CI](/docs/guides/ci/).
