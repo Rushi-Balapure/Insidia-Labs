@@ -11,25 +11,25 @@
   <img alt="Python 3.12+" src="https://img.shields.io/badge/python-3.12%2B-B93486?style=flat-square&labelColor=101028">
   <img alt="Linux, macOS, Windows" src="https://img.shields.io/badge/os-linux%20%7C%20macos%20%7C%20windows-8D307C?style=flat-square&labelColor=101028">
   <a href="https://insidialabs.com"><img alt="Website" src="https://img.shields.io/badge/web-insidialabs.com-F6C13F?style=flat-square&labelColor=101028"></a>
-  <a href="https://docs.insidialabs.com"><img alt="Docs" src="https://img.shields.io/badge/docs-docs.insidialabs.com-ED7B39?style=flat-square&labelColor=101028"></a>
+  <a href="https://insidialabs.com/docs/"><img alt="Docs" src="https://img.shields.io/badge/docs-insidialabs.com%2Fdocs-ED7B39?style=flat-square&labelColor=101028"></a>
 </p>
 
 <p align="center">
+  <a href="https://insidialabs.com"><b>Website</b></a> ·
   <a href="#install"><b>Install</b></a> ·
   <a href="#quickstart"><b>Quickstart</b></a> ·
-  <a href="#what-it-tests"><b>What it tests</b></a> ·
-  <a href="#benchmark"><b>Benchmark</b></a> ·
-  <a href="#insidia-cloud"><b>Insidia Cloud</b></a> ·
-  <a href="https://docs.insidialabs.com"><b>Docs</b></a>
+  <a href="#insidiayaml"><b>insidia.yaml</b></a> ·
+  <a href="https://insidialabs.com/docs/"><b>Docs</b></a> ·
+  <a href="https://insidialabs.com/pricing"><b>Pricing</b></a>
 </p>
 
 <br>
 
-Insidia tests an AI app and the application around it in one local run. The model layer can leak secrets, follow injected instructions, and misuse tools. The app still has SQL injection, XSS, SSRF, and broken authorization. Attackers chain the two. A prompt injection can make an agent call a tool with a payload a normal web scanner never sends.
+Your AI agent is your newest attack surface. Insidia attacks your AI app and the API behind it, names the check that failed, and blocks the release until it is fixed. The CLI runs on your machine. A scan does not need an account.
 
-**Insidia is the free command-line tool for that job.** It runs open-source engines on your machine, fills the gaps they leave, scores the run against an open policy, and writes one HTML report. Nothing in a scan requires an account.
+The public site is [insidialabs.com](https://insidialabs.com). Documentation is on the same host at [insidialabs.com/docs](https://insidialabs.com/docs/).
 
-Install from GitHub today. A version tag publishes a signed wheel and a container image. [Insidia Cloud](#insidia-cloud), the hosted attacker, is not open yet.
+Install from GitHub today. A version tag publishes a signed wheel and a container image. [Insidia Cloud](https://insidialabs.com/pricing), the hosted attacker, is not open yet.
 
 ## Install
 
@@ -45,7 +45,7 @@ pipx install "git+https://github.com/Rushi-Balapure/Insidia-Labs#subdirectory=co
 
 Pin a commit or tag by adding it before the fragment: `...Insidia-Labs@<rev>#subdirectory=core`.
 
-`insidia engines install` fetches the engine toolchains the scan needs. `insidia doctor` tells you what is missing. A version tag attaches a signed wheel and publishes `ghcr.io/rushi-balapure/insidia` with every pinned engine. See [the launch note](https://insidialabs.com/launch).
+`insidia engines install garak zap` installs those engines. With no names, `insidia engines install` only reports that the built-in probes are already available. `insidia doctor` tells you what is missing. A version tag attaches a signed wheel and publishes `ghcr.io/rushi-balapure/insidia` with every pinned engine. See [the launch note](https://insidialabs.com/launch). The install page on the site is [insidialabs.com/docs/start/install](https://insidialabs.com/docs/start/install/).
 
 ## Quickstart
 
@@ -58,9 +58,62 @@ insidia scan --policy L1 --yes
 insidia report --open
 ```
 
-`insidia init` writes `insidia.yaml` with scope limited to localhost and a chat target at `http://127.0.0.1:8080/chat`. Edit the targets before you scan. `insidia scan` exits **0** when the policy passes and **1** when it fails. Add `--json` for a machine-readable result.
+`insidia init` writes `insidia.yaml`. A scan reads that file and does not take a URL. The generated target is a sample chat endpoint at `http://127.0.0.1:8080/chat`. Change `targets` so `url` is your app before you treat the result as meaningful.
 
-Insidia only scans hosts listed under `scope`. A host other than localhost needs `authorized: true`, which you set. Rate limits are on by default.
+| Exit code | Meaning |
+| --- | --- |
+| `0` | The run finished and the policy passed. |
+| `1` | The run finished and the policy failed. |
+| `2` | The run was incomplete, or an error stopped it. |
+| `130` | The run was cancelled. |
+
+`--json` prints the run id, findings, and skips. `--yes` is only required when `scope` includes a host other than localhost. The same steps are on [the quickstart](https://insidialabs.com/docs/start/quickstart/).
+
+## insidia.yaml
+
+This is the file `insidia init` writes:
+
+```yaml
+version: 1
+policy: L1
+coverage: standard
+scope:
+  - host: localhost
+  - host: 127.0.0.1
+  - host: "::1"
+targets:
+  app:
+    kind: chat
+    url: http://127.0.0.1:8080/chat
+    request_template: '{"messages": {{conversation_json}}}'
+    response_selector: "$.choices[0].message.content"
+    rate_limit:
+      rps: 5
+      concurrency: 1
+models: {}
+```
+
+| Field | What it means |
+| --- | --- |
+| `version` | Must be `1`. |
+| `policy` | `L1` is the policy a scan runs. `L2` and `L3` are not available. |
+| `coverage` | `standard` runs one engine per check. `thorough` runs every installed engine that covers it. |
+| `scope` | Hostnames Insidia may contact. A host other than localhost, `127.0.0.1`, or `::1` needs `authorized: true`, which you set. |
+| `targets` | Apps, APIs, or repositories to test. The key (`app` above) is the name in the report. `kind` is `chat`, `agent`, `rag`, `mcp`, `web`, `api`, or `repo`. |
+| `models` | Optional `attacker` and `judge`. `{}` means no model. A model `base_url` host must also be in `scope`. |
+
+```yaml
+targets:
+  app:
+    kind: chat
+    url: http://127.0.0.1:8080/chat
+    auth:
+      header: Authorization
+      secret_ref: env:APP_TOKEN
+      scheme: Bearer
+```
+
+`secret_ref` is `env:` plus a variable name. The value stays in the environment and is not written into the file. Unknown fields are rejected. Every field, including rate limits, request templates, and repository targets, is on [insidialabs.com/docs/start/config](https://insidialabs.com/docs/start/config/). Scope rules are on [insidialabs.com/docs/start/scope](https://insidialabs.com/docs/start/scope/).
 
 ### Hand it to a coding agent
 
@@ -83,7 +136,7 @@ You confirm the hosts. The agent should install the CLI, keep the scope you name
 | RAG and memory poisoning, cross-tenant bleed | Scripted chains from the AI layer into the app |
 | MCP and skill supply chain | |
 
-Findings map to **OWASP LLM**, **OWASP Agentic**, **OWASP Web and API**, and **CWE** when the control has that mapping. MITRE ATLAS is not mapped yet. SQL injection and XSS are not separate checks yet. Each finding names the engine that produced it. A secret in evidence is masked, for example `[AWS_ACCESS_KEY len=20 fp=3f9a1c07]`.
+Each finding names the engine that produced it. A secret in evidence is masked, for example `[AWS_ACCESS_KEY len=20 fp=3f9a1c07]`. The support notes are on [what it tests](https://insidialabs.com/docs/concepts/what-it-tests/).
 
 ### Coverage
 
@@ -100,7 +153,7 @@ A scan with no model still runs every check that does not need one. Checks that 
 
 ## Benchmark
 
-`insidia scan --policy L1` runs the open Insidia Benchmark baseline. L2 and L3 are defined and **not available** until they run different checks.
+`insidia scan --policy L1` runs the baseline. L2 and L3 are not available. The same notes are on [the benchmark page](https://insidialabs.com/benchmark).
 
 | Level | What it adds |
 | --- | --- |
@@ -123,23 +176,41 @@ Point a model at any OpenAI-compatible endpoint, including Ollama, by listing it
 
 ## Insidia Cloud
 
-All of the code is Apache-2.0, including the Cloud service in [`cloud/`](cloud). The product you would pay for is hosted GPUs, the attacker and judge models, and the managed dashboard. That service is not open yet. Design-partner access is planned for December 2026. Write to [insidialabs@gmail.com](mailto:insidialabs@gmail.com).
+The CLI is free. Insidia Cloud, a hosted attacker, opens to design partners first, from December 2026. There is no price on the site yet. The page is [insidialabs.com/pricing](https://insidialabs.com/pricing). Write to [insidialabs@gmail.com](mailto:insidialabs@gmail.com).
 
 Until then, every scan you can run is the free CLI, with a model you bring or with no model at all.
 
 ## Commands
 
 ```text
-insidia init
-insidia doctor
-insidia engines list
-insidia engines install [ENGINE ...] [--docker]
+insidia init                 write insidia.yaml in this directory
+insidia doctor               check Python, the config file, and installed engines
+insidia engines list         show each engine, its license, and whether it is installed
+insidia engines install ENGINE ...
 insidia policy list|show|validate
-insidia scan [--policy L1|L2|L3] [--coverage standard|thorough] [--json] [--yes]
-insidia report [run-id] [--open]
+insidia scan                 run the checks in insidia.yaml and write a report
+insidia report [run-id]      print or open the HTML report
+insidia rerun [run-id]       scan again with the recorded policy and config
+insidia mcp                  serve local MCP tools on stdin and stdout
 ```
 
-Shared flags: `--json`, `--yes`, and `--config` (default `insidia.yaml`).
+Flags that go after the command: `--config PATH` (default `insidia.yaml`), `--json`, `--yes`, `--quiet` / `-q`, and `--no-color`. `insidia scan` also takes `--policy` and `--coverage`. The same list is on [the CLI reference](https://insidialabs.com/docs/reference/cli/). `insidia -h` prints it in the terminal.
+
+## Site
+
+| Page | Where |
+| --- | --- |
+| Home | [insidialabs.com](https://insidialabs.com) |
+| Docs | [insidialabs.com/docs](https://insidialabs.com/docs/) |
+| Install | [insidialabs.com/docs/start/install](https://insidialabs.com/docs/start/install/) |
+| Quickstart | [insidialabs.com/docs/start/quickstart](https://insidialabs.com/docs/start/quickstart/) |
+| insidia.yaml | [insidialabs.com/docs/start/config](https://insidialabs.com/docs/start/config/) |
+| CLI reference | [insidialabs.com/docs/reference/cli](https://insidialabs.com/docs/reference/cli/) |
+| Pricing | [insidialabs.com/pricing](https://insidialabs.com/pricing) |
+| Film | [insidialabs.com/film](https://insidialabs.com/film) |
+| Credits | [insidialabs.com/credits](https://insidialabs.com/credits) |
+| Security | [insidialabs.com/security](https://insidialabs.com/security) |
+| Changelog | [insidialabs.com/changelog](https://insidialabs.com/changelog) |
 
 ## Repository
 
@@ -148,8 +219,8 @@ Shared flags: `--json`, `--yes`, and `--config` (default `insidia.yaml`).
 | [`core/`](core) | The `insidia` package: CLI, scope guard, adapters, engines, modules, report |
 | [`benchmark/`](benchmark) | Policy data, framework mappings, scanner matrix, sandboxed targets |
 | [`cloud/`](cloud) | Insidia Cloud API and workers. Not required to scan |
-| [`site/`](site) | Marketing site |
-| [`docs/`](docs) | Documentation site |
+| [`site/`](site) | Marketing site, published at [insidialabs.com](https://insidialabs.com) |
+| [`docs/`](docs) | Documentation, published at [insidialabs.com/docs](https://insidialabs.com/docs/) |
 | [`brand/`](brand/README.md) | Logo, colors, and README artwork |
 
 ## Development
