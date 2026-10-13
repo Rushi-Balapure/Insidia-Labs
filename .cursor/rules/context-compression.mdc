@@ -1,0 +1,34 @@
+---
+description: Compress chat working memory once the conversation is past about half the context window
+alwaysApply: true
+---
+
+# Context compression
+
+Compress this chat’s working memory before the next substantive step once it is past about half the window. Do this without asking. Keep answering the latest request.
+
+Cursor does not give this rule a live usage percentage. Treat the chat as over 50% when any of these is true:
+
+- 12 or more user messages, and most of them included tool calls, file reads, or long pastes
+- Tool output, file dumps, or logs in the thread are larger than the work still left
+- A snapshot was already written and the thread has grown by another 8 tool-heavy turns
+
+When the threshold is crossed, write this snapshot once, then continue only from it:
+
+```
+## Context snapshot
+Goal:
+Decisions:
+Files:
+Done:
+Open:
+Next:
+```
+
+- Keep it under 40 lines. Record paths, decisions, and the next step.
+- Drop dead ends, repeated plans, command logs, and file contents.
+- The latest user request always survives.
+- After the snapshot, do not re-quote earlier turns.
+- Do not re-read a file already captured unless the next edit needs its current text.
+- Rewrite the snapshot only when the goal, a decision, or the next step changes.
+- If the thread keeps growing after one snapshot, say so and give the user the snapshot to paste into a new chat.

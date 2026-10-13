@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { cpSync, createReadStream, existsSync, mkdirSync, rmSync, statSync } from "node:fs";
+import { cpSync, createReadStream, existsSync, rmSync, statSync } from "node:fs";
 import { dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import react from "@astrojs/react";
@@ -8,19 +8,6 @@ import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "astro/config";
 
 const root = dirname(fileURLToPath(import.meta.url));
-const videoOut = join(root, "video/out");
-const videoPublic = join(root, "public/video");
-const videoFiles = [
-  "howto.mp4",
-  "howto.webm",
-  "howto.vtt",
-  "howto.jpg",
-  "film.mp4",
-  "film.webm",
-  "film.vtt",
-  "film.jpg",
-  "film-chapters.vtt",
-];
 const docsRoot = join(root, "../docs");
 const docsDist = join(docsRoot, "dist");
 const docsPublic = resolve(root, "public/docs");
@@ -75,14 +62,6 @@ function docsDevPlugin() {
     configureServer: attachDocs,
     configurePreviewServer: attachDocs,
   };
-}
-
-if (existsSync(videoOut)) {
-  mkdirSync(videoPublic, { recursive: true });
-  for (const name of videoFiles) {
-    const from = join(videoOut, name);
-    if (existsSync(from)) cpSync(from, join(videoPublic, name));
-  }
 }
 
 export default defineConfig({

@@ -1,0 +1,37 @@
+WEBVTT
+
+1
+00:00:00.300 --> 00:00:05.000
+A real finding in a sample support bot.
+
+2
+00:00:05.400 --> 00:00:12.000
+Install the CLI. It runs on your machine. No account.
+
+3
+00:00:12.400 --> 00:00:22.000
+One file sets the targets and the hosts it may touch.
+
+4
+00:00:22.400 --> 00:00:27.000
+Doctor checks that everything is ready.
+
+5
+00:00:27.400 --> 00:00:33.500
+One scan covers the AI side and the app side.
+
+6
+00:00:33.500 --> 00:00:40.000
+Every row names its engine. One check failed.
+
+7
+00:00:40.400 --> 00:00:50.000
+See the attack, the reply, and the fix.
+
+8
+00:00:50.400 --> 00:00:56.600
+Fix the code. Rerun with the same config. It passes.
+
+9
+00:00:56.800 --> 00:01:00.000
+Your AI agent is your newest attack surface.

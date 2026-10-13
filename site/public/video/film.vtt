@@ -1,0 +1,97 @@
+WEBVTT
+
+1
+00:00:00.500 --> 00:00:06.000
+This support bot answered the question.
+
+2
+00:00:06.000 --> 00:00:11.000
+It also printed part of its own system prompt.
+
+3
+00:00:11.000 --> 00:00:19.600
+The instruction was hidden in the PDF. Nothing crashed.
+
+4
+00:00:20.500 --> 00:00:27.500
+An AI app is still an app, with a new kind of input.
+
+5
+00:00:27.500 --> 00:00:34.500
+Anything the model reads can carry an instruction.
+
+6
+00:00:34.500 --> 00:00:41.500
+AI checks and app checks usually run in different tools, on different days.
+
+7
+00:00:41.500 --> 00:00:49.600
+The risky path can start on one side and end on the other.
+
+8
+00:00:50.500 --> 00:00:58.000
+Insidia tests both layers in one run, on your machine.
+
+9
+00:00:58.000 --> 00:01:06.000
+It runs engines like garak, promptfoo, Nuclei, and ZAP, plus its own checks.
+
+10
+00:01:06.000 --> 00:01:14.600
+Every result names the engine that produced it.
+
+11
+00:01:15.500 --> 00:01:22.000
+Insidia only touches hosts you list.
+
+12
+00:01:22.000 --> 00:01:28.000
+Anything beyond localhost needs authorized: true, set by you.
+
+13
+00:01:28.000 --> 00:01:34.600
+A planted canary proves a leak. No guessing.
+
+14
+00:01:35.500 --> 00:01:47.000
+L1 is the baseline. Fast enough for every pull request.
+
+15
+00:01:47.000 --> 00:01:52.500
+Each row: the check, the result, the engine, the time.
+
+16
+00:01:52.500 --> 00:01:59.600
+A check that couldn't run is marked incomplete, never passed.
+
+17
+00:02:00.500 --> 00:02:08.000
+One HTML file. Opens offline.
+
+18
+00:02:08.000 --> 00:02:16.000
+The attack, the reply, and the proof.
+
+19
+00:02:16.000 --> 00:02:24.600
+It also lists what wasn't tested.
+
+20
+00:02:25.500 --> 00:02:31.000
+Treat uploads as data, not instructions.
+
+21
+00:02:31.000 --> 00:02:39.600
+Rerun checks again with the same config. Now it passes.
+
+22
+00:02:40.500 --> 00:02:47.500
+In CI, a failed policy blocks the merge.
+
+23
+00:02:47.500 --> 00:02:54.600
+Or hand it to your coding agent. You confirm the hosts.
+
+24
+00:02:55.300 --> 00:03:05.000
+Your AI agent is your newest attack surface.

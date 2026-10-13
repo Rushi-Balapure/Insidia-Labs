@@ -244,6 +244,8 @@ npm run links  # checks built links, anchors, and assets
 npm run dev    # http://127.0.0.1:4321
 ```
 
+For Vercel build settings and custom-domain setup, see [the site deployment guide](site/README.md).
+
 Docs, from `docs/`:
 
 ```bash
