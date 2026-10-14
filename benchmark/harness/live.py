@@ -997,7 +997,7 @@ def _down_foreign(compose_file: Path) -> None:
         _compose(compose_file, project, ["down"])
 
 
-def _compose(compose_file: Path, project: str, args: list[str], *, timeout: float = 600) -> None:
+def _compose(compose_file: Path, project: str, args: list[str], timeout: float = 600) -> None:
     env = os.environ.copy()
     env["TLS_ENABLED"] = "false"
     env["COMPOSE_PROJECT_NAME"] = project

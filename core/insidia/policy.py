@@ -21,7 +21,6 @@ def _control(
     family: str,
     kinds: tuple[str, ...],
     remediation: str,
-    *,
     taxonomy: tuple[str, ...] = ("benchmark",),
     severity: str = "high",
     track: str = "classic",

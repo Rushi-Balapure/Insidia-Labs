@@ -23,7 +23,7 @@ def make_aad(org_id: str, table: str, column: str, row_id: str) -> bytes:
     return _SEP.join(parts)
 
 
-def encrypt(plaintext: bytes, *, key: bytes, key_version: int, aad: bytes) -> bytes:
+def encrypt(plaintext: bytes, key: bytes, key_version: int, aad: bytes) -> bytes:
     if len(key) != KEY_LEN:
         raise CryptoError("data key must be 256 bits")
     if key_version < 1:
@@ -34,7 +34,7 @@ def encrypt(plaintext: bytes, *, key: bytes, key_version: int, aad: bytes) -> by
     return version + key_version.to_bytes(4, "big") + nonce + ciphertext
 
 
-def decrypt(blob: bytes, *, key: bytes, aad: bytes) -> bytes:
+def decrypt(blob: bytes, key: bytes, aad: bytes) -> bytes:
     if len(blob) < 1 + 4 + NONCE_LEN + 16:
         raise CryptoError("ciphertext is truncated")
     version = blob[0]
@@ -61,11 +61,11 @@ class WrappedKey:
     blob: bytes
 
 
-def wrap_key(dek: bytes, *, master_key: bytes) -> bytes:
+def wrap_key(dek: bytes, master_key: bytes) -> bytes:
     return encrypt(dek, key=master_key, key_version=1, aad=b"insidia-key-wrap")
 
 
-def unwrap_key(blob: bytes, *, master_key: bytes) -> bytes:
+def unwrap_key(blob: bytes, master_key: bytes) -> bytes:
     dek = decrypt(blob, key=master_key, aad=b"insidia-key-wrap")
     if len(dek) != KEY_LEN:
         raise CryptoError("unwrapped key is not 256 bits")

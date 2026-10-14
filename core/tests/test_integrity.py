@@ -42,7 +42,6 @@ def test_a_failed_engine_keeps_the_other_engines_finding(
     def fake_select(
         family: str,
         coverage: str,
-        *,
         model_available: bool,
         entries: tuple[Capability, ...] | None = None,
     ) -> list[Capability]:

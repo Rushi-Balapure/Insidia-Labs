@@ -70,7 +70,6 @@ def run(
     project: Project,
     root: Path,
     control: Control,
-    *,
     launch: Launch = launch_installed,
 ) -> Attempt:
     if target.kind not in spec.target_kinds:

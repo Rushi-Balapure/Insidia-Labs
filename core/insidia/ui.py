@@ -31,7 +31,7 @@ class Event:
     seconds: float = 0.0
 
 
-def wants_color(stream: TextIO, *, no_color: bool = False) -> bool:
+def wants_color(stream: TextIO, no_color: bool = False) -> bool:
     if no_color or os.environ.get("NO_COLOR"):
         return False
     if os.environ.get("FORCE_COLOR"):
@@ -66,7 +66,6 @@ class Terminal:
     def __init__(
         self,
         stream: TextIO | None = None,
-        *,
         quiet: bool = False,
         animate: bool | None = None,
         no_color: bool = False,

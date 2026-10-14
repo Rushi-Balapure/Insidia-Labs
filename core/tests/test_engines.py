@@ -348,7 +348,6 @@ def test_pyrit_is_single_turn(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     class HTTPTarget:
         def __init__(
             self,
-            *,
             http_request: str,
             callback_function: object = None,
             use_tls: bool = True,

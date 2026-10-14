@@ -129,7 +129,6 @@ def write_run(
     findings: list[Finding],
     controls: list[dict[str, str]],
     skips: list[str],
-    *,
     execution_status: str = "complete",
     policy_verdict: str | None = None,
     config_digest: str = "",
@@ -200,7 +199,6 @@ def verdict_text(
     policy: str,
     passed: bool,
     findings: int,
-    *,
     execution_status: str = "complete",
     policy_verdict: str | None = None,
 ) -> str:

@@ -164,7 +164,6 @@ def _websocket(target: Target, payload: str, scope: tuple[ScopeHost, ...]) -> st
 def read_url(
     url: str,
     scope: tuple[ScopeHost, ...],
-    *,
     method: str = "GET",
     body: bytes | None = None,
     headers: dict[str, str] | None = None,

@@ -323,7 +323,6 @@ def scan_message(
     findings: int,
     report: str,
     opened: bool,
-    *,
     execution_status: str = "complete",
     policy_verdict: str | None = None,
 ) -> str:

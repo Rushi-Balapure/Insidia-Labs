@@ -105,7 +105,6 @@ def program_for(name: str) -> str:
 
 def install(
     names: tuple[str, ...] = (),
-    *,
     docker: bool = False,
     progress: Callable[[str], None] | None = None,
 ) -> str:
@@ -281,7 +280,6 @@ def _installed_version(stage: Path, package: str) -> str:
 def _venv(
     stage: Path,
     packages: list[str],
-    *,
     index: str | None = None,
     extra_index: str | None = None,
     strategy: str | None = None,
@@ -334,7 +332,7 @@ def _checked(command: list[str], env: dict[str, str]) -> None:
         raise CliError(f"{Path(command[0]).name} exited {exc.returncode}{detail}") from exc
 
 
-def _fetch_binary(spec: EngineSpec, stage: Path, *, raw: bool) -> str:
+def _fetch_binary(spec: EngineSpec, stage: Path, raw: bool) -> str:
     url = _github(spec)
     archive = stage / "download"
     _download(url, archive)
