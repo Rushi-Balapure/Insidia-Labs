@@ -61,7 +61,6 @@ def capabilities() -> tuple[Capability, ...]:
 def select(
     family: str,
     coverage: str,
-    *,
     model_available: bool,
     entries: tuple[Capability, ...] | None = None,
 ) -> list[Capability]:

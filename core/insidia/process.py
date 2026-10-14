@@ -76,7 +76,6 @@ def _argv_for(system: str, program: str, args: tuple[str, ...]) -> list[str]:
 
 def run_command(
     argv: list[str],
-    *,
     cwd: Path | None,
     env: Mapping[str, str],
     timeout: float,

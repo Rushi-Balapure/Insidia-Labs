@@ -20,16 +20,16 @@
   <a href="#quickstart"><b>Quickstart</b></a> ·
   <a href="#insidiayaml"><b>insidia.yaml</b></a> ·
   <a href="https://insidialabs.com/docs/"><b>Docs</b></a> ·
-  <a href="https://insidialabs.com/pricing"><b>Pricing</b></a>
+  <a href="#development"><b>Development</b></a>
 </p>
 
 <br>
 
-Your AI agent is your newest attack surface. Insidia attacks your AI app and the API behind it, names the check that failed, and blocks the release until it is fixed. The CLI runs on your machine. A scan does not need an account.
+Insidia is an open-source CLI for security testing AI apps, agents, and the web apps and APIs around them. It runs checks locally and writes findings to HTML, JSON, and SARIF. A scan does not need an account.
 
 The public site is [insidialabs.com](https://insidialabs.com). Documentation is on the same host at [insidialabs.com/docs](https://insidialabs.com/docs/).
 
-Install from GitHub today. A version tag publishes a signed wheel and a container image. [Insidia Cloud](https://insidialabs.com/pricing), the hosted attacker, is not open yet.
+This is a pre-release project. Built-in checks are currently classified as fixture-only, and external engine integrations as experimental. See the [readiness inventory](core/insidia/readiness.py) for current limitations and the [master plan](plans/00-master-plan.md) for planned work.
 
 ## Install
 
@@ -58,7 +58,7 @@ insidia scan --policy L1 --yes
 insidia report --open
 ```
 
-`insidia init` writes `insidia.yaml`. A scan reads that file and does not take a URL. The generated target is a sample chat endpoint at `http://127.0.0.1:8080/chat`. Change `targets` so `url` is your app before you treat the result as meaningful.
+`insidia init` writes `insidia.yaml`. A scan reads that file and does not take a URL. The generated target is a sample chat endpoint at `http://127.0.0.1:8080/chat`; it does not start an app. Before scanning, edit `targets` to match your running app's URL, request format, and response selector.
 
 | Exit code | Meaning |
 | --- | --- |
@@ -170,15 +170,9 @@ The run directory `.insidia/runs/<run-id>/` contains:
 | `results.sarif` | SARIF for CI code scanning |
 | `report.html` | One HTML file. `insidia report --open` opens it |
 
-The same repository publishes the scanner matrix under [`benchmark/`](benchmark): sandboxed targets and planted ground truth. That matrix is how engine adapters are accepted. It is separate from the policy you run on your own app.
+The scanner matrix under [`benchmark/`](benchmark) contains sandboxed targets and planted ground truth for regression testing. Passing those fixtures does not establish detection accuracy on independent apps. The matrix is separate from the policy you run on your own app.
 
 Point a model at any OpenAI-compatible endpoint, including Ollama, by listing it in `insidia.yaml` and adding that host to `scope`.
-
-## Insidia Cloud
-
-The CLI is free. Insidia Cloud, a hosted attacker, opens to design partners first, from December 2026. There is no price on the site yet. The page is [insidialabs.com/pricing](https://insidialabs.com/pricing). Write to [insidialabs@gmail.com](mailto:insidialabs@gmail.com).
-
-Until then, every scan you can run is the free CLI, with a model you bring or with no model at all.
 
 ## Commands
 
@@ -206,7 +200,6 @@ Flags that go after the command: `--config PATH` (default `insidia.yaml`), `--js
 | Quickstart | [insidialabs.com/docs/start/quickstart](https://insidialabs.com/docs/start/quickstart/) |
 | insidia.yaml | [insidialabs.com/docs/start/config](https://insidialabs.com/docs/start/config/) |
 | CLI reference | [insidialabs.com/docs/reference/cli](https://insidialabs.com/docs/reference/cli/) |
-| Pricing | [insidialabs.com/pricing](https://insidialabs.com/pricing) |
 | Film | [insidialabs.com/film](https://insidialabs.com/film) |
 | Credits | [insidialabs.com/credits](https://insidialabs.com/credits) |
 | Security | [insidialabs.com/security](https://insidialabs.com/security) |
@@ -216,12 +209,17 @@ Flags that go after the command: `--config PATH` (default `insidia.yaml`), `--js
 
 | Path | What it holds |
 | --- | --- |
-| [`core/`](core) | The `insidia` package: CLI, scope guard, adapters, engines, modules, report |
-| [`benchmark/`](benchmark) | Policy data, framework mappings, scanner matrix, sandboxed targets |
-| [`cloud/`](cloud) | Insidia Cloud API and workers. Not required to scan |
+| [`core/`](core) | The `insidia` package: CLI, configuration, scope guard, engines, probes, findings, and reports |
+| [`benchmark/`](benchmark) | Scanner matrix, framework mappings, sandboxed targets, and regression tests |
+| [`skills/insidia/`](skills/insidia) | Instructions for coding agents to install and run Insidia |
+| [`actions/scan/`](actions/scan) | GitHub Action for running the CLI in CI |
+| [`Dockerfile`](Dockerfile) | CLI container image with the pinned scanner engines |
 | [`site/`](site) | Marketing site, published at [insidialabs.com](https://insidialabs.com) |
 | [`docs/`](docs) | Documentation, published at [insidialabs.com/docs](https://insidialabs.com/docs/) |
 | [`brand/`](brand/README.md) | Logo, colors, and README artwork |
+| [`plans/`](plans) | Roadmap, design documents, and implementation plans |
+
+Start reading the scanner at [`core/insidia/cli.py`](core/insidia/cli.py), which handles commands. [`scan.py`](core/insidia/scan.py) coordinates scans, [`probes.py`](core/insidia/probes.py) executes checks, and [`adapters.py`](core/insidia/adapters.py) defines built-in probes and detection rules. External engine integrations live in [`upstream.py`](core/insidia/upstream.py).
 
 ## Development
 
@@ -253,14 +251,6 @@ npm ci
 npm run check
 npm run dev
 ```
-
-Cloud stack, when you are working on the hosted service:
-
-```bash
-docker compose -f deploy/compose/docker-compose.yml up --build
-```
-
-The API answers `http://127.0.0.1:8000/healthz`. Dev endpoints exist only when `INSIDIA_DEV_MODE=true`.
 
 ## Credits
 

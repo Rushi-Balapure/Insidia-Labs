@@ -51,7 +51,6 @@ class ScanOutcome:
 def execute(
     project: Project,
     root: Path,
-    *,
     policy_name: str | None = None,
     coverage: str | None = None,
     assume_yes: bool = False,

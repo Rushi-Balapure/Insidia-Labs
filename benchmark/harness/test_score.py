@@ -4,7 +4,7 @@ from benchmark.harness.score import Finding, golden_dropped, meets_threshold, sc
 from benchmark.matrix.plants import Plant
 
 
-def _plant(plant_id: str, *, judge: bool = False) -> Plant:
+def _plant(plant_id: str, judge: bool = False) -> Plant:
     attack = "ai.bias" if judge else "web.xss"
     return Plant(
         id=plant_id,

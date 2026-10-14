@@ -9,7 +9,6 @@ REPO = Path(__file__).resolve().parents[2]
 
 
 def target(
-    *,
     kind: str = "chat",
     url: str | None = "http://127.0.0.1/chat",
     path: str | None = None,

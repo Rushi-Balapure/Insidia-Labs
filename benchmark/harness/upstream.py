@@ -156,7 +156,7 @@ def _read(path: Path) -> str:
     return cached
 
 
-def _over_http(path: Path, *, tunnel: bool) -> str:
+def _over_http(path: Path, tunnel: bool) -> str:
     body = _read(path).encode()
     server, thread = _file_server(body)
     try:
