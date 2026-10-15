@@ -121,6 +121,11 @@ def main(argv: list[str] | None = None) -> int:
         choices=("standard", "thorough"),
         help="how many engines run per check (default: the coverage in the config file)",
     )
+    scan.add_argument(
+        "--open",
+        action="store_true",
+        help="open the report in a browser when the scan finishes (default: print its path)",
+    )
 
     report = subcommands.add_parser(
         "report",
@@ -226,12 +231,7 @@ def _run(args: argparse.Namespace) -> int:
         terminal.line(terminal.dim(view.totals()))
         report_path = outcome.run_dir / "report.html"
         policy_name = args.policy if args.policy is not None else project.policy
-        opened = False
-        if not args.json:
-            try:
-                opened = bool(webbrowser.open(report_path.resolve().as_uri()))
-            except OSError:
-                opened = False
+        opened = bool(getattr(args, "open", False)) and not args.json and _open(report_path)
         text = scan_message(
             policy_name,
             outcome.passed,
@@ -271,9 +271,16 @@ def _run(args: argparse.Namespace) -> int:
         report_path = directory / "report.html"
         if not report_path.is_file():
             raise CliError(f"run {directory.name} has no report")
-        if args.open:
-            webbrowser.open(report_path.resolve().as_uri())
-        _emit(args.json, {"report": str(report_path)}, str(report_path))
+        if not args.open:
+            _emit(args.json, {"report": str(report_path)}, str(report_path))
+            return 0
+        opened = _open(report_path)
+        text = (
+            f"Opened {report_path}."
+            if opened
+            else f"No browser could be opened here. The report is at {report_path}."
+        )
+        _emit(args.json, {"report": str(report_path), "opened": opened}, text)
         return 0
     if args.command == "mcp":
         return serve(sys.stdin.buffer, sys.stdout.buffer)
@@ -336,6 +343,13 @@ def scan_message(
     if opened:
         return f"{head} Opened {report}."
     return f"{head} Report: {report}."
+
+
+def _open(report: Path) -> bool:
+    try:
+        return bool(webbrowser.open(report.resolve().as_uri()))
+    except (OSError, webbrowser.Error):
+        return False
 
 
 def _terminal(args: argparse.Namespace) -> Terminal:

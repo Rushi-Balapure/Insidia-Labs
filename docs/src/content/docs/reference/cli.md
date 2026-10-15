@@ -54,8 +54,9 @@ insidia scan --policy L1 --coverage standard --yes --json
 | --- | --- |
 | `--policy` | Use `L1`. The parser accepts `L2` and `L3`, but execution rejects them as unavailable. Default is the policy in the config. |
 | `--coverage` | `standard` or `thorough`. Default is the coverage in the config. |
+| `--open` | Open the report in a browser when the scan finishes. Without it, the scan only prints the report path, so it is safe in CI, over SSH, and from an agent. |
 
-Exit codes: **0** for a completed pass, **1** for a completed policy failure, **2** for an incomplete run or an error, and **130** for cancellation. Even if an incomplete scan found vulnerabilities, it exits 2. JSON includes `execution_status` and `policy_verdict`; review both. Without `--json`, the CLI attempts to open the report when the scan finishes. Progress is printed while each control runs.
+Exit codes: **0** for a completed pass, **1** for a completed policy failure, **2** for an incomplete run or an error, and **130** for cancellation. Even if an incomplete scan found vulnerabilities, it exits 2. JSON includes `execution_status` and `policy_verdict`; review both. A scan never opens a browser unless you pass `--open`. Progress is printed while each control runs.
 
 ## report
 
@@ -64,7 +65,7 @@ insidia report --open
 insidia report 20261008T120000Z-abc123
 ```
 
-Opens or prints the latest run, or the run id you pass. See [Report](/docs/concepts/report/).
+Prints the report path for the latest run, or the run id you pass. `--open` also opens it in a browser and says whether that worked; on a machine with no browser it prints the path instead. See [Report](/docs/concepts/report/).
 
 ## rerun
 

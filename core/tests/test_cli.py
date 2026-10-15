@@ -46,7 +46,7 @@ def test_init_doctor_and_policy(tmp_path: Path, monkeypatch: object) -> None:
     assert main(["engines", "install"]) == 0
 
 
-def test_scan_says_the_tool_ran_and_opens_the_report(
+def test_scan_opens_the_report_only_when_asked(
     tmp_path: Path,
     monkeypatch: object,
     capsys: object,
@@ -82,6 +82,10 @@ def test_scan_says_the_tool_ran_and_opens_the_report(
     monkeypatch.setattr("insidia.cli.execute", fake_execute)  # type: ignore[attr-defined]
     monkeypatch.setattr("insidia.cli.webbrowser.open", fake_open)  # type: ignore[attr-defined]
     assert main(["scan", "--policy", "L1"]) == 1
+    assert not opened
+    out = capsys.readouterr().out  # type: ignore[attr-defined]
+    assert "Report: " in out
+    assert main(["scan", "--policy", "L1", "--open"]) == 1
     assert opened
     out = capsys.readouterr().out  # type: ignore[attr-defined]
     assert "The scan ran. Policy L1 did not pass. 1 finding. Opened" in out
