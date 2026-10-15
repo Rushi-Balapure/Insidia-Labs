@@ -21,6 +21,7 @@ from insidia.results import (
     CANCELLED,
     COMPLETE,
     ERROR,
+    LIMITED,
     NOT_APPLICABLE,
     UNSUPPORTED,
     CheckRecord,
@@ -213,9 +214,11 @@ def _scan_targets(
                 except (EngineFailed, ProbeError) as exc:
                     attempt_hits: tuple[ProbeHit, ...] = ()
                     error = str(exc)
+                    untested = ""
                 else:
                     attempt_hits = attempt.hits
                     error = attempt.error
+                    untested = attempt.untested
                 hits.extend(attempt_hits)
                 if error:
                     reason = short(mask(error))
@@ -246,7 +249,8 @@ def _scan_targets(
                         target.name,
                         family,
                         capability.engine,
-                        COMPLETE,
+                        LIMITED if untested else COMPLETE,
+                        short(mask(untested)) if untested else "",
                         finding_count=len(attempt_hits),
                     )
                 )
@@ -261,7 +265,7 @@ def _scan_targets(
                     family,
                     names,
                     result,
-                    reasons[0] if result == "inconclusive" else "",
+                    _detail(result, reasons, family_records),
                     time.monotonic() - began,
                 ),
             )
@@ -327,12 +331,22 @@ def _configured_secrets(project: Project) -> tuple[str, ...]:
     return tuple(found)
 
 
+def _detail(result: str, reasons: list[str], records: list[CheckRecord]) -> str:
+    if result == "inconclusive" and reasons:
+        return reasons[0]
+    if result == "not tested":
+        return next((record.reason for record in records if record.reason), "")
+    return ""
+
+
 def _family_result(records: list[CheckRecord]) -> str:
     _status, verdict = aggregate(records)
     if verdict == "fail":
         return "fail"
     if _status == "complete" and verdict == "pass":
         return "pass"
+    if _status == "complete":
+        return "not tested"
     return "inconclusive"
 
 

@@ -255,7 +255,7 @@ _CONTROLS = (
     _control("infra.tls", _WEB_API, "Disable TLS 1.0.", taxonomy=("owasp-web:A02",)),
     _control(
         "api.bola_idor",
-        ("api",),
+        _WEB_API,
         "Do not return another user's record by id.",
         taxonomy=("owasp-api:API1", "owasp-web:A01"),
     ),

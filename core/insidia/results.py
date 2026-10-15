@@ -10,6 +10,8 @@ SCHEMA_VERSION = "2.0"
 QUEUED = "queued"
 RUNNING = "running"
 COMPLETE = "complete"
+# Finished, but too shallow to count as a pass. It still fails on a finding.
+LIMITED = "limited"
 ERROR = "error"
 UNSUPPORTED = "unsupported"
 NOT_APPLICABLE = "not_applicable"
@@ -41,14 +43,16 @@ def aggregate(records: Sequence[CheckRecord]) -> tuple[str, str]:
 
     A finding fails the policy even when another required check did not finish.
     No applicable check, or a required check that did not finish, is inconclusive.
+    A limited check finished, so the run can complete, but it cannot be the pass.
     """
 
     applicable = [record for record in records if record.state != NOT_APPLICABLE]
     findings = sum(record.finding_count for record in records)
-    unfinished = [record for record in applicable if record.state != COMPLETE]
+    unfinished = [record for record in applicable if record.state not in {COMPLETE, LIMITED}]
+    tested = [record for record in applicable if record.state == COMPLETE]
     if findings:
         verdict = FAIL
-    elif not applicable or unfinished:
+    elif not applicable or unfinished or not tested:
         verdict = INCONCLUSIVE
     else:
         verdict = PASS

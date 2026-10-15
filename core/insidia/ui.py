@@ -98,13 +98,22 @@ class Terminal:
 
     def symbol(self, result: str) -> str:
         glyphs = (
-            {"pass": "✔", "fail": "✘", "skipped": "–", "inconclusive": "?", "note": "!", "ok": "✔"}
+            {
+                "pass": "✔",
+                "fail": "✘",
+                "skipped": "–",
+                "inconclusive": "?",
+                "not tested": "·",
+                "note": "!",
+                "ok": "✔",
+            }
             if self.unicode
             else {
                 "pass": "+",
                 "fail": "x",
                 "skipped": "-",
                 "inconclusive": "?",
+                "not tested": ".",
                 "note": "!",
                 "ok": "+",
             }
@@ -115,6 +124,7 @@ class Terminal:
             "fail": "31",
             "skipped": "33",
             "inconclusive": "33",
+            "not tested": "2",
             "note": "33",
         }
         return self.paint(glyphs[result], colors[result])
@@ -192,7 +202,7 @@ class ScanView:
     def __init__(self, terminal: Terminal) -> None:
         self.terminal = terminal
         self._target = ""
-        self.counts = {"pass": 0, "fail": 0, "skipped": 0, "inconclusive": 0}
+        self.counts = {"pass": 0, "fail": 0, "skipped": 0, "inconclusive": 0, "not tested": 0}
 
     def __call__(self, event: Event) -> None:
         term = self.terminal
@@ -226,20 +236,31 @@ class ScanView:
             "fail": "FAIL",
             "skipped": "skipped",
             "inconclusive": "incomplete",
+            "not tested": "not tested",
         }[event.result]
-        tint = {"pass": "32", "fail": "1;31", "skipped": "33", "inconclusive": "33"}[event.result]
+        tint = {
+            "pass": "32",
+            "fail": "1;31",
+            "skipped": "33",
+            "inconclusive": "33",
+            "not tested": "2",
+        }[event.result]
         right = event.detail or ", ".join(event.engines)
         timing = seconds_text(event.seconds) if event.seconds else ""
         term.line(
             f"  {term.symbol(event.result)} {event.family:<30} "
-            f"{term.paint(f'{label:<8}', tint)} {term.dim(right)} {term.dim(timing)}".rstrip()
+            f"{term.paint(f'{label:<10}', tint)} {term.dim(right)} {term.dim(timing)}".rstrip()
         )
 
     def totals(self) -> str:
         c = self.counts
-        parts = [f"{c['pass']} passed", f"{c['fail']} failed", f"{c['skipped']} skipped"]
+        parts = [f"{c['pass']} passed", f"{c['fail']} failed"]
+        if c["not tested"]:
+            parts.append(f"{c['not tested']} not tested")
+        if c["skipped"]:
+            parts.append(f"{c['skipped']} skipped")
         if c["inconclusive"]:
-            parts.append(f"{c['inconclusive']} inconclusive")
+            parts.append(f"{c['inconclusive']} incomplete")
         return " · ".join(parts)
 
 
