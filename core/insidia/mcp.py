@@ -14,17 +14,29 @@ from insidia.policy import POLICIES
 from insidia.runstore import latest_run
 from insidia.scan import execute
 
-_PROTOCOL = "2024-11-05"
+# Newest first. A client that asks for one of these gets it back. Any other
+# request gets the newest, and the client decides whether to continue.
+PROTOCOLS = ("2025-06-18", "2025-03-26", "2024-11-05")
 
 
 def serve(stdin: BinaryIO, stdout: BinaryIO) -> int:
+    """Newline-delimited JSON-RPC, as the MCP stdio transport specifies.
+
+    Content-Length framing from older clients is still read, and those
+    clients get framed replies.
+    """
     while True:
-        message = _read(stdin)
-        if message is None:
+        try:
+            read = _read(stdin)
+        except CliError as exc:
+            _write(stdout, _error(None, -32700, str(exc)), framed=False)
+            continue
+        if read is None:
             return 0
+        message, framed = read
         response = dispatch(message)
         if response is not None:
-            _write(stdout, response)
+            _write(stdout, response, framed=framed)
 
 
 def dispatch(message: dict[str, object]) -> dict[str, object] | None:
@@ -46,9 +58,10 @@ def dispatch(message: dict[str, object]) -> dict[str, object] | None:
 
 
 def _initialize(params: object) -> dict[str, object]:
-    del params
+    requested = params.get("protocolVersion") if isinstance(params, dict) else None
+    version = requested if requested in PROTOCOLS else PROTOCOLS[0]
     return {
-        "protocolVersion": _PROTOCOL,
+        "protocolVersion": version,
         "capabilities": {"tools": {}},
         "serverInfo": {"name": "insidia", "version": __version__},
     }
@@ -161,31 +174,50 @@ def _error(message_id: object, code: int, message: str) -> dict[str, object]:
     return {"jsonrpc": "2.0", "id": message_id, "error": {"code": code, "message": message}}
 
 
-def _read(stdin: BinaryIO) -> dict[str, object] | None:
+def _read(stdin: BinaryIO) -> tuple[dict[str, object], bool] | None:
+    """One message and whether it came Content-Length framed."""
+    line = stdin.readline()
+    while line.strip() == b"":
+        if line == b"":
+            return None
+        line = stdin.readline()
+    if line.lstrip().startswith(b"{"):
+        return _decode(line), False
     headers: dict[str, str] = {}
-    while True:
+    while line.strip():
+        decoded = line.decode("utf-8", "replace")
+        if ":" not in decoded:
+            raise CliError("message is neither JSON nor an MCP header")
+        key, value = decoded.split(":", 1)
+        headers[key.strip().lower()] = value.strip()
         line = stdin.readline()
         if line == b"":
             return None
-        if line in {b"\r\n", b"\n"}:
-            break
-        decoded = line.decode()
-        if ":" not in decoded:
-            raise CliError("missing MCP header")
-        key, value = decoded.split(":", 1)
-        headers[key.strip().lower()] = value.strip()
-    length = int(headers.get("content-length", "0"))
+    try:
+        length = int(headers.get("content-length", "0"))
+    except ValueError as exc:
+        raise CliError("Content-Length is not a number") from exc
     if length <= 0:
         raise CliError("missing Content-Length")
-    loaded = json.loads(stdin.read(length))
+    return _decode(stdin.read(length)), True
+
+
+def _decode(raw: bytes) -> dict[str, object]:
+    try:
+        loaded = json.loads(raw)
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise CliError("message is not valid JSON") from exc
     if not isinstance(loaded, dict):
         raise CliError("MCP message must be an object")
     return cast(dict[str, object], loaded)
 
 
-def _write(stdout: BinaryIO, payload: dict[str, object]) -> None:
+def _write(stdout: BinaryIO, payload: dict[str, object], framed: bool) -> None:
     raw = json.dumps(payload).encode()
-    stdout.write(f"Content-Length: {len(raw)}\r\n\r\n".encode() + raw)
+    if framed:
+        stdout.write(f"Content-Length: {len(raw)}\r\n\r\n".encode() + raw)
+    else:
+        stdout.write(raw + b"\n")
     stdout.flush()
 
 
