@@ -69,6 +69,10 @@ targets:
 def _read_client_text(connection: socket.socket) -> str:
     header = _read_exact(connection, 2)
     length = header[1] & 0x7F
+    if length == 126:
+        length = int.from_bytes(_read_exact(connection, 2), "big")
+    elif length == 127:
+        length = int.from_bytes(_read_exact(connection, 8), "big")
     mask = _read_exact(connection, 4)
     payload = _read_exact(connection, length)
     return bytes(byte ^ mask[index % 4] for index, byte in enumerate(payload)).decode()
