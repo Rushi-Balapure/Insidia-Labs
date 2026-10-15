@@ -75,7 +75,8 @@ The key under `targets` is the target name. These are the fields inside it.
 | `query` | no | Query string as a map of strings. Put a placeholder in a value, as in `name: "{{payload}}"`. |
 | `headers` | no | Extra request headers as a map of strings. |
 | `auth` | no | How to send a credential. The secret stays in the environment. |
-| `rate_limit` | no | `rps` (default `5`) and `concurrency` (default `1`). Both must be positive. |
+| `rate_limit` | no | `rps` (default `5`) and `concurrency` (default `1`). Both must be positive. With `concurrency` above 1, a check sends that many payloads at once, which speeds up a slow target. |
+| `timeout` | no | Seconds to wait for one reply, from 1 to 900. Default `60`. Raise it for a model that takes longer to answer. |
 | `api` | no | Request shape. Default `http`. Also `openai`, `anthropic`, `graphql`, or `grpc`. |
 | `canary` | no | A string you plant so a leak can be recognized in the reply. |
 

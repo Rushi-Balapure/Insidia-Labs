@@ -42,9 +42,11 @@ class RateLimiter:
         self._interval = 1.0 / self.rps
         self._lock = threading.Lock()
         self._next = 0.0
+        self.sent = 0
 
     def wait(self) -> None:
         with self._lock:
+            self.sent += 1
             now = self.clock()
             delay = self._next - now if now < self._next else 0.0
             self._next = (self._next if delay else now) + self._interval
@@ -170,7 +172,7 @@ def _http(target: Target, payload: str, scope: tuple[ScopeHost, ...]) -> str:
             body=body,
             headers=headers,
             limiter=limiter,
-            timeout=600,
+            timeout=target.timeout,
         )
     if target.kind in AI_KINDS and _login_page(observed):
         raise ProbeError(f"{target.name} returned an HTML login page")

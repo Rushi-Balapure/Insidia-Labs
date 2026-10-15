@@ -31,7 +31,7 @@ from insidia.results import (
 )
 from insidia.runstore import new_run_id, write_run
 from insidia.scope import check_url, needs_confirmation
-from insidia.transport import bind_budget, preflight, repo_path, reset_budget
+from insidia.transport import bind_budget, current_budget, preflight, repo_path, reset_budget
 from insidia.ui import Event, short
 
 
@@ -203,7 +203,7 @@ def _scan_targets(
                 )
                 continue
             names = tuple(capability.engine for capability in chosen)
-            _say(progress, Event("begin", target.name, family, names))
+            _say(progress, Event("begin", target.name, family, names, sent=_counter(target)))
             began = time.monotonic()
             family_records: list[CheckRecord] = []
             reasons: list[str] = []
@@ -272,6 +272,15 @@ def _scan_targets(
                     time.monotonic() - began,
                 ),
             )
+
+
+def _counter(target: Target) -> Callable[[], int] | None:
+    table = current_budget()
+    if table is None or target.name not in table:
+        return None
+    limiter = table[target.name][0]
+    base = limiter.sent
+    return lambda: limiter.sent - base
 
 
 def _finish(

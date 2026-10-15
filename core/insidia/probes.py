@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextvars
 import hmac
 import json
 import random
@@ -11,7 +12,8 @@ import socket
 import ssl
 import tempfile
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -169,25 +171,59 @@ def _corpus(
     root: Path,
 ) -> tuple[list[EngineHit], str]:
     oracle = ORACLES[spec.family]
+    payloads = adapter.corpus[spec]
     hits: list[EngineHit] = []
     answered = 0
     rejected = ""
-    for payload in adapter.corpus[spec]:
-        try:
-            response = _send(target, payload, scope, root)
-        except HttpStatus as exc:
-            # An AI endpoint that refuses one prompt still answers the others.
-            rejected = str(exc)
-            continue
-        except ProbeError as exc:
-            return hits, str(exc)
-        answered += 1
-        evidence = oracle(payload, response, target)
-        if evidence is not None:
-            hits.append(EngineHit(spec.upstream, payload, response, evidence))
+    try:
+        for payload, outcome in _replies(target, payloads, spec.family, scope, root):
+            if isinstance(outcome, HttpStatus):
+                # An AI endpoint that refuses one prompt still answers the others.
+                rejected = str(outcome)
+                continue
+            answered += 1
+            evidence = oracle(payload, outcome, target)
+            if evidence is not None:
+                hits.append(EngineHit(spec.upstream, payload, outcome, evidence))
+    except ProbeError as exc:
+        return hits, str(exc)
     if not answered and rejected:
         return hits, f"every payload was rejected: {rejected}"
     return hits, ""
+
+
+# Each payload depends on the reply to the one before it.
+_ORDERED = frozenset({"ai.memory_poisoning"})
+
+
+def _replies(
+    target: Target,
+    payloads: tuple[str, ...],
+    family: str,
+    scope: tuple[ScopeHost, ...],
+    root: Path,
+) -> Iterator[tuple[str, str | HttpStatus]]:
+    """Each payload with its reply, in order. Sent in parallel up to the target's concurrency."""
+
+    def one(payload: str) -> str | HttpStatus:
+        try:
+            return _send(target, payload, scope, root)
+        except HttpStatus as exc:
+            return exc
+
+    workers = min(target.rate_limit.concurrency, len(payloads))
+    if workers <= 1 or family in _ORDERED:
+        for payload in payloads:
+            yield payload, one(payload)
+        return
+    with ThreadPoolExecutor(workers) as pool:
+        futures = [pool.submit(contextvars.copy_context().run, one, item) for item in payloads]
+        try:
+            for payload, future in zip(payloads, futures, strict=True):
+                yield payload, future.result()
+        finally:
+            for future in futures:
+                future.cancel()
 
 
 def _send(target: Target, payload: str, scope: tuple[ScopeHost, ...], root: Path) -> str:
