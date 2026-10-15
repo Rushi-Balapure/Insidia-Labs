@@ -413,6 +413,26 @@ ORACLES: Mapping[str, Oracle] = {
     "deps.sca": _contains("pyyaml==5.3.1"),
 }
 
+# Families whose oracle matches only the benchmark app's planted replies. Built-in and
+# relay checks of these are "not tested" without a finding, never a pass.
+FIXTURE_ONLY = frozenset(ORACLES) - {
+    "ai.prompt_injection_direct",
+    "ai.jailbreak",
+    "ai.hidden_context_extraction",
+    "ai.data_leakage",
+    "ai.output_handling_sinks",
+    "ai.unbounded_consumption",
+    "web.ssti",
+    "web.cmdi",
+    "web.path_lfi",
+    "infra.cve",
+    "infra.tls",
+    "api.bola_idor",
+    "code.sast_sinks",
+    "code.secrets",
+    "deps.sca",
+}
+
 BUILT_IN = BuiltIn(
     "insidia",
     "Apache-2.0",

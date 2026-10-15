@@ -105,6 +105,8 @@ targets:
     controls = json.loads((run / "benchmark.json").read_text())["controls"]
     tls = {row["target"]: row["result"] for row in controls if row["id"] == "infra.tls"}
     assert set(tls.values()) == {"not tested"}
+    ssrf = {row["target"]: row["result"] for row in controls if row["id"] == "web.ssrf"}
+    assert set(ssrf.values()) == {"not tested"}
     assert ("ping", "infra.cve") in found
     if flavor == "vulnerable":
         assert {

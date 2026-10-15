@@ -20,6 +20,7 @@ from urllib.parse import urlparse
 
 from insidia import repo_scan
 from insidia.adapters import (
+    FIXTURE_ONLY,
     ORACLES,
     SENSITIVE_FIELDS,
     Adapter,
@@ -101,7 +102,7 @@ def run(
         case BuiltIn():
             found, error, untested = _judge(adapter, spec, target, project.scope, root)
         case RelayAdapter():
-            found, error = _relay(adapter, spec, target, project, root, launch)
+            found, error, untested = _relay(adapter, spec, target, project, root, launch)
         case ReportAdapter() if _over_url(adapter):
             found, error = _report(adapter, spec, _scoped_url(target, project.scope), launch)
         case ReportAdapter() if _over_repo(adapter):
@@ -129,6 +130,10 @@ def run(
     return Attempt(hits, error, "" if hits else untested)
 
 
+_FIXTURE_ONLY_NOTE = "this check only recognises Insidia's benchmark app"
+# Fewer prompts than this is a smoke test, not coverage of the family.
+_RELAY_MIN_PROMPTS = 3
+
 _REPO_CHECKS = {
     "code.sast_sinks": repo_scan.sinks,
     "code.secrets": repo_scan.secrets,
@@ -151,6 +156,8 @@ def _judge(
     if paired is not None:
         return paired(target, scope, root)
     hits, error = _corpus(adapter, spec, target, scope, root)
+    if spec.family in FIXTURE_ONLY:
+        return hits, error, _FIXTURE_ONLY_NOTE
     return hits, error, ""
 
 
@@ -435,7 +442,7 @@ def _relay(
     project: Project,
     root: Path,
     launch: Launch,
-) -> tuple[list[EngineHit], str]:
+) -> tuple[list[EngineHit], str, str]:
     token = secrets.token_hex(16)
     pairs: list[tuple[str, str]] = []
     budget = current_budget()
@@ -511,10 +518,14 @@ def _relay(
                 if evidence is not None:
                     hits.append(EngineHit(spec.upstream, prompt, response, evidence))
             if failed is not None:
-                return hits, str(failed)
+                return hits, str(failed), ""
             if not pairs:
-                return [], "engine finished without contacting the target"
-            return hits, ""
+                return [], "engine finished without contacting the target", ""
+            if spec.family in FIXTURE_ONLY:
+                return hits, "", _FIXTURE_ONLY_NOTE
+            if len(pairs) < _RELAY_MIN_PROMPTS:
+                return hits, "", f"{adapter.engine} sent only {len(pairs)} prompt(s)"
+            return hits, "", ""
     finally:
         server.shutdown()
         server.server_close()
