@@ -109,6 +109,18 @@ def test_global_options_work_before_the_command(
     assert capsys.readouterr().out.startswith('{"engines": ')
 
 
+def test_version_names_the_build(capsys: pytest.CaptureFixture[str]) -> None:
+    from insidia import __version__, build_id
+
+    with pytest.raises(SystemExit) as caught:
+        main(["--version"])
+    assert caught.value.code == 0
+    out = capsys.readouterr().out.strip()
+    assert out.startswith(f"insidia {__version__}")
+    if build_id():
+        assert out.endswith(f"({build_id()})")
+
+
 def test_run_ids_sort_in_utc_and_show_local_time() -> None:
     from insidia.runstore import local_time, new_run_id
 

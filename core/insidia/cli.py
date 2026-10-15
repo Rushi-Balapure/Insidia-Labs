@@ -9,6 +9,7 @@ import sys
 import webbrowser
 from pathlib import Path
 
+from insidia import version_text
 from insidia.config import init_config, load_project
 from insidia.doctor import diagnose
 from insidia.engines import install, list_engines
@@ -66,6 +67,18 @@ def _global_options(parser: argparse.ArgumentParser, after_command: bool) -> Non
     )
 
 
+class _Version(argparse.Action):
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: object,
+        option_string: str | None = None,
+    ) -> None:
+        print(version_text())
+        parser.exit()
+
+
 def main(argv: list[str] | None = None) -> int:
     shared = argparse.ArgumentParser(add_help=False)
     _global_options(shared, after_command=True)
@@ -77,6 +90,9 @@ def main(argv: list[str] | None = None) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     _global_options(parser, after_command=False)
+    parser.add_argument(
+        "--version", action=_Version, nargs=0, help="print the version and build commit"
+    )
     subcommands = parser.add_subparsers(
         dest="command",
         required=True,

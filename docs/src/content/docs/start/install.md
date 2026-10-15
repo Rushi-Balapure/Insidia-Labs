@@ -20,8 +20,10 @@ Pin a commit or tag by adding it before `#subdirectory=core`.
 Check the install:
 
 ```bash
-insidia --help
+insidia --version
 ```
+
+This prints the version and the commit the copy was built from, such as `insidia 0.1.0 (3542f9e1c0ab)`. Include that line in a bug report.
 
 Run `insidia init` in your project before `insidia doctor`; doctor needs a configuration file. Install specific engine toolchains into Insidia's managed directory by naming them, for example `insidia engines install garak zap`. With no names, `insidia engines install` only reports that built-in probes are available.
 
