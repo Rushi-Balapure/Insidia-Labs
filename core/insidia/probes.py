@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import TypeGuard
 from urllib.parse import urlparse
 
+from insidia import repo_scan
 from insidia.adapters import (
     ORACLES,
     SENSITIVE_FIELDS,
@@ -128,10 +129,10 @@ def run(
     return Attempt(hits, error, "" if hits else untested)
 
 
-_REPO_SOURCE = {
-    "code.sast_sinks": "sinks.py",
-    "code.secrets": "sinks.py",
-    "deps.sca": "requirements.txt",
+_REPO_CHECKS = {
+    "code.sast_sinks": repo_scan.sinks,
+    "code.secrets": repo_scan.secrets,
+    "deps.sca": repo_scan.dependencies,
 }
 
 
@@ -144,7 +145,8 @@ def _judge(
 ) -> tuple[list[EngineHit], str, str]:
     """Hits, an error if the check did not finish, and why nothing could be tested."""
     if target.kind == "repo":
-        return _judge_repo(adapter, spec, target, root), "", ""
+        hits, untested = _judge_repo(spec, target, root)
+        return hits, "", untested
     paired = _PAIRED.get(spec.family)
     if paired is not None:
         return paired(target, scope, root)
@@ -394,23 +396,14 @@ _PAIRED: dict[
 }
 
 
-def _judge_repo(
-    adapter: BuiltIn,
-    spec: ProbeSpec,
-    target: Target,
-    root: Path,
-) -> list[EngineHit]:
-    source = repo_path(target, root) / _REPO_SOURCE[spec.family]
-    if not source.is_file():
-        raise EngineFailed(f"{source.name} is not in this repository")
-    text = source.read_text(encoding="utf-8")
-    oracle = ORACLES[spec.family]
-    hits: list[EngineHit] = []
-    for payload in adapter.corpus[spec]:
-        evidence = oracle(payload, text, target)
-        if evidence is not None:
-            hits.append(EngineHit(spec.upstream, payload, text, evidence))
-    return hits
+def _judge_repo(spec: ProbeSpec, target: Target, root: Path) -> tuple[list[EngineHit], str]:
+    """Hits across the repository's files, and why nothing could be tested."""
+    result = _REPO_CHECKS[spec.family](repo_path(target, root))
+    hits = [
+        EngineHit(f"insidia-{hit.rule}", hit.rule, hit.line, hit.evidence, hit.location)
+        for hit in result.hits
+    ]
+    return hits, result.untested
 
 
 def _report[View: (ScopedUrl, RepoPath)](
