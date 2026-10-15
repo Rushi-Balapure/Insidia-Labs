@@ -146,7 +146,7 @@ const retrieval = `def build_prompt(question, docs):
           <StepCard n="02" title="Scan both layers." text="insidia scan runs AI and app checks in one pass and names the engine behind every result. A check that couldn't run is marked incomplete, never passed.">
             <Exhibit file="insidia scan" code={scanRows} representative />
           </StepCard>
-          <StepCard n="03" title="Fix it. Run the checks again." text="Use the scan's exit code as a CI gate: 1 for a completed policy failure, 2 for an incomplete run. After fixing the code, insidia rerun repeats the checks with the recorded policy and coverage.">
+          <StepCard n="03" title="Fix it. Run the checks again." text="Use the scan's exit code as a CI gate: 1 when a check found a problem, 2 for an incomplete run with no finding. After fixing the code, insidia rerun repeats the checks with the recorded policy and coverage.">
             <Exhibit file="insidia rerun" code={rerunRows} representative />
           </StepCard>
         </div>

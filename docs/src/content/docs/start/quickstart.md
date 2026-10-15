@@ -38,8 +38,8 @@ insidia scan --policy L1
 | Exit code | Meaning | Next step |
 | --- | --- | --- |
 | `0` | The run completed and the policy passed. | Review the report's coverage and findings. |
-| `1` | The run completed and the policy failed. | Review the findings and fix the issues. |
-| `2` | The run was incomplete, or an error stopped it. | Read the error or skipped checks; resolve setup problems before treating the result as a pass. |
+| `1` | A check found a problem, so the policy failed. This holds even if another check did not finish. | Review the findings and fix the issues. |
+| `2` | The run was incomplete with no finding, or an error stopped it. | Read the error or skipped checks; resolve setup problems before treating the result as a pass. |
 | `130` | The run was cancelled. | Run it again when ready. |
 
 For a local scope, `--yes` is unnecessary. A non-local host needs both your authorization in the config and `--yes` at scan time.

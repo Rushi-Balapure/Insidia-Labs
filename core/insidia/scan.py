@@ -30,7 +30,7 @@ from insidia.results import (
 )
 from insidia.runstore import new_run_id, write_run
 from insidia.scope import check_url, needs_confirmation
-from insidia.transport import bind_budget, repo_path, reset_budget
+from insidia.transport import bind_budget, preflight, repo_path, reset_budget
 from insidia.ui import Event, short
 
 
@@ -158,6 +158,22 @@ def _scan_targets(
             )
             continue
         families = policy.families(target.kind)
+        unreachable = preflight(target, project.scope, root) if families else ""
+        if unreachable:
+            reason = short(mask(unreachable), limit=140)
+            skips.append(f"{target.name}: {reason}")
+            records.append(CheckRecord(target.name, "target", "", ERROR, reason))
+            _say(
+                progress,
+                Event(
+                    "end",
+                    target.name,
+                    "target",
+                    result="inconclusive",
+                    detail=f"{reason}. Its {len(families)} checks did not run.",
+                ),
+            )
+            continue
         if not families:
             reason = f"no {policy.name} controls for {target.kind}"
             skips.append(f"{target.name}: {reason}")

@@ -18,7 +18,7 @@ from pathlib import Path
 from urllib.parse import urlencode, urljoin, urlparse, urlunparse
 
 from insidia.config import Target, resolve_secret
-from insidia.errors import CliError, ConfigError, ProbeError, ScopeError
+from insidia.errors import CliError, ConfigError, HttpStatus, ProbeError, ScopeError
 from insidia.scope import ScopeHost, check_url, hostname
 
 _MAX_BODY = 1_000_000
@@ -107,6 +107,34 @@ def exchange(target: Target, payload: str, scope: tuple[ScopeHost, ...], root: P
     return _http(target, payload, scope)
 
 
+AI_KINDS = frozenset({"chat", "agent", "rag", "mcp"})
+_NO_ROUTE = {404: "check url", 405: "check method", 501: "check method"}
+
+
+def preflight(target: Target, scope: tuple[ScopeHost, ...], root: Path) -> str:
+    """Why this target cannot be scanned at all, or an empty string.
+
+    A web app may answer one odd input with 400 or 500, and that answer is
+    evidence. A missing route, a wrong method, or an AI endpoint that rejects
+    a plain prompt means every check would fail the same way.
+    """
+    if target.kind == "repo":
+        return ""
+    try:
+        exchange(target, "hello", scope, root)
+    except HttpStatus as exc:
+        hint = _NO_ROUTE.get(exc.status)
+        if hint is None and target.kind not in AI_KINDS:
+            return ""
+        where = f"{target.method} {target.url}"
+        if hint == "check method":
+            hint = f"method is {target.method}; set method: GET if the app reads a query"
+        return f"{where} returned HTTP {exc.status}" + (f" ({hint})" if hint else "")
+    except ProbeError as exc:
+        return f"{target.url}: {exc}"
+    return ""
+
+
 def _http(target: Target, payload: str, scope: tuple[ScopeHost, ...]) -> str:
     assert target.url is not None
     limiter, gate = _slot(target)
@@ -124,7 +152,7 @@ def _http(target: Target, payload: str, scope: tuple[ScopeHost, ...]) -> str:
             limiter=limiter,
             timeout=600,
         )
-    if target.kind in {"chat", "agent", "rag", "mcp"} and _login_page(observed):
+    if target.kind in AI_KINDS and _login_page(observed):
         raise ProbeError(f"{target.name} returned an HTML login page")
     return _select(observed, target.response_selector)
 
@@ -204,9 +232,10 @@ def read_url(
                 raw = response.read(_MAX_BODY)
                 if not isinstance(raw, bytes):
                     raise CliError("response was not bytes")
+                text = raw.decode("utf-8", "replace")
                 if status >= 400:
-                    raise ProbeError(f"target returned HTTP {status}")
-                return raw.decode("utf-8", "replace")
+                    raise HttpStatus(status, text)
+                return text
         except TimeoutError as exc:
             raise ProbeError("target timed out") from exc
         except urllib.error.URLError as exc:

@@ -56,7 +56,7 @@ insidia scan --policy L1 --coverage standard --yes --json
 | `--coverage` | `standard` or `thorough`. Default is the coverage in the config. |
 | `--open` | Open the report in a browser when the scan finishes. Without it, the scan only prints the report path, so it is safe in CI, over SSH, and from an agent. |
 
-Exit codes: **0** for a completed pass, **1** for a completed policy failure, **2** for an incomplete run or an error, and **130** for cancellation. Even if an incomplete scan found vulnerabilities, it exits 2. JSON includes `execution_status` and `policy_verdict`; review both. A scan never opens a browser unless you pass `--open`. Progress is printed while each control runs.
+Exit codes: **0** for a completed pass, **1** when any check found a problem, **2** for an incomplete run with no finding or an error, and **130** for cancellation. A finding exits 1 even when another target or check did not finish, so a CI gate on 1 never misses it. JSON includes `execution_status` and `policy_verdict`; review both. A scan never opens a browser unless you pass `--open`. Progress is printed while each control runs.
 
 ## report
 

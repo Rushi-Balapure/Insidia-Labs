@@ -29,11 +29,18 @@ from insidia.adapters import (
     has_standalone,
 )
 from insidia.config import Project, Target, resolve_secret
-from insidia.errors import CliError, ConfigError, EngineFailed, ProbeError, ScopeError
+from insidia.errors import (
+    CliError,
+    ConfigError,
+    EngineFailed,
+    HttpStatus,
+    ProbeError,
+    ScopeError,
+)
 from insidia.policy import Control
 from insidia.process import launch_installed
 from insidia.scope import ScopeHost, check_url
-from insidia.transport import BoundBudget, current_budget, exchange, repo_path
+from insidia.transport import AI_KINDS, BoundBudget, current_budget, exchange, repo_path
 
 Launch = Callable[[Invocation, Path], None]
 
@@ -126,15 +133,34 @@ def _judge(
     if target.kind == "repo":
         return _judge_repo(adapter, spec, target, root), ""
     hits: list[EngineHit] = []
+    answered = 0
+    rejected = ""
     for payload in adapter.corpus[spec]:
         try:
-            response = exchange(target, payload, scope, root)
+            response = _send(target, payload, scope, root)
+        except HttpStatus as exc:
+            # An AI endpoint that refuses one prompt still answers the others.
+            rejected = str(exc)
+            continue
         except ProbeError as exc:
             return hits, str(exc)
+        answered += 1
         evidence = oracle(payload, response, target)
         if evidence is not None:
             hits.append(EngineHit(spec.upstream, payload, response, evidence))
+    if not answered and rejected:
+        return hits, f"every payload was rejected: {rejected}"
     return hits, ""
+
+
+def _send(target: Target, payload: str, scope: tuple[ScopeHost, ...], root: Path) -> str:
+    """A web app's error page is its answer to the attack, so it is judged too."""
+    try:
+        return exchange(target, payload, scope, root)
+    except HttpStatus as exc:
+        if target.kind in AI_KINDS:
+            raise
+        return exc.body
 
 
 def _paired_ssti(
@@ -150,9 +176,9 @@ def _paired_ssti(
     attack = "{{" + f"{left}*{right}" + "}}"
     fixed = "{{7*7}}"
     try:
-        baseline = exchange(target, "baseline", scope, root)
-        rendered = exchange(target, attack, scope, root)
-        planted = exchange(target, fixed, scope, root)
+        baseline = _send(target, "baseline", scope, root)
+        rendered = _send(target, attack, scope, root)
+        planted = _send(target, fixed, scope, root)
     except ProbeError as exc:
         return [], str(exc)
     if (

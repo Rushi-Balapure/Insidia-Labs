@@ -33,6 +33,7 @@ def test_ctrl_c_saves_a_cancelled_run_and_exits_130(
         return Attempt()
 
     monkeypatch.setattr("insidia.scan.run", interrupt_second)
+    monkeypatch.setattr("insidia.scan.preflight", lambda *_args: "")
     assert main(["scan", "--config", str(config)]) == 130
     captured = capsys.readouterr()
     assert "Traceback" not in captured.err

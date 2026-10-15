@@ -63,8 +63,8 @@ insidia report --open
 | Exit code | Meaning |
 | --- | --- |
 | `0` | The run finished and the policy passed. |
-| `1` | The run finished and the policy failed. |
-| `2` | The run was incomplete, or an error stopped it. |
+| `1` | A check found a problem, so the policy failed. This holds even if another check did not finish. |
+| `2` | The run was incomplete with no finding, or an error stopped it. |
 | `130` | The run was cancelled. |
 
 `--json` prints the run id, findings, and skips. `--yes` is only required when `scope` includes a host other than localhost. The same steps are on [the quickstart](https://insidialabs.com/docs/start/quickstart/).

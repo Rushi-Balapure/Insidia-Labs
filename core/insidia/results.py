@@ -62,14 +62,17 @@ def aggregate(records: Sequence[CheckRecord]) -> tuple[str, str]:
 
 
 def exit_for(execution_status: str, policy_verdict: str) -> int:
-    """0 is a finished pass. 1 is a finished fail. 2 is anything incomplete."""
+    """0 is a finished pass. 1 is a finding. 2 is incomplete with no finding. 130 is cancelled.
+
+    A finding wins over an incomplete target, so CI that checks for 1 sees it.
+    """
 
     if execution_status == RUN_CANCELLED:
         return 130
-    if execution_status != RUN_COMPLETE:
-        return 2
     if policy_verdict == FAIL:
         return 1
+    if execution_status != RUN_COMPLETE:
+        return 2
     if policy_verdict == PASS:
         return 0
     return 2

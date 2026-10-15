@@ -33,7 +33,7 @@ Each run directory `.insidia/runs/<run-id>/` contains:
 
 Evidence that looks like a secret is masked before it is written. You will see a token such as `[AWS_ACCESS_KEY len=20 fp=3f9a1c07]`, not the raw value.
 
-`insidia report` prints the path and exits 0 when the file is present. A scan exits 0 for a completed pass, 1 for a completed failure, 2 for an incomplete run or an error, and 130 for cancellation. Use the scan's exit code in CI, not the report command's. Opening a report does not establish that all required checks completed.
+`insidia report` prints the path and exits 0 when the file is present. A scan exits 0 for a completed pass, 1 when any check found a problem, 2 for an incomplete run with no finding or an error, and 130 for cancellation. Use the scan's exit code in CI, not the report command's. Opening a report does not establish that all required checks completed.
 
 The HTML report follows your system's light or dark theme and works offline. Its framework tables describe the controls tested in that run; they are not a security certification.
 

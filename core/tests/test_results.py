@@ -46,7 +46,7 @@ def test_findings_survive_a_failed_engine() -> None:
     status, verdict = aggregate(records)
     assert status == "incomplete"
     assert verdict == "fail"
-    assert exit_for(status, verdict) == 2
+    assert exit_for(status, verdict) == 1
 
 
 def test_no_applicable_check_is_inconclusive() -> None:
