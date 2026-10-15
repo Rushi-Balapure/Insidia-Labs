@@ -180,6 +180,8 @@ def _run(args: argparse.Namespace) -> int:
         lines = []
         for item in engines:
             state = "installed" if item["installed"] else "not installed"
+            if "note" in item:
+                state = f"downloaded, {item['note']}"
             lines.append(f"{item['name']} {item['license']} {state}")
         _emit(args.json, {"engines": engines}, "\n".join(lines))
         return 0

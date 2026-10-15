@@ -257,13 +257,16 @@ def _scan_targets(
             records.extend(family_records)
             result = _family_result(family_records)
             controls.append(_recorded(policy, family, target.name, result))
+            finished = tuple(
+                record.engine for record in family_records if record.state != ERROR
+            )
             _say(
                 progress,
                 Event(
                     "end",
                     target.name,
                     family,
-                    names,
+                    finished,
                     result,
                     _detail(result, reasons, family_records),
                     time.monotonic() - began,
