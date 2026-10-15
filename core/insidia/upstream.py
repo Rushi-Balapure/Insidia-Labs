@@ -6,7 +6,7 @@ import json
 import re
 from collections.abc import Callable
 from pathlib import Path
-from urllib.parse import quote, urlencode, urlparse, urlunparse
+from urllib.parse import parse_qsl, quote, urlencode, urlparse, urlunparse
 
 from insidia.adapters import (
     EngineHit,
@@ -680,13 +680,14 @@ _REPO_RULES: dict[str, Callable[[object], list[str]]] = {
 
 
 def _request_url(view: ScopedUrl, payload: str) -> str:
-    if not view.query:
+    parsed = urlparse(view.url)
+    if not view.query and "{{" not in parsed.query:
         return view.url
+    pairs = [*parse_qsl(parsed.query, keep_blank_values=True), *view.query]
     rendered = [
         (key, value.replace("{{prompt}}", payload).replace("{{payload}}", payload))
-        for key, value in view.query
+        for key, value in pairs
     ]
-    parsed = urlparse(view.url)
     return urlunparse(parsed._replace(query=urlencode(rendered)))
 
 

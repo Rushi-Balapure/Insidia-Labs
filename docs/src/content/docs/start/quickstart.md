@@ -19,6 +19,20 @@ This writes `insidia.yaml`. If you already have that file, keep it and review it
 
 Open `insidia.yaml` **before you scan**. The generated target is a sample chat endpoint at `http://127.0.0.1:8080/chat`; replace it with your app's endpoint. Match `kind`, `request_template`, and `response_selector` to the request and response your app actually uses.
 
+A web target is sent as a `POST` with the payload in the body unless you set `method`. For a page that reads a query parameter, such as `/hello?name=...`, use `GET`:
+
+```yaml
+targets:
+  - name: hello
+    kind: web
+    url: http://127.0.0.1:5000/hello
+    method: GET
+    query:
+      name: "{{payload}}"
+```
+
+Insidia replaces `{{payload}}` with each attack string. Chat targets use `{{prompt}}` or `{{prompt_json}}` in `request_template` instead; see [Placeholders](/docs/start/config/#placeholders).
+
 Keep `scope` on localhost for this first run. See [Configuration](/docs/start/config/) for target types and examples, and [Scope](/docs/start/scope/) before adding a host.
 
 ## 3. Check the setup

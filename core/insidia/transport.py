@@ -16,7 +16,7 @@ from base64 import b64encode
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import quote, urlencode, urljoin, urlparse, urlunparse
+from urllib.parse import parse_qsl, quote, urlencode, urljoin, urlparse, urlunparse
 
 from insidia.config import Target, resolve_secret
 from insidia.errors import CliError, ConfigError, HttpStatus, ProbeError, ScopeError
@@ -305,11 +305,16 @@ def _in_path(url: str, payload: str) -> str:
 
 
 def _with_query(url: str, query: dict[str, str], payload: str) -> str:
-    if not query:
-        return url
+    """Fill placeholders in the URL's own query and in `query`. Both are kept."""
     parsed = urlparse(url)
-    rendered = {key: _fill(value, payload) for key, value in query.items()}
-    return urlunparse(parsed._replace(query=urlencode(rendered)))
+    if not query and "{{" not in parsed.query:
+        return url
+    pairs = [
+        (key, _fill(value, payload))
+        for key, value in parse_qsl(parsed.query, keep_blank_values=True)
+    ]
+    pairs.extend((key, _fill(value, payload)) for key, value in query.items())
+    return urlunparse(parsed._replace(query=urlencode(pairs)))
 
 
 def _body(target: Target, payload: str) -> bytes | None:

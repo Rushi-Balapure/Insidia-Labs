@@ -76,6 +76,18 @@ def test_post_to_a_get_app_names_the_method(
     assert "set method: GET" in benchmark["skips"][0]
 
 
+def test_placeholders_in_the_url_are_filled() -> None:
+    from insidia.transport import _in_path, _with_query
+
+    assert _with_query("http://h/hello?name={{payload}}&x=1", {}, "a b") == (
+        "http://h/hello?name=a+b&x=1"
+    )
+    assert _with_query("http://h/hello?x=1", {"name": "{{payload}}"}, "z") == (
+        "http://h/hello?x=1&name=z"
+    )
+    assert _in_path("http://h/users/{{payload}}", "../etc") == "http://h/users/../etc"
+
+
 def test_an_error_page_for_one_payload_is_still_an_answer(
     app: int, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
