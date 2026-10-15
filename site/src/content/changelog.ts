@@ -2,8 +2,8 @@ export const changelog = [
   {
     date: "2026-10-08",
     title: "CLI launch",
-    pill: "a version tag publishes a signed wheel and the container image",
-    body: "The agent skill, the local MCP server, and the GitHub Action are in the repo. A version tag publishes a signed wheel and the container image with every pinned engine.",
+    pill: "the CLI installs from git; no release is published yet",
+    body: "The agent skill, the local MCP server, and the GitHub Action are in the repo. The CLI installs from git. No release has been published, so there is no signed wheel or container image yet.",
   },
   {
     date: "2026-10-08",

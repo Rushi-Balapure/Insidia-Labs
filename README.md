@@ -45,7 +45,7 @@ pipx install "git+https://github.com/Rushi-Balapure/Insidia-Labs#subdirectory=co
 
 Pin a commit or tag by adding it before the fragment: `...Insidia-Labs@<rev>#subdirectory=core`.
 
-`insidia engines install garak zap` installs those engines. With no names, `insidia engines install` only reports that the built-in probes are already available. `insidia doctor` tells you what is missing. A version tag attaches a signed wheel and publishes `ghcr.io/rushi-balapure/insidia` with every pinned engine. See [the launch note](https://insidialabs.com/launch). The install page on the site is [insidialabs.com/docs/start/install](https://insidialabs.com/docs/start/install/).
+`insidia engines install garak zap` installs those engines. With no names, `insidia engines install` only reports that the built-in probes are already available. `insidia doctor` checks Python, the config file, model endpoints, and which engines can run here, such as ZAP, which needs Java. It does not check that your app answers. `insidia --version` prints the version and build commit. No release has been published yet, so there is no signed wheel or container image; install from git as above. The install page on the site is [insidialabs.com/docs/start/install](https://insidialabs.com/docs/start/install/).
 
 ## Quickstart
 
@@ -123,9 +123,11 @@ Paste this into Claude Code, Cursor, Codex, or any agent that can run a shell:
 Test this app with Insidia. Only scan localhost, and open the report when you're done.
 ```
 
-You confirm the hosts. The agent should install the CLI, keep the scope you named, read `.insidia/runs/<run-id>/findings.json`, and open `report.html`. The skill is `skills/insidia/SKILL.md` (`npx skills add Rushi-Balapure/Insidia-Labs`). `insidia mcp` is the local MCP server. The CLI remains the contract: `--json`, `--yes`, and stable exit codes.
+You confirm the hosts. The agent should install the CLI, keep the scope you named, read `.insidia/runs/<run-id>/findings.json`, and open `report.html`. The skill is `skills/insidia/SKILL.md` (`npx skills add Rushi-Balapure/Insidia-Labs`, which needs Node.js 22 or later). `insidia mcp` is the local MCP server over stdio. It reads newline-delimited JSON-RPC or Content-Length framing and negotiates MCP 2025-06-18, 2025-03-26, or 2024-11-05. The CLI remains the contract: `--json`, `--yes`, and stable exit codes.
 
-## What it tests
+## Planned coverage
+
+These are the areas Insidia is built to cover. Not every row has a check that works on any app yet. Several built-in checks only recognise Insidia's own benchmark app, and those show as "not tested" in a report unless they find something or an installed engine covers them. The coverage table in each report says what that scan actually tested.
 
 | AI and agent layer | Application layer |
 | --- | --- |
@@ -136,7 +138,7 @@ You confirm the hosts. The agent should install the CLI, keep the scope you name
 | RAG and memory poisoning, cross-tenant bleed | Scripted chains from the AI layer into the app |
 | MCP and skill supply chain | |
 
-Each finding names the engine that produced it. A secret in evidence is masked, for example `[AWS_ACCESS_KEY len=20 fp=3f9a1c07]`. The support notes are on [what it tests](https://insidialabs.com/docs/concepts/what-it-tests/).
+Each finding names the engine that sent the attack. For relay engines such as garak and promptfoo, Insidia's own check judges the reply. With `--coverage thorough`, a finding that several engines reported names each one. A secret in evidence is masked, for example `[AWS_ACCESS_KEY len=20 fp=3f9a1c07]`. The support notes are on [what it tests](https://insidialabs.com/docs/concepts/what-it-tests/).
 
 ### Coverage
 
@@ -186,6 +188,7 @@ insidia scan                 run the checks in insidia.yaml and write a report
 insidia report [run-id]      print or open the HTML report
 insidia rerun [run-id]       scan again with the recorded policy and config
 insidia mcp                  serve local MCP tools on stdin and stdout
+insidia --version            print the version and build commit
 ```
 
 Flags that go before or after the command: `--config PATH` (default `insidia.yaml`), `--json`, `--yes`, `--quiet` / `-q`, and `--no-color`. `insidia scan` also takes `--policy` and `--coverage`. The same list is on [the CLI reference](https://insidialabs.com/docs/reference/cli/). `insidia -h` prints it in the terminal.

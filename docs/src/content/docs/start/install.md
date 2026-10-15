@@ -27,16 +27,6 @@ This prints the version and the commit the copy was built from, such as `insidia
 
 Run `insidia init` in your project before `insidia doctor`; doctor needs a configuration file. Install specific engine toolchains into Insidia's managed directory by naming them, for example `insidia engines install garak zap`. With no names, `insidia engines install` only reports that built-in probes are available.
 
-A version tag attaches a wheel, `SHA256SUMS`, and a Sigstore bundle. Verify the bundle, then:
-
-```bash
-uv tool install ./insidia-0.1.0-py3-none-any.whl
-```
-
-The image `ghcr.io/rushi-balapure/insidia` contains the CLI and every pinned engine. It is signed with Sigstore. Pin the release tag:
-
-```bash
-docker run --rm -v "$PWD":/work -w /work ghcr.io/rushi-balapure/insidia:vX.Y.Z doctor
-```
+No release has been published yet. The release workflow is meant to attach a Sigstore-signed wheel with `SHA256SUMS` and to publish a container image when a version is tagged, but none exists today. Install from git as shown above.
 
 Next: [Quickstart](/docs/start/quickstart/).

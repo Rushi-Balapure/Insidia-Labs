@@ -14,7 +14,7 @@ The CLI is the contract. An agent installs it from GitHub, keeps the scan inside
 ## Reference
 
 - [CLI](https://docs.insidialabs.com/reference/cli/): commands, exit codes, and `insidia mcp`
-- [GitHub Action](https://github.com/Rushi-Balapure/Insidia-Labs/blob/main/actions/scan/action.yml): `uses: Rushi-Balapure/Insidia-Labs/actions/scan@v0`
+- [GitHub Action](https://github.com/Rushi-Balapure/Insidia-Labs/blob/main/actions/scan/action.yml): `uses: Rushi-Balapure/Insidia-Labs/actions/scan@main`
 
 ## Concepts
 

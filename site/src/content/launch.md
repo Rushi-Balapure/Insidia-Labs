@@ -10,19 +10,9 @@ Python 3.12 or newer. Insidia is not on PyPI.
 uv tool install "git+https://github.com/Rushi-Balapure/Insidia-Labs#subdirectory=core"
 ```
 
-`pipx install` accepts the same URL. A tag pins the version: add `@vX.Y.Z` before `#subdirectory=core`.
+`pipx install` accepts the same URL. To pin a version, add `@<commit>` before `#subdirectory=core`. `insidia --version` prints the commit you have.
 
-Each tag also attaches a wheel and `SHA256SUMS`. The wheel is signed with Sigstore. Verify it with the `.bundle` file on the release, then:
-
-```bash
-uv tool install ./insidia-0.1.0-py3-none-any.whl
-```
-
-The container image `ghcr.io/rushi-balapure/insidia` has the CLI and every pinned engine. Pin the same tag. The image is signed with Sigstore.
-
-```bash
-docker run --rm -v "$PWD":/work -w /work ghcr.io/rushi-balapure/insidia:vX.Y.Z doctor
-```
+No release has been published yet, so there is no signed wheel or container image. Install from git as above.
 
 ## Scan
 
@@ -33,13 +23,15 @@ insidia scan --policy L1 --yes
 insidia report --open
 ```
 
-`insidia init` writes a localhost scope. A host other than localhost needs `authorized: true`, which you set. The scan exits 0 when the policy passes and 1 when it fails.
+`insidia init` writes a localhost scope. A host other than localhost needs `authorized: true`, which you set. The scan exits 0 when the policy passes, 1 when a check finds a problem, 2 when the run is incomplete, and 130 when you cancel it.
 
 ## Coding agents
 
 ```bash
 npx skills add Rushi-Balapure/Insidia-Labs
 ```
+
+This needs Node.js 22 or later.
 
 Paste: "Test this app with Insidia. Only scan localhost, and open the report when you're done."
 
@@ -52,7 +44,7 @@ permissions:
   security-events: write
 steps:
   - uses: actions/checkout@v4
-  - uses: Rushi-Balapure/Insidia-Labs/actions/scan@v0
+  - uses: Rushi-Balapure/Insidia-Labs/actions/scan@main
     with:
       policy: L1
 ```
