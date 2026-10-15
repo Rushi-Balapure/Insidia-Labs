@@ -3,7 +3,7 @@ title: CLI
 description: Commands and flags the insidia binary accepts.
 ---
 
-Global flags, accepted on every command:
+Global flags, accepted on every command, before or after it (`insidia --json doctor` and `insidia doctor --json` are the same):
 
 | Flag | Meaning |
 | --- | --- |
@@ -21,7 +21,7 @@ Writes `insidia.yaml` in the current directory. Refuses to overwrite an existing
 
 ## doctor
 
-Prints a checklist of the Python environment, engines, and model endpoints. Exits non-zero when a required check fails.
+Prints a checklist of the Python environment, engines, and model endpoints. Exits non-zero when a required check fails. Docker and engines that need a missing runtime, such as ZAP without Java, are reported but optional.
 
 ## engines
 
@@ -32,7 +32,7 @@ insidia engines install garak zap
 insidia engines install --docker
 ```
 
-`list` prints each known engine, its license, and whether it is installed. To install toolchains, name the engines, for example `insidia engines install garak zap`. With no names, `install` reports that built-in probes are available. `--docker` checks for Docker; named engine images are not available through this command yet.
+`list`, or `insidia engines` alone, prints each known engine, its license, and whether it is installed. An engine that was downloaded but needs a runtime this machine lacks says what it needs. A check whose only engines are not installed is reported as not tested, with the engine to install. To install toolchains, name the engines, for example `insidia engines install garak zap`. With no names, `install` reports that built-in probes are available. `--docker` checks for Docker; named engine images are not available through this command yet.
 
 ## policy
 

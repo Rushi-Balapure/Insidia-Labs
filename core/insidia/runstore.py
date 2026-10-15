@@ -7,6 +7,7 @@ import json
 import secrets
 import time
 from dataclasses import asdict
+from datetime import UTC, datetime
 from pathlib import Path
 
 from insidia import __version__
@@ -75,6 +76,7 @@ code {{ font-family: ui-monospace, monospace; }}
 <div>
 <p class="brand">Insidia Labs</p>
 <h1>Scan report</h1>
+<p class="brand">Run {run_id} · {started}</p>
 </div>
 </header>
 <main>
@@ -117,8 +119,18 @@ Re-run repeats the same policy.</p>
 
 
 def new_run_id() -> str:
+    # UTC, so that sorting the ids sorts the runs whatever the local zone.
     stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
     return f"{stamp}-{secrets.token_hex(3)}"
+
+
+def local_time(run_id: str) -> str:
+    """When the run started, in this machine's time zone, or "" for an id without a stamp."""
+    try:
+        started = datetime.strptime(run_id[:16], "%Y%m%dT%H%M%SZ").replace(tzinfo=UTC)
+    except ValueError:
+        return ""
+    return started.astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
 
 
 def write_run(
@@ -166,9 +178,11 @@ def write_run(
         len(findings),
         execution_status=execution_status,
         policy_verdict=verdict,
+        untested=not_tested(controls),
     )
     html = _HTML.format(
         run_id=_escape(run_id),
+        started=_escape(local_time(run_id)),
         status="pass" if passed else "fail",
         headline=_escape(headline),
         scores=_score_rows(scores),
@@ -180,6 +194,7 @@ def write_run(
     manifest = {
         "schema_version": SCHEMA_VERSION,
         "run_id": run_id,
+        "started_at": local_time(run_id),
         "policy": policy,
         "execution_status": execution_status,
         "policy_verdict": verdict,
@@ -195,12 +210,17 @@ def write_run(
     return directory
 
 
+def not_tested(controls: list[dict[str, str]]) -> int:
+    return sum(1 for control in controls if control.get("result") == "not tested")
+
+
 def verdict_text(
     policy: str,
     passed: bool,
     findings: int,
     execution_status: str = "complete",
     policy_verdict: str | None = None,
+    untested: int = 0,
 ) -> str:
     verdict = policy_verdict or ("pass" if passed else "fail")
     label = "finding" if findings == 1 else "findings"
@@ -212,12 +232,14 @@ def verdict_text(
     if execution_status != "complete":
         if verdict == "fail":
             return (
-                f"The scan did not finish. Policy {policy} did not pass. "
-                f"{findings} {label}. Execution {execution_status}."
+                f"The scan did not finish. Policy {policy} did not pass. {findings} {label}."
             )
+        return f"The scan did not finish. Policy {policy} is inconclusive."
+    if verdict == "pass" and untested:
+        checks = "check was" if untested == 1 else "checks were"
         return (
-            f"The scan did not finish. Policy {policy} is inconclusive. "
-            f"Execution {execution_status}."
+            f"The scan ran. Policy {policy} passed with no findings, "
+            f"but {untested} {checks} not tested. See the report's coverage."
         )
     if verdict == "pass":
         return f"The scan ran. Policy {policy} passed. No findings."

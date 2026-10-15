@@ -91,6 +91,30 @@ def test_scan_opens_the_report_only_when_asked(
     assert "The scan ran. Policy L1 did not pass. 1 finding. Opened" in out
     closed = scan_message("L1", True, 0, "report.html", False)
     assert closed == "The scan ran. Policy L1 passed. No findings. Report: report.html."
+    thin = scan_message("L1", True, 0, "report.html", False, untested=12)
+    assert "passed with no findings, but 12 checks were not tested" in thin
+
+
+def test_global_options_work_before_the_command(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    assert main(["--json", "engines"]) == 0
+    assert capsys.readouterr().out.startswith('{"engines": ')
+    assert main(["--config", "missing.yaml", "--json", "policy", "validate"]) == 2
+    assert capsys.readouterr().out == '{"error": "missing missing.yaml"}\n'
+    assert main(["engines", "--json"]) == 0
+    assert capsys.readouterr().out.startswith('{"engines": ')
+
+
+def test_run_ids_sort_in_utc_and_show_local_time() -> None:
+    from insidia.runstore import local_time, new_run_id
+
+    assert new_run_id()[15] == "Z"
+    assert local_time("20261015T174011Z-371e29").startswith("2026-10-15")
+    assert local_time("run-1") == ""
 
 
 def test_rerun_refuses_a_changed_configuration(tmp_path: Path) -> None:

@@ -188,7 +188,7 @@ insidia rerun [run-id]       scan again with the recorded policy and config
 insidia mcp                  serve local MCP tools on stdin and stdout
 ```
 
-Flags that go after the command: `--config PATH` (default `insidia.yaml`), `--json`, `--yes`, `--quiet` / `-q`, and `--no-color`. `insidia scan` also takes `--policy` and `--coverage`. The same list is on [the CLI reference](https://insidialabs.com/docs/reference/cli/). `insidia -h` prints it in the terminal.
+Flags that go before or after the command: `--config PATH` (default `insidia.yaml`), `--json`, `--yes`, `--quiet` / `-q`, and `--no-color`. `insidia scan` also takes `--policy` and `--coverage`. The same list is on [the CLI reference](https://insidialabs.com/docs/reference/cli/). `insidia -h` prints it in the terminal.
 
 ## Site
 

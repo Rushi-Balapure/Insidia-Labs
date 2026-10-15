@@ -16,7 +16,7 @@ from insidia.mask import bind_secrets, mask
 from insidia.policy import Policy, get_policy
 from insidia.probes import ProbeHit, run
 from insidia.providers import build_provider
-from insidia.registry import select
+from insidia.registry import select, unlock_hint
 from insidia.results import (
     CANCELLED,
     COMPLETE,
@@ -29,7 +29,7 @@ from insidia.results import (
     exit_for,
     legacy_passed,
 )
-from insidia.runstore import new_run_id, write_run
+from insidia.runstore import new_run_id, not_tested, write_run
 from insidia.scope import check_url, needs_confirmation
 from insidia.transport import bind_budget, current_budget, preflight, repo_path, reset_budget
 from insidia.ui import Event, short
@@ -44,6 +44,7 @@ class ScanOutcome:
     skips: list[str]
     execution_status: str = "complete"
     policy_verdict: str = ""
+    untested: int = 0
 
     def exit_code(self) -> int:
         verdict = self.policy_verdict or ("pass" if self.passed else "fail")
@@ -164,6 +165,11 @@ def _scan_targets(
             reason = short(mask(unreachable), limit=140)
             skips.append(f"{target.name}: {reason}")
             records.append(CheckRecord(target.name, "target", "", ERROR, reason))
+            hint = (
+                " Start the app, or point url in insidia.yaml at it."
+                if ("unreachable" in reason)
+                else ""
+            )
             _say(
                 progress,
                 Event(
@@ -171,7 +177,7 @@ def _scan_targets(
                     target.name,
                     "target",
                     result="inconclusive",
-                    detail=f"{reason}. Its {len(families)} checks did not run.",
+                    detail=f"{reason}. Its {len(families)} checks did not run.{hint}",
                 ),
             )
             continue
@@ -193,13 +199,13 @@ def _scan_targets(
         for family in families:
             chosen = select(family, mode, model_available=model_available)
             if not chosen:
-                reason = "no engine installed for this check"
-                skips.append(f"{target.name}: {family} has no runnable probe")
-                records.append(CheckRecord(target.name, family, "", UNSUPPORTED, reason))
-                controls.append(_recorded(policy, family, target.name, "inconclusive"))
+                reason = unlock_hint(family, model_available)
+                skips.append(f"{target.name}: {family} has no runnable probe; {reason}")
+                records.append(CheckRecord(target.name, family, "", LIMITED, reason))
+                controls.append(_recorded(policy, family, target.name, "not tested"))
                 _say(
                     progress,
-                    Event("end", target.name, family, result="inconclusive", detail=reason),
+                    Event("end", target.name, family, result="not tested", detail=reason),
                 )
                 continue
             names = tuple(capability.engine for capability in chosen)
@@ -257,9 +263,7 @@ def _scan_targets(
             records.extend(family_records)
             result = _family_result(family_records)
             controls.append(_recorded(policy, family, target.name, result))
-            finished = tuple(
-                record.engine for record in family_records if record.state != ERROR
-            )
+            finished = tuple(record.engine for record in family_records if record.state != ERROR)
             _say(
                 progress,
                 Event(
@@ -321,6 +325,7 @@ def _finish(
         skips,
         execution_status,
         policy_verdict,
+        not_tested(controls),
     )
 
 

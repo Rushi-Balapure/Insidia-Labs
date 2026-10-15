@@ -20,7 +20,7 @@ from insidia.scan import execute
 from insidia.ui import InstallView, ScanView, Terminal
 
 _HELP = """\
-global options, placed after the command:
+global options, before or after the command:
   --config PATH   file to read (default: insidia.yaml)
   --json          print a JSON object instead of text
   --yes           do not ask before scanning a host other than localhost
@@ -29,21 +29,46 @@ global options, placed after the command:
 """
 
 
-def main(argv: list[str] | None = None) -> int:
-    shared = argparse.ArgumentParser(add_help=False)
-    shared.add_argument("--json", action="store_true", help="print a JSON object instead of text")
-    shared.add_argument(
+def _global_options(parser: argparse.ArgumentParser, after_command: bool) -> None:
+    # After the command the defaults are suppressed, so a value given before it survives.
+    def default(value: object) -> object:
+        return argparse.SUPPRESS if after_command else value
+
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        default=default(False),
+        help="print a JSON object instead of text",
+    )
+    parser.add_argument(
         "--yes",
         action="store_true",
+        default=default(False),
         help="do not ask before scanning a host other than localhost",
     )
-    shared.add_argument(
+    parser.add_argument(
         "--config",
-        default="insidia.yaml",
+        default=default("insidia.yaml"),
         help="file to read (default: insidia.yaml)",
     )
-    shared.add_argument("--quiet", "-q", action="store_true", help="print only the result")
-    shared.add_argument("--no-color", action="store_true", help="plain text, no color")
+    parser.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        default=default(False),
+        help="print only the result",
+    )
+    parser.add_argument(
+        "--no-color",
+        action="store_true",
+        default=default(False),
+        help="plain text, no color",
+    )
+
+
+def main(argv: list[str] | None = None) -> int:
+    shared = argparse.ArgumentParser(add_help=False)
+    _global_options(shared, after_command=True)
 
     parser = argparse.ArgumentParser(
         prog="insidia",
@@ -51,6 +76,7 @@ def main(argv: list[str] | None = None) -> int:
         epilog=_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    _global_options(parser, after_command=False)
     subcommands = parser.add_subparsers(
         dest="command",
         required=True,
@@ -76,7 +102,7 @@ def main(argv: list[str] | None = None) -> int:
         help="list engines or install the ones you name",
         description="List engines or install the ones you name.",
     )
-    engine_commands = engines.add_subparsers(dest="engine_command", required=True, title="commands")
+    engine_commands = engines.add_subparsers(dest="engine_command", title="commands")
     engine_commands.add_parser(
         "list",
         help="show each engine, its license, and whether it is installed",
@@ -175,7 +201,7 @@ def _run(args: argparse.Namespace) -> int:
         lines = [f"{check['name']}: {check['detail']}" for check in checks]
         _emit(args.json, {"checks": checks}, "\n".join(lines))
         return code
-    if args.command == "engines" and args.engine_command == "list":
+    if args.command == "engines" and args.engine_command in {None, "list"}:
         engines = list_engines()
         lines = []
         for item in engines:
@@ -245,6 +271,7 @@ def _run(args: argparse.Namespace) -> int:
             opened,
             execution_status=outcome.execution_status,
             policy_verdict=outcome.policy_verdict or None,
+            untested=outcome.untested,
         )
         document = {
             "schema_version": "2.0",
@@ -264,6 +291,7 @@ def _run(args: argparse.Namespace) -> int:
                 False,
                 execution_status=outcome.execution_status,
                 policy_verdict=outcome.policy_verdict or None,
+                untested=outcome.untested,
             ),
         }
         _emit(args.json, document, text)
@@ -337,6 +365,7 @@ def scan_message(
     opened: bool,
     execution_status: str = "complete",
     policy_verdict: str | None = None,
+    untested: int = 0,
 ) -> str:
     head = verdict_text(
         policy,
@@ -344,6 +373,7 @@ def scan_message(
         findings,
         execution_status=execution_status,
         policy_verdict=policy_verdict,
+        untested=untested,
     )
     if opened:
         return f"{head} Opened {report}."
