@@ -57,8 +57,8 @@ The scan action attempts to upload `results.sarif` whenever a run produced it. T
 | Scan exit code | CI meaning |
 | --- | --- |
 | `0` | All applicable checks completed and the policy passed. |
-| `1` | Checks completed and the policy failed. Review findings. |
-| `2` | Execution was incomplete or an error stopped the scan. Resolve the error or missing coverage. |
+| `1` | A check found a problem and the policy failed, even if another check did not finish. Review findings. |
+| `2` | Execution was incomplete with no finding, or an error stopped the scan. Resolve the error or missing coverage. |
 | `130` | Execution was cancelled. |
 
 The action returns the scan's exit code. Keep failures visible in the job; `continue-on-error` would let a policy failure or incomplete run proceed without failing that step.

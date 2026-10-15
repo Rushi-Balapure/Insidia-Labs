@@ -10,6 +10,7 @@ import os
 import sys
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TextIO
 
@@ -22,13 +23,15 @@ _CLEAR = "\r\x1b[K"
 class Event:
     """One step of a scan. The scan emits these. The terminal view draws them."""
 
-    kind: str  # start | begin | end | note | write
+    kind: str  # start | begin | end | note | cancel | write
     target: str = ""
     family: str = ""
     engines: tuple[str, ...] = ()
     result: str = ""  # pass | fail | skipped
     detail: str = ""
     seconds: float = 0.0
+    # Requests sent to the target since `begin`, read while the check runs.
+    sent: Callable[[], int] | None = None
 
 
 def wants_color(stream: TextIO, no_color: bool = False) -> bool:
@@ -79,6 +82,7 @@ class Terminal:
         self._lock = threading.Lock()
         self._label = ""
         self._started = 0.0
+        self._suffix: Callable[[], str] | None = None
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
 
@@ -98,13 +102,22 @@ class Terminal:
 
     def symbol(self, result: str) -> str:
         glyphs = (
-            {"pass": "✔", "fail": "✘", "skipped": "–", "inconclusive": "?", "note": "!", "ok": "✔"}
+            {
+                "pass": "✔",
+                "fail": "✘",
+                "skipped": "–",
+                "inconclusive": "?",
+                "not tested": "·",
+                "note": "!",
+                "ok": "✔",
+            }
             if self.unicode
             else {
                 "pass": "+",
                 "fail": "x",
                 "skipped": "-",
                 "inconclusive": "?",
+                "not tested": ".",
                 "note": "!",
                 "ok": "+",
             }
@@ -115,6 +128,7 @@ class Terminal:
             "fail": "31",
             "skipped": "33",
             "inconclusive": "33",
+            "not tested": "2",
             "note": "33",
         }
         return self.paint(glyphs[result], colors[result])
@@ -129,12 +143,13 @@ class Terminal:
             print(text, file=self.stream, flush=True)
             self._redraw()
 
-    def start(self, label: str) -> None:
+    def start(self, label: str, suffix: Callable[[], str] | None = None) -> None:
         """Begin the live line. Without a terminal this prints nothing yet."""
         if self.quiet:
             return
         self.stop_live()
         self._label = label
+        self._suffix = suffix
         self._started = time.monotonic()
         if not self.animate:
             # A log has no live line, so say what is running before it finishes.
@@ -155,6 +170,7 @@ class Terminal:
         with self._lock:
             self._erase()
             self._label = ""
+            self._suffix = None
         self._started = 0.0
         return elapsed
 
@@ -174,7 +190,9 @@ class Terminal:
         frames = _FRAMES if self.unicode else "|/-\\"
         frame = self.paint(frames[index % len(frames)], _ORANGE)
         spent = seconds_text(time.monotonic() - self._started)
-        self.stream.write(f"{_CLEAR}  {frame} {self._label} {self.dim(spent)}")
+        extra = self._suffix() if self._suffix is not None else ""
+        status = f"{extra} · {spent}" if extra else spent
+        self.stream.write(f"{_CLEAR}  {frame} {self._label} {self.dim(status)}")
         self.stream.flush()
 
     def _erase(self) -> None:
@@ -186,13 +204,27 @@ class Terminal:
             self._draw(0)
 
 
+def _requests(event: Event) -> Callable[[], str] | None:
+    sent = event.sent
+    if sent is None:
+        return None
+
+    def text() -> str:
+        count = sent()
+        if not count:
+            return ""
+        return f"{count} request" + ("" if count == 1 else "s")
+
+    return text
+
+
 class ScanView:
     """Draws scan events: a header, one row per control, then totals."""
 
     def __init__(self, terminal: Terminal) -> None:
         self.terminal = terminal
         self._target = ""
-        self.counts = {"pass": 0, "fail": 0, "skipped": 0, "inconclusive": 0}
+        self.counts = {"pass": 0, "fail": 0, "skipped": 0, "inconclusive": 0, "not tested": 0}
 
     def __call__(self, event: Event) -> None:
         term = self.terminal
@@ -203,12 +235,16 @@ class ScanView:
                 self._target = event.target
                 term.line()
                 term.line(term.bold(event.target))
-            term.start(f"{event.family}  {term.dim(', '.join(event.engines))}")
+            term.start(f"{event.family}  {term.dim(', '.join(event.engines))}", _requests(event))
         elif event.kind == "note":
             term.line(f"    {term.symbol('note')} {event.detail}")
         elif event.kind == "end":
             term.stop_live()
             self._row(event)
+        elif event.kind == "cancel":
+            term.stop_live()
+            term.line()
+            term.line(f"{term.symbol('note')} {event.detail}")
         elif event.kind == "write":
             term.stop_live()
             term.line()
@@ -222,20 +258,31 @@ class ScanView:
             "fail": "FAIL",
             "skipped": "skipped",
             "inconclusive": "incomplete",
+            "not tested": "not tested",
         }[event.result]
-        tint = {"pass": "32", "fail": "1;31", "skipped": "33", "inconclusive": "33"}[event.result]
+        tint = {
+            "pass": "32",
+            "fail": "1;31",
+            "skipped": "33",
+            "inconclusive": "33",
+            "not tested": "2",
+        }[event.result]
         right = event.detail or ", ".join(event.engines)
         timing = seconds_text(event.seconds) if event.seconds else ""
         term.line(
             f"  {term.symbol(event.result)} {event.family:<30} "
-            f"{term.paint(f'{label:<8}', tint)} {term.dim(right)} {term.dim(timing)}".rstrip()
+            f"{term.paint(f'{label:<10}', tint)} {term.dim(right)} {term.dim(timing)}".rstrip()
         )
 
     def totals(self) -> str:
         c = self.counts
-        parts = [f"{c['pass']} passed", f"{c['fail']} failed", f"{c['skipped']} skipped"]
+        parts = [f"{c['pass']} passed", f"{c['fail']} failed"]
+        if c["not tested"]:
+            parts.append(f"{c['not tested']} not tested")
+        if c["skipped"]:
+            parts.append(f"{c['skipped']} skipped")
         if c["inconclusive"]:
-            parts.append(f"{c['inconclusive']} inconclusive")
+            parts.append(f"{c['inconclusive']} incomplete")
         return " · ".join(parts)
 
 

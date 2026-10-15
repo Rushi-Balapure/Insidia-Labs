@@ -58,6 +58,17 @@ def capabilities() -> tuple[Capability, ...]:
     )
 
 
+def unlock_hint(family: str, model_available: bool) -> str:
+    """What would let a check with no runnable probe run."""
+    entries = [entry for entry in capabilities() if entry.family == family]
+    if not model_available and any(entry.available for entry in entries):
+        return "needs an attacker model in insidia.yaml"
+    engines = sorted({entry.engine for entry in entries if not entry.available})
+    if engines:
+        return f"install {' or '.join(engines)} to run this check"
+    return "no engine covers this check yet"
+
+
 def select(
     family: str,
     coverage: str,

@@ -66,16 +66,17 @@ The key under `targets` is the target name. These are the fields inside it.
 | Field | Required | What to put |
 | --- | --- | --- |
 | `kind` | yes | `chat`, `agent`, `rag`, `mcp`, `web`, `api`, or `repo`. |
-| `url` | for every kind except `repo` | Where to send the check, such as `http://127.0.0.1:8080/chat`. |
+| `url` | for every kind except `repo` | Where to send the check, such as `http://127.0.0.1:8080/chat`. The path may hold `{{payload}}`, as in `http://127.0.0.1:8000/users/{{payload}}`. |
 | `path` | for `repo` | Directory to scan, such as `.` or `services/api`. |
 | `command` | no | A list of strings accepted by the schema. Local command execution is not available in this release; use a URL target. |
-| `method` | no | HTTP method. Default `POST`. |
-| `request_template` | no | Body template. `{{conversation_json}}` is replaced with the messages for that check. |
+| `method` | no | HTTP method. Default `POST`. Set `GET` for an app that reads the attack from the query string or the path. |
+| `request_template` | no | Body template for `POST`. See [Placeholders](#placeholders). |
 | `response_selector` | no | JSONPath into the response. The sample uses `$.choices[0].message.content`. |
-| `query` | no | Query string as a map of strings. |
+| `query` | no | Query string as a map of strings. Put a placeholder in a value, as in `name: "{{payload}}"`. |
 | `headers` | no | Extra request headers as a map of strings. |
 | `auth` | no | How to send a credential. The secret stays in the environment. |
-| `rate_limit` | no | `rps` (default `5`) and `concurrency` (default `1`). Both must be positive. |
+| `rate_limit` | no | `rps` (default `5`) and `concurrency` (default `1`). Both must be positive. With `concurrency` above 1, a check sends that many payloads at once, which speeds up a slow target. |
+| `timeout` | no | Seconds to wait for one reply, from 1 to 900. Default `60`. Raise it for a model that takes longer to answer. |
 | `api` | no | Request shape. Default `http`. Also `openai`, `anthropic`, `graphql`, or `grpc`. |
 | `canary` | no | A string you plant so a leak can be recognized in the reply. |
 
@@ -90,6 +91,48 @@ targets:
       header: Authorization
       secret_ref: env:APP_TOKEN
       scheme: Bearer
+```
+
+### Placeholders
+
+Each check sends many attack strings. A placeholder marks where each one goes. Without one, a `GET` target receives the same request every time and nothing is tested.
+
+| Placeholder | Replaced with | Use it in |
+| --- | --- | --- |
+| `{{payload}}` | The attack string as is. | `query` values, the `url` path, `request_template` |
+| `{{prompt}}` | Same as `{{payload}}`. Reads better for a chat app. | `request_template` |
+| `{{prompt_json}}` | The attack as a JSON string literal, quotes included. | `request_template`, so quotes and newlines in the attack stay valid JSON |
+| `{{conversation_json}}` | A JSON array with one `{"role": "user", "content": ...}` message. | `request_template` for OpenAI-style message lists |
+
+With no `request_template`, a `POST` sends `{"prompt": "<attack>"}`. `api: openai` and `api: anthropic` send a `messages` list instead.
+
+### A web app that reads the query string
+
+The default method is `POST`. An app that reads `?name=` answers a `POST` with an error such as HTTP 405 or 501, and the scan stops that target with a hint. Set `method: GET` and put the placeholder in `query`. A placeholder written into the URL, as in `url: http://127.0.0.1:5000/hello?name={{payload}}`, works too, but it still needs `method: GET`.
+
+```yaml
+targets:
+  shop:
+    kind: web
+    url: http://127.0.0.1:5000/hello
+    method: GET
+    query:
+      name: "{{payload}}"
+  users:
+    kind: api
+    url: http://127.0.0.1:5000/users/{{payload}}
+    method: GET
+```
+
+### A chat app with its own JSON shape
+
+```yaml
+targets:
+  bot:
+    kind: chat
+    url: http://127.0.0.1:8080/chat
+    request_template: '{"message": {{prompt_json}}}'
+    response_selector: "$.reply"
 ```
 
 A repository target has no URL:

@@ -3,7 +3,7 @@ title: CLI
 description: Commands and flags the insidia binary accepts.
 ---
 
-Global flags, accepted on every command:
+Global flags, accepted on every command, before or after it (`insidia --json doctor` and `insidia doctor --json` are the same):
 
 | Flag | Meaning |
 | --- | --- |
@@ -21,7 +21,7 @@ Writes `insidia.yaml` in the current directory. Refuses to overwrite an existing
 
 ## doctor
 
-Prints a checklist of the Python environment, engines, and model endpoints. Exits non-zero when a required check fails.
+Prints a checklist of the Python environment, engines, and model endpoints. Exits non-zero when a required check fails. Docker and engines that need a missing runtime, such as ZAP without Java, are reported but optional.
 
 ## engines
 
@@ -32,7 +32,7 @@ insidia engines install garak zap
 insidia engines install --docker
 ```
 
-`list` prints each known engine, its license, and whether it is installed. To install toolchains, name the engines, for example `insidia engines install garak zap`. With no names, `install` reports that built-in probes are available. `--docker` checks for Docker; named engine images are not available through this command yet.
+`list`, or `insidia engines` alone, prints each known engine, its license, and whether it is installed. An engine that was downloaded but needs a runtime this machine lacks says what it needs. A check whose only engines are not installed is reported as not tested, with the engine to install. To install toolchains, name the engines, for example `insidia engines install garak zap`. With no names, `install` reports that built-in probes are available. `--docker` checks for Docker; named engine images are not available through this command yet.
 
 ## policy
 
@@ -54,8 +54,9 @@ insidia scan --policy L1 --coverage standard --yes --json
 | --- | --- |
 | `--policy` | Use `L1`. The parser accepts `L2` and `L3`, but execution rejects them as unavailable. Default is the policy in the config. |
 | `--coverage` | `standard` or `thorough`. Default is the coverage in the config. |
+| `--open` | Open the report in a browser when the scan finishes. Without it, the scan only prints the report path, so it is safe in CI, over SSH, and from an agent. |
 
-Exit codes: **0** for a completed pass, **1** for a completed policy failure, **2** for an incomplete run or an error, and **130** for cancellation. Even if an incomplete scan found vulnerabilities, it exits 2. JSON includes `execution_status` and `policy_verdict`; review both. Without `--json`, the CLI attempts to open the report when the scan finishes. Progress is printed while each control runs.
+Exit codes: **0** for a completed pass, **1** when any check found a problem, **2** for an incomplete run with no finding or an error, and **130** for cancellation. A finding exits 1 even when another target or check did not finish, so a CI gate on 1 never misses it. JSON includes `execution_status` and `policy_verdict`; review both. A scan never opens a browser unless you pass `--open`. Progress is printed while each control runs.
 
 ## report
 
@@ -64,7 +65,7 @@ insidia report --open
 insidia report 20261008T120000Z-abc123
 ```
 
-Opens or prints the latest run, or the run id you pass. See [Report](/docs/concepts/report/).
+Prints the report path for the latest run, or the run id you pass. `--open` also opens it in a browser and says whether that worked; on a machine with no browser it prints the path instead. See [Report](/docs/concepts/report/).
 
 ## rerun
 

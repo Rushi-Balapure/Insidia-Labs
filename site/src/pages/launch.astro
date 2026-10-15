@@ -3,7 +3,7 @@ import Base from "../layouts/Base.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 
-const description = "Install the Insidia CLI from GitHub, hand it to a coding agent, or run the signed container image.";
+const description = "Install the Insidia CLI from GitHub, hand it to a coding agent, or run it in CI.";
 const install = 'uv tool install "git+https://github.com/Rushi-Balapure/Insidia-Labs#subdirectory=core"';
 ---
 <Base title="Launch | Insidia Labs" description={description} path="/launch">
@@ -16,10 +16,8 @@ const install = 'uv tool install "git+https://github.com/Rushi-Balapure/Insidia-
       <h2>Install</h2>
       <p>Python 3.12 or newer. Insidia is not on PyPI.</p>
       <pre class="install-box"><code>{install}</code></pre>
-      <p class="muted" style="margin-top:0.8rem"><code>pipx install</code> accepts the same URL. A tag pins the version: add <code>@vX.Y.Z</code> before <code>#subdirectory=core</code>.</p>
-      <p>Each tag also attaches a wheel and <code>SHA256SUMS</code>. The wheel is signed with Sigstore. Verify it with the <code>.bundle</code> file on the release, then install the wheel with <code>uv tool install</code>.</p>
-      <p>The container image <code>ghcr.io/rushi-balapure/insidia</code> has the CLI and every pinned engine. Pin the same tag. The image is signed with Sigstore.</p>
-      <pre class="install-box"><code>docker run --rm -v "$PWD":/work -w /work ghcr.io/rushi-balapure/insidia:vX.Y.Z doctor</code></pre>
+      <p class="muted" style="margin-top:0.8rem"><code>pipx install</code> accepts the same URL. To pin a version, add <code>@&lt;commit&gt;</code> before <code>#subdirectory=core</code>. <code>insidia --version</code> prints the commit you have.</p>
+      <p>No release has been published yet, so there is no signed wheel or container image. Install from git as above.</p>
     </section>
 
     <section class="block">
@@ -28,19 +26,19 @@ const install = 'uv tool install "git+https://github.com/Rushi-Balapure/Insidia-
 insidia doctor
 insidia scan --policy L1 --yes
 insidia report --open</code></pre>
-      <p class="muted" style="margin-top:0.8rem"><code>insidia init</code> writes a localhost scope. A host other than localhost needs <code>authorized: true</code>, which you set. The scan exits 0 when the policy passes and 1 when it fails.</p>
+      <p class="muted" style="margin-top:0.8rem"><code>insidia init</code> writes a localhost scope. A host other than localhost needs <code>authorized: true</code>, which you set. The scan exits 0 when the policy passes, 1 when a check finds a problem, 2 when the run is incomplete, and 130 when you cancel it.</p>
     </section>
 
     <section class="block">
       <h2>Coding agents</h2>
       <pre class="install-box"><code>npx skills add Rushi-Balapure/Insidia-Labs</code></pre>
-      <p class="muted" style="margin-top:0.8rem">Paste: "Test this app with Insidia. Only scan localhost, and open the report when you're done."</p>
+      <p class="muted" style="margin-top:0.8rem">This needs Node.js 22 or later. Paste: "Test this app with Insidia. Only scan localhost, and open the report when you're done."</p>
       <p>You confirm the hosts. The skill tells the agent not to add a host you did not name and not to paste secrets. <code>insidia mcp</code> is the local MCP server for an agent that speaks MCP. <code>scan</code> does not take a URL.</p>
     </section>
 
     <section class="block">
       <h2>CI</h2>
-      <p>Pin <code>Rushi-Balapure/Insidia-Labs/actions/scan</code> to a release tag. The action installs the CLI from that git ref and uploads SARIF. The workflow needs <code>security-events: write</code>.</p>
+      <p>Use <code>Rushi-Balapure/Insidia-Labs/actions/scan@main</code>, or pin a commit. No release tag exists yet. The action installs the CLI from that git ref and uploads SARIF. The workflow needs <code>security-events: write</code>.</p>
     </section>
   </main>
   <Footer />

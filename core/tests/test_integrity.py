@@ -80,12 +80,13 @@ def test_a_failed_engine_keeps_the_other_engines_finding(
 
     monkeypatch.setattr("insidia.scan.select", fake_select)
     monkeypatch.setattr("insidia.scan.run", fake_run)
+    monkeypatch.setattr("insidia.scan.preflight", lambda *_args: "")
     code = main(["scan", "--config", str(tmp_path / "insidia.yaml"), "--json", "--quiet"])
     document = json.loads(capsys.readouterr().out)
     benchmark = json.loads(_latest(tmp_path, "benchmark.json").read_text())
     findings = json.loads(_latest(tmp_path, "findings.json").read_text())
     report = _latest(tmp_path, "report.html").read_text()
-    assert code == 2
+    assert code == 1
     assert document["execution_status"] == "incomplete"
     assert document["policy_verdict"] == "fail"
     assert document["passed"] is False

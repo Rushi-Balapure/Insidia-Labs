@@ -2,7 +2,7 @@ import json
 from io import BytesIO
 from pathlib import Path
 
-from insidia.mcp import dispatch, serve
+from insidia.mcp import PROTOCOLS, dispatch, serve
 from insidia.scan import ScanOutcome
 
 
@@ -71,6 +71,54 @@ def test_init_writes_localhost_scope(tmp_path: Path, monkeypatch: object) -> Non
     text = (tmp_path / "insidia.yaml").read_text()
     assert "host: localhost" in text
     assert "authorized:" not in text
+
+
+def test_newline_delimited_round_trip() -> None:
+    lines = [
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {"protocolVersion": "2025-06-18", "capabilities": {}},
+        },
+        {"jsonrpc": "2.0", "method": "notifications/initialized"},
+        {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
+    ]
+    stdin = BytesIO(b"".join(json.dumps(line).encode() + b"\n" for line in lines))
+    stdout = BytesIO()
+    assert serve(stdin, stdout) == 0
+    replies = [json.loads(line) for line in stdout.getvalue().splitlines()]
+    assert [reply["id"] for reply in replies] == [1, 2]
+    assert replies[0]["result"]["protocolVersion"] == "2025-06-18"
+    assert b"Content-Length" not in stdout.getvalue()
+
+
+def test_initialize_negotiates_the_protocol_version() -> None:
+    for asked, expected in (
+        ("2024-11-05", "2024-11-05"),
+        ("2025-03-26", "2025-03-26"),
+        ("2099-01-01", PROTOCOLS[0]),
+    ):
+        started = dispatch(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {"protocolVersion": asked},
+            }
+        )
+        assert started is not None
+        assert started["result"]["protocolVersion"] == expected
+
+
+def test_bad_json_line_gets_a_parse_error_and_the_server_keeps_going() -> None:
+    ping = json.dumps({"jsonrpc": "2.0", "id": 7, "method": "ping"}).encode()
+    stdin = BytesIO(b"{not json\n" + ping + b"\n")
+    stdout = BytesIO()
+    assert serve(stdin, stdout) == 0
+    first, second = (json.loads(line) for line in stdout.getvalue().splitlines())
+    assert first["error"]["code"] == -32700
+    assert second["id"] == 7
 
 
 def test_stdio_round_trip() -> None:

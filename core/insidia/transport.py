@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextvars
+import http.client
 import json
 import os
 import socket
@@ -15,10 +16,10 @@ from base64 import b64encode
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import urlencode, urljoin, urlparse, urlunparse
+from urllib.parse import parse_qsl, quote, urlencode, urljoin, urlparse, urlunparse
 
 from insidia.config import Target, resolve_secret
-from insidia.errors import CliError, ConfigError, ProbeError, ScopeError
+from insidia.errors import CliError, ConfigError, HttpStatus, ProbeError, ScopeError
 from insidia.scope import ScopeHost, check_url, hostname
 
 _MAX_BODY = 1_000_000
@@ -41,9 +42,11 @@ class RateLimiter:
         self._interval = 1.0 / self.rps
         self._lock = threading.Lock()
         self._next = 0.0
+        self.sent = 0
 
     def wait(self) -> None:
         with self._lock:
+            self.sent += 1
             now = self.clock()
             delay = self._next - now if now < self._next else 0.0
             self._next = (self._next if delay else now) + self._interval
@@ -107,10 +110,57 @@ def exchange(target: Target, payload: str, scope: tuple[ScopeHost, ...], root: P
     return _http(target, payload, scope)
 
 
+AI_KINDS = frozenset({"chat", "agent", "rag", "mcp"})
+_NO_ROUTE = {404: "check url", 405: "check method", 501: "check method"}
+
+
+def preflight(target: Target, scope: tuple[ScopeHost, ...], root: Path) -> str:
+    """Why this target cannot be scanned at all, or an empty string.
+
+    A web app may answer one odd input with 400 or 500, and that answer is
+    evidence. A missing route, a wrong method, or an AI endpoint that rejects
+    a plain prompt means every check would fail the same way.
+    """
+    if target.kind == "repo":
+        return ""
+    try:
+        exchange(target, "hello", scope, root)
+    except HttpStatus as exc:
+        hint = _NO_ROUTE.get(exc.status)
+        if exc.status == 404 and target.kind not in AI_KINDS and _app_answer(target, exc, scope):
+            hint = None
+        if hint is None and target.kind not in AI_KINDS:
+            return ""
+        where = f"{target.method} {target.url}"
+        if hint == "check method":
+            hint = f"method is {target.method}; set method: GET if the app reads a query"
+        return f"{where} returned HTTP {exc.status}" + (f" ({hint})" if hint else "")
+    except ProbeError as exc:
+        return f"{target.url}: {exc}"
+    return ""
+
+
+def _app_answer(target: Target, missing: HttpStatus, scope: tuple[ScopeHost, ...]) -> bool:
+    """A 404 that differs from the server's 404 for a route that cannot exist.
+
+    `/file?name=hello` may answer "no such file", and that is the app talking.
+    A 404 that matches the catch-all page means the route itself is wrong.
+    """
+    assert target.url is not None
+    parsed = urlparse(target.url)
+    missing_path = f"/insidia-no-such-route-{os.urandom(4).hex()}"
+    probe = urlunparse(parsed._replace(path=missing_path, query=""))
+    try:
+        status, _headers, body = fetch(probe, scope, headers=dict(target.headers))
+    except ProbeError:
+        return True
+    return status != 404 or body.strip() != missing.body.strip()
+
+
 def _http(target: Target, payload: str, scope: tuple[ScopeHost, ...]) -> str:
     assert target.url is not None
     limiter, gate = _slot(target)
-    url = _with_query(target.url, target.query, payload)
+    url = _with_query(_in_path(target.url, payload), target.query, payload)
     method = target.method
     body = _body(target, payload)
     headers = _headers(target, body is not None)
@@ -122,9 +172,9 @@ def _http(target: Target, payload: str, scope: tuple[ScopeHost, ...]) -> str:
             body=body,
             headers=headers,
             limiter=limiter,
-            timeout=600,
+            timeout=target.timeout,
         )
-    if target.kind in {"chat", "agent", "rag", "mcp"} and _login_page(observed):
+    if target.kind in AI_KINDS and _login_page(observed):
         raise ProbeError(f"{target.name} returned an HTML login page")
     return _select(observed, target.response_selector)
 
@@ -171,6 +221,22 @@ def read_url(
     timeout: float = 10,
 ) -> str:
     """Read one URL. Redirects that change host are refused, and no proxy is used."""
+    status, _headers, text = fetch(url, scope, method, body, headers, limiter, timeout)
+    if status >= 400:
+        raise HttpStatus(status, text)
+    return text
+
+
+def fetch(
+    url: str,
+    scope: tuple[ScopeHost, ...],
+    method: str = "GET",
+    body: bytes | None = None,
+    headers: dict[str, str] | None = None,
+    limiter: RateLimiter | None = None,
+    timeout: float = 10,
+) -> tuple[int, dict[str, str], str]:
+    """Status, response headers, and body. An error status is returned, not raised."""
     opener = urllib.request.OpenerDirector()
     opener.add_handler(urllib.request.HTTPHandler())
     opener.add_handler(urllib.request.HTTPSHandler())
@@ -204,9 +270,8 @@ def read_url(
                 raw = response.read(_MAX_BODY)
                 if not isinstance(raw, bytes):
                     raise CliError("response was not bytes")
-                if status >= 400:
-                    raise ProbeError(f"target returned HTTP {status}")
-                return raw.decode("utf-8", "replace")
+                received = {key.lower(): value for key, value in response.headers.items()}
+                return status, received, raw.decode("utf-8", "replace")
         except TimeoutError as exc:
             raise ProbeError("target timed out") from exc
         except urllib.error.URLError as exc:
@@ -214,6 +279,8 @@ def read_url(
             if isinstance(reason, TimeoutError | socket.timeout):
                 raise ProbeError("target timed out") from exc
             raise ProbeError("endpoint is unreachable") from exc
+        except (http.client.HTTPException, ConnectionError) as exc:
+            raise ProbeError("target closed the connection without a response") from exc
     raise CliError("redirected too many times")
 
 
@@ -230,12 +297,26 @@ def repo_path(target: Target, root: Path) -> Path:
     return resolved
 
 
-def _with_query(url: str, query: dict[str, str], payload: str) -> str:
-    if not query:
-        return url
+def _in_path(url: str, payload: str) -> str:
+    """Fill {{payload}} in the URL path, as in /users/{{payload}}. The host is never filled."""
+    marker = "{{payload}}"
     parsed = urlparse(url)
-    rendered = {key: _fill(value, payload) for key, value in query.items()}
-    return urlunparse(parsed._replace(query=urlencode(rendered)))
+    if marker not in parsed.path:
+        return url
+    return urlunparse(parsed._replace(path=parsed.path.replace(marker, quote(payload, safe="/"))))
+
+
+def _with_query(url: str, query: dict[str, str], payload: str) -> str:
+    """Fill placeholders in the URL's own query and in `query`. Both are kept."""
+    parsed = urlparse(url)
+    if not query and "{{" not in parsed.query:
+        return url
+    pairs = [
+        (key, _fill(value, payload))
+        for key, value in parse_qsl(parsed.query, keep_blank_values=True)
+    ]
+    pairs.extend((key, _fill(value, payload)) for key, value in query.items())
+    return urlunparse(parsed._replace(query=urlencode(pairs)))
 
 
 def _body(target: Target, payload: str) -> bytes | None:

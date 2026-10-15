@@ -16,10 +16,12 @@ from insidia.mask import bind_secrets, mask
 from insidia.policy import Policy, get_policy
 from insidia.probes import ProbeHit, run
 from insidia.providers import build_provider
-from insidia.registry import select
+from insidia.registry import select, unlock_hint
 from insidia.results import (
+    CANCELLED,
     COMPLETE,
     ERROR,
+    LIMITED,
     NOT_APPLICABLE,
     UNSUPPORTED,
     CheckRecord,
@@ -27,9 +29,9 @@ from insidia.results import (
     exit_for,
     legacy_passed,
 )
-from insidia.runstore import new_run_id, write_run
+from insidia.runstore import new_run_id, not_tested, write_run
 from insidia.scope import check_url, needs_confirmation
-from insidia.transport import bind_budget, repo_path, reset_budget
+from insidia.transport import bind_budget, current_budget, preflight, repo_path, reset_budget
 from insidia.ui import Event, short
 
 
@@ -42,6 +44,7 @@ class ScanOutcome:
     skips: list[str]
     execution_status: str = "complete"
     policy_verdict: str = ""
+    untested: int = 0
 
     def exit_code(self) -> int:
         verdict = self.policy_verdict or ("pass" if self.passed else "fail")
@@ -119,6 +122,32 @@ def _run_targets(
     progress: Callable[[Event], None] | None,
     config_digest: str,
 ) -> ScanOutcome:
+    try:
+        _scan_targets(
+            project, root, policy, mode, model_available, hits, records, controls, skips, progress
+        )
+    except KeyboardInterrupt:
+        reason = "cancelled by the user"
+        skips.append(f"scan: {reason}")
+        records.append(CheckRecord("", "scan", "", CANCELLED, reason))
+        _say(progress, Event("cancel", detail="Scan cancelled. Saving what finished…"))
+    return _finish(
+        project, root, policy, mode, hits, records, controls, skips, progress, config_digest
+    )
+
+
+def _scan_targets(
+    project: Project,
+    root: Path,
+    policy: Policy,
+    mode: str,
+    model_available: bool,
+    hits: list[ProbeHit],
+    records: list[CheckRecord],
+    controls: list[dict[str, str]],
+    skips: list[str],
+    progress: Callable[[Event], None] | None,
+) -> None:
     for target in project.targets:
         _guard(target, project, root)
         if _grpc(target):
@@ -131,6 +160,27 @@ def _run_targets(
             )
             continue
         families = policy.families(target.kind)
+        unreachable = preflight(target, project.scope, root) if families else ""
+        if unreachable:
+            reason = short(mask(unreachable), limit=140)
+            skips.append(f"{target.name}: {reason}")
+            records.append(CheckRecord(target.name, "target", "", ERROR, reason))
+            hint = (
+                " Start the app, or point url in insidia.yaml at it."
+                if ("unreachable" in reason)
+                else ""
+            )
+            _say(
+                progress,
+                Event(
+                    "end",
+                    target.name,
+                    "target",
+                    result="inconclusive",
+                    detail=f"{reason}. Its {len(families)} checks did not run.{hint}",
+                ),
+            )
+            continue
         if not families:
             reason = f"no {policy.name} controls for {target.kind}"
             skips.append(f"{target.name}: {reason}")
@@ -149,17 +199,17 @@ def _run_targets(
         for family in families:
             chosen = select(family, mode, model_available=model_available)
             if not chosen:
-                reason = "no engine installed for this check"
-                skips.append(f"{target.name}: {family} has no runnable probe")
-                records.append(CheckRecord(target.name, family, "", UNSUPPORTED, reason))
-                controls.append(_recorded(policy, family, target.name, "inconclusive"))
+                reason = unlock_hint(family, model_available)
+                skips.append(f"{target.name}: {family} has no runnable probe; {reason}")
+                records.append(CheckRecord(target.name, family, "", LIMITED, reason))
+                controls.append(_recorded(policy, family, target.name, "not tested"))
                 _say(
                     progress,
-                    Event("end", target.name, family, result="inconclusive", detail=reason),
+                    Event("end", target.name, family, result="not tested", detail=reason),
                 )
                 continue
             names = tuple(capability.engine for capability in chosen)
-            _say(progress, Event("begin", target.name, family, names))
+            _say(progress, Event("begin", target.name, family, names, sent=_counter(target)))
             began = time.monotonic()
             family_records: list[CheckRecord] = []
             reasons: list[str] = []
@@ -170,9 +220,11 @@ def _run_targets(
                 except (EngineFailed, ProbeError) as exc:
                     attempt_hits: tuple[ProbeHit, ...] = ()
                     error = str(exc)
+                    untested = ""
                 else:
                     attempt_hits = attempt.hits
                     error = attempt.error
+                    untested = attempt.untested
                 hits.extend(attempt_hits)
                 if error:
                     reason = short(mask(error))
@@ -203,25 +255,50 @@ def _run_targets(
                         target.name,
                         family,
                         capability.engine,
-                        COMPLETE,
+                        LIMITED if untested else COMPLETE,
+                        short(mask(untested)) if untested else "",
                         finding_count=len(attempt_hits),
                     )
                 )
             records.extend(family_records)
             result = _family_result(family_records)
             controls.append(_recorded(policy, family, target.name, result))
+            finished = tuple(record.engine for record in family_records if record.state != ERROR)
             _say(
                 progress,
                 Event(
                     "end",
                     target.name,
                     family,
-                    names,
+                    finished,
                     result,
-                    reasons[0] if result == "inconclusive" else "",
+                    _detail(result, reasons, family_records),
                     time.monotonic() - began,
                 ),
             )
+
+
+def _counter(target: Target) -> Callable[[], int] | None:
+    table = current_budget()
+    if table is None or target.name not in table:
+        return None
+    limiter = table[target.name][0]
+    base = limiter.sent
+    return lambda: limiter.sent - base
+
+
+def _finish(
+    project: Project,
+    root: Path,
+    policy: Policy,
+    mode: str,
+    hits: list[ProbeHit],
+    records: list[CheckRecord],
+    controls: list[dict[str, str]],
+    skips: list[str],
+    progress: Callable[[Event], None] | None,
+    config_digest: str,
+) -> ScanOutcome:
     execution_status, policy_verdict = aggregate(records)
     findings = normalize(hits)
     passed = legacy_passed(execution_status, policy_verdict)
@@ -248,6 +325,7 @@ def _run_targets(
         skips,
         execution_status,
         policy_verdict,
+        not_tested(controls),
     )
 
 
@@ -270,12 +348,22 @@ def _configured_secrets(project: Project) -> tuple[str, ...]:
     return tuple(found)
 
 
+def _detail(result: str, reasons: list[str], records: list[CheckRecord]) -> str:
+    if result == "inconclusive" and reasons:
+        return reasons[0]
+    if result == "not tested":
+        return next((record.reason for record in records if record.reason), "")
+    return ""
+
+
 def _family_result(records: list[CheckRecord]) -> str:
     _status, verdict = aggregate(records)
     if verdict == "fail":
         return "fail"
     if _status == "complete" and verdict == "pass":
         return "pass"
+    if _status == "complete":
+        return "not tested"
     return "inconclusive"
 
 

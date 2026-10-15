@@ -31,6 +31,7 @@ _TARGET_FIELDS = frozenset(
         "api",
         "canary",
         "command",
+        "timeout",
     }
 )
 _MODEL_FIELDS = frozenset({"provider", "base_url", "model", "secret_ref"})
@@ -87,6 +88,7 @@ class Target:
     api: str
     canary: str | None
     command: tuple[str, ...]
+    timeout: float = 60.0
 
 
 @dataclass(frozen=True)
@@ -210,6 +212,7 @@ def _targets(value: object) -> tuple[Target, ...]:
                 api=_text(entry.get("api", "http"), f"{name}.api"),
                 canary=_optional_text(entry.get("canary"), f"{name}.canary"),
                 command=_command(entry.get("command"), name),
+                timeout=_timeout(entry.get("timeout", 60), name),
             )
         )
     return tuple(targets)
@@ -248,6 +251,12 @@ def _auth(value: object, target: str) -> Auth | None:
         _text(entry.get("secret_ref"), f"{target}.auth.secret_ref"),
         _text(entry.get("scheme", "Bearer"), f"{target}.auth.scheme"),
     )
+
+
+def _timeout(value: object, name: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, int | float) or not 0 < value <= 900:
+        raise ConfigError(f"{name}.timeout must be a number of seconds from 1 to 900")
+    return float(value)
 
 
 def _rate_limit(value: object) -> RateLimit:

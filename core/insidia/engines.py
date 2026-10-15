@@ -65,18 +65,41 @@ def list_engines() -> list[dict[str, object]]:
     for name, license_name in KNOWN_ENGINES:
         receipt = _read_receipt(toolchain_root() / name)
         version = receipt.get("version") if receipt else None
-        rows.append(
-            {
-                "name": name,
-                "license": license_name,
-                "installed": name == "insidia" or name in installed,
-                "version": version,
-            }
-        )
+        row: dict[str, object] = {
+            "name": name,
+            "license": license_name,
+            "installed": name == "insidia" or name in installed,
+            "version": version,
+        }
+        missing = missing_runtime(name)
+        if receipt is not None and missing:
+            row["note"] = f"needs {missing}"
+        rows.append(row)
     return rows
 
 
+# Engines whose program runs on a runtime the toolchain does not ship.
+_RUNTIMES = {"zap": ("java", "Java 17 or later on PATH")}
+
+
+def missing_runtime(name: str) -> str:
+    """The runtime an engine needs that this machine lacks, or ""."""
+    needed = _RUNTIMES.get(name)
+    if needed is None or shutil.which(needed[0]) is not None:
+        return ""
+    return needed[1]
+
+
+def unusable_engines() -> dict[str, str]:
+    """Engines in the toolchain that cannot run here, with what they need."""
+    return {name: missing_runtime(name) for name in _downloaded() if missing_runtime(name)}
+
+
 def installed_engines() -> frozenset[str]:
+    return frozenset(name for name in _downloaded() if not missing_runtime(name))
+
+
+def _downloaded() -> frozenset[str]:
     root = toolchain_root()
     if not root.is_dir():
         return frozenset()

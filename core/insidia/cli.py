@@ -9,6 +9,7 @@ import sys
 import webbrowser
 from pathlib import Path
 
+from insidia import version_text
 from insidia.config import init_config, load_project
 from insidia.doctor import diagnose
 from insidia.engines import install, list_engines
@@ -20,7 +21,7 @@ from insidia.scan import execute
 from insidia.ui import InstallView, ScanView, Terminal
 
 _HELP = """\
-global options, placed after the command:
+global options, before or after the command:
   --config PATH   file to read (default: insidia.yaml)
   --json          print a JSON object instead of text
   --yes           do not ask before scanning a host other than localhost
@@ -29,27 +30,68 @@ global options, placed after the command:
 """
 
 
-def main(argv: list[str] | None = None) -> int:
-    shared = argparse.ArgumentParser(add_help=False)
-    shared.add_argument("--json", action="store_true", help="print a JSON object instead of text")
-    shared.add_argument(
+def _global_options(parser: argparse.ArgumentParser, after_command: bool) -> None:
+    # After the command the defaults are suppressed, so a value given before it survives.
+    def default(value: object) -> object:
+        return argparse.SUPPRESS if after_command else value
+
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        default=default(False),
+        help="print a JSON object instead of text",
+    )
+    parser.add_argument(
         "--yes",
         action="store_true",
+        default=default(False),
         help="do not ask before scanning a host other than localhost",
     )
-    shared.add_argument(
+    parser.add_argument(
         "--config",
-        default="insidia.yaml",
+        default=default("insidia.yaml"),
         help="file to read (default: insidia.yaml)",
     )
-    shared.add_argument("--quiet", "-q", action="store_true", help="print only the result")
-    shared.add_argument("--no-color", action="store_true", help="plain text, no color")
+    parser.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        default=default(False),
+        help="print only the result",
+    )
+    parser.add_argument(
+        "--no-color",
+        action="store_true",
+        default=default(False),
+        help="plain text, no color",
+    )
+
+
+class _Version(argparse.Action):
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: object,
+        option_string: str | None = None,
+    ) -> None:
+        print(version_text())
+        parser.exit()
+
+
+def main(argv: list[str] | None = None) -> int:
+    shared = argparse.ArgumentParser(add_help=False)
+    _global_options(shared, after_command=True)
 
     parser = argparse.ArgumentParser(
         prog="insidia",
         description="Test an AI app and the API around it. Settings live in insidia.yaml.",
         epilog=_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    _global_options(parser, after_command=False)
+    parser.add_argument(
+        "--version", action=_Version, nargs=0, help="print the version and build commit"
     )
     subcommands = parser.add_subparsers(
         dest="command",
@@ -76,7 +118,7 @@ def main(argv: list[str] | None = None) -> int:
         help="list engines or install the ones you name",
         description="List engines or install the ones you name.",
     )
-    engine_commands = engines.add_subparsers(dest="engine_command", required=True, title="commands")
+    engine_commands = engines.add_subparsers(dest="engine_command", title="commands")
     engine_commands.add_parser(
         "list",
         help="show each engine, its license, and whether it is installed",
@@ -121,6 +163,11 @@ def main(argv: list[str] | None = None) -> int:
         choices=("standard", "thorough"),
         help="how many engines run per check (default: the coverage in the config file)",
     )
+    scan.add_argument(
+        "--open",
+        action="store_true",
+        help="open the report in a browser when the scan finishes (default: print its path)",
+    )
 
     report = subcommands.add_parser(
         "report",
@@ -153,6 +200,9 @@ def main(argv: list[str] | None = None) -> int:
     except CliError as exc:
         _emit(args.json, {"error": str(exc)}, str(exc))
         return exc.code
+    except KeyboardInterrupt:
+        _emit(args.json, {"error": "cancelled"}, "Cancelled.")
+        return 130
 
 
 def _run(args: argparse.Namespace) -> int:
@@ -167,11 +217,13 @@ def _run(args: argparse.Namespace) -> int:
         lines = [f"{check['name']}: {check['detail']}" for check in checks]
         _emit(args.json, {"checks": checks}, "\n".join(lines))
         return code
-    if args.command == "engines" and args.engine_command == "list":
+    if args.command == "engines" and args.engine_command in {None, "list"}:
         engines = list_engines()
         lines = []
         for item in engines:
             state = "installed" if item["installed"] else "not installed"
+            if "note" in item:
+                state = f"downloaded, {item['note']}"
             lines.append(f"{item['name']} {item['license']} {state}")
         _emit(args.json, {"engines": engines}, "\n".join(lines))
         return 0
@@ -226,12 +278,7 @@ def _run(args: argparse.Namespace) -> int:
         terminal.line(terminal.dim(view.totals()))
         report_path = outcome.run_dir / "report.html"
         policy_name = args.policy if args.policy is not None else project.policy
-        opened = False
-        if not args.json:
-            try:
-                opened = bool(webbrowser.open(report_path.resolve().as_uri()))
-            except OSError:
-                opened = False
+        opened = bool(getattr(args, "open", False)) and not args.json and _open(report_path)
         text = scan_message(
             policy_name,
             outcome.passed,
@@ -240,6 +287,7 @@ def _run(args: argparse.Namespace) -> int:
             opened,
             execution_status=outcome.execution_status,
             policy_verdict=outcome.policy_verdict or None,
+            untested=outcome.untested,
         )
         document = {
             "schema_version": "2.0",
@@ -259,6 +307,7 @@ def _run(args: argparse.Namespace) -> int:
                 False,
                 execution_status=outcome.execution_status,
                 policy_verdict=outcome.policy_verdict or None,
+                untested=outcome.untested,
             ),
         }
         _emit(args.json, document, text)
@@ -271,9 +320,16 @@ def _run(args: argparse.Namespace) -> int:
         report_path = directory / "report.html"
         if not report_path.is_file():
             raise CliError(f"run {directory.name} has no report")
-        if args.open:
-            webbrowser.open(report_path.resolve().as_uri())
-        _emit(args.json, {"report": str(report_path)}, str(report_path))
+        if not args.open:
+            _emit(args.json, {"report": str(report_path)}, str(report_path))
+            return 0
+        opened = _open(report_path)
+        text = (
+            f"Opened {report_path}."
+            if opened
+            else f"No browser could be opened here. The report is at {report_path}."
+        )
+        _emit(args.json, {"report": str(report_path), "opened": opened}, text)
         return 0
     if args.command == "mcp":
         return serve(sys.stdin.buffer, sys.stdout.buffer)
@@ -325,6 +381,7 @@ def scan_message(
     opened: bool,
     execution_status: str = "complete",
     policy_verdict: str | None = None,
+    untested: int = 0,
 ) -> str:
     head = verdict_text(
         policy,
@@ -332,10 +389,18 @@ def scan_message(
         findings,
         execution_status=execution_status,
         policy_verdict=policy_verdict,
+        untested=untested,
     )
     if opened:
         return f"{head} Opened {report}."
     return f"{head} Report: {report}."
+
+
+def _open(report: Path) -> bool:
+    try:
+        return bool(webbrowser.open(report.resolve().as_uri()))
+    except (OSError, webbrowser.Error):
+        return False
 
 
 def _terminal(args: argparse.Namespace) -> Terminal:

@@ -32,14 +32,24 @@ def diagnose(config_path: Path) -> tuple[list[dict[str, object]], int]:
     checks.append(
         {
             "name": "docker",
-            "ok": True,
+            "ok": docker is not None,
+            "required": False,
             "detail": "found" if docker else "not found; optional unless you use --engines docker",
         }
     )
-    from insidia.engines import installed_engines
+    from insidia.engines import installed_engines, unusable_engines
 
     names = ", ".join(["insidia", *sorted(installed_engines())])
     checks.append({"name": "engines", "ok": True, "detail": f"installed: {names}"})
+    for name, needs in sorted(unusable_engines().items()):
+        checks.append(
+            {
+                "name": f"engine.{name}",
+                "ok": False,
+                "required": False,
+                "detail": f"downloaded but cannot run: needs {needs}",
+            }
+        )
     code = 0 if python_ok and config_ok else 2
     return checks, code
 

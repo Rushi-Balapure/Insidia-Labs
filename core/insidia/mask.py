@@ -6,17 +6,44 @@ import contextvars
 import hashlib
 import re
 
-_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("AWS_ACCESS_KEY", re.compile(r"AKIA[0-9A-Z]{16}")),
-    ("GITHUB_TOKEN", re.compile(r"ghp_[A-Za-z0-9]{20,}")),
-    ("STRIPE_KEY", re.compile(r"sk_live_[A-Za-z0-9]{10,}")),
-    ("OPENAI_KEY", re.compile(r"sk-(?:proj-)?[A-Za-z0-9_-]{10,}")),
-    ("BEARER", re.compile(r"Bearer [A-Za-z0-9._\-]{8,}")),
+# Credential formats with a fixed shape. Detection reads these too, so a
+# pattern here must not match ordinary prose.
+SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("AWS_ACCESS_KEY", re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b")),
+    (
+        "AWS_SECRET_KEY",
+        re.compile(r"(?i)aws_secret_access_key\s*[:=]\s*[\"']?[A-Za-z0-9/+=]{40}\b"),
+    ),
+    ("GITHUB_TOKEN", re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}")),
+    ("GITHUB_TOKEN", re.compile(r"\bgithub_pat_[A-Za-z0-9_]{22,}")),
+    ("SLACK_TOKEN", re.compile(r"\bxox[abposr]-[A-Za-z0-9-]{10,}")),
+    ("GOOGLE_API_KEY", re.compile(r"\bAIza[0-9A-Za-z_-]{35}")),
+    ("STRIPE_KEY", re.compile(r"\b[sr]k_live_[A-Za-z0-9]{10,}")),
+    ("ANTHROPIC_KEY", re.compile(r"\bsk-ant-[A-Za-z0-9_-]{20,}")),
+    ("OPENAI_KEY", re.compile(r"\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}")),
+    (
+        "JWT",
+        re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}"),
+    ),
     (
         "PRIVATE_KEY",
         re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]+?-----END [A-Z ]*PRIVATE KEY-----"),
     ),
+    ("PRIVATE_KEY", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
 )
+_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    *SECRET_PATTERNS,
+    ("BEARER", re.compile(r"Bearer [A-Za-z0-9._\-]{8,}")),
+)
+
+
+def find_secret(text: str) -> tuple[str, str] | None:
+    """The first credential-shaped value in text, as (kind, value)."""
+    for kind, pattern in SECRET_PATTERNS:
+        found = pattern.search(text)
+        if found is not None:
+            return kind, found.group(0)
+    return None
 _ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 _secrets: contextvars.ContextVar[tuple[str, ...]] = contextvars.ContextVar(
     "insidia_secrets", default=()
