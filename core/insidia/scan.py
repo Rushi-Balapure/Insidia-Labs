@@ -18,6 +18,7 @@ from insidia.probes import ProbeHit, run
 from insidia.providers import build_provider
 from insidia.registry import select
 from insidia.results import (
+    CANCELLED,
     COMPLETE,
     ERROR,
     NOT_APPLICABLE,
@@ -119,6 +120,32 @@ def _run_targets(
     progress: Callable[[Event], None] | None,
     config_digest: str,
 ) -> ScanOutcome:
+    try:
+        _scan_targets(
+            project, root, policy, mode, model_available, hits, records, controls, skips, progress
+        )
+    except KeyboardInterrupt:
+        reason = "cancelled by the user"
+        skips.append(f"scan: {reason}")
+        records.append(CheckRecord("", "scan", "", CANCELLED, reason))
+        _say(progress, Event("cancel", detail="Scan cancelled. Saving what finished…"))
+    return _finish(
+        project, root, policy, mode, hits, records, controls, skips, progress, config_digest
+    )
+
+
+def _scan_targets(
+    project: Project,
+    root: Path,
+    policy: Policy,
+    mode: str,
+    model_available: bool,
+    hits: list[ProbeHit],
+    records: list[CheckRecord],
+    controls: list[dict[str, str]],
+    skips: list[str],
+    progress: Callable[[Event], None] | None,
+) -> None:
     for target in project.targets:
         _guard(target, project, root)
         if _grpc(target):
@@ -222,6 +249,20 @@ def _run_targets(
                     time.monotonic() - began,
                 ),
             )
+
+
+def _finish(
+    project: Project,
+    root: Path,
+    policy: Policy,
+    mode: str,
+    hits: list[ProbeHit],
+    records: list[CheckRecord],
+    controls: list[dict[str, str]],
+    skips: list[str],
+    progress: Callable[[Event], None] | None,
+    config_digest: str,
+) -> ScanOutcome:
     execution_status, policy_verdict = aggregate(records)
     findings = normalize(hits)
     passed = legacy_passed(execution_status, policy_verdict)

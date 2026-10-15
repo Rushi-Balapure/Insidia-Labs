@@ -204,6 +204,11 @@ def verdict_text(
 ) -> str:
     verdict = policy_verdict or ("pass" if passed else "fail")
     label = "finding" if findings == 1 else "findings"
+    if execution_status == "cancelled":
+        return (
+            f"Scan cancelled. Policy {policy} has no verdict. "
+            f"{findings} {label} before it stopped."
+        )
     if execution_status != "complete":
         if verdict == "fail":
             return (

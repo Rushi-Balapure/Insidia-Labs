@@ -22,7 +22,7 @@ _CLEAR = "\r\x1b[K"
 class Event:
     """One step of a scan. The scan emits these. The terminal view draws them."""
 
-    kind: str  # start | begin | end | note | write
+    kind: str  # start | begin | end | note | cancel | write
     target: str = ""
     family: str = ""
     engines: tuple[str, ...] = ()
@@ -209,6 +209,10 @@ class ScanView:
         elif event.kind == "end":
             term.stop_live()
             self._row(event)
+        elif event.kind == "cancel":
+            term.stop_live()
+            term.line()
+            term.line(f"{term.symbol('note')} {event.detail}")
         elif event.kind == "write":
             term.stop_live()
             term.line()

@@ -158,6 +158,9 @@ def main(argv: list[str] | None = None) -> int:
     except CliError as exc:
         _emit(args.json, {"error": str(exc)}, str(exc))
         return exc.code
+    except KeyboardInterrupt:
+        _emit(args.json, {"error": "cancelled"}, "Cancelled.")
+        return 130
 
 
 def _run(args: argparse.Namespace) -> int:

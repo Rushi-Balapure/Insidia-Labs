@@ -96,6 +96,10 @@ def run_command(
     except subprocess.TimeoutExpired:
         _kill_tree(proc)
         raise EngineFailed(f"{label} timed out") from None
+    except KeyboardInterrupt:
+        # The child is in its own session, so the terminal's SIGINT never reached it.
+        _kill_tree(proc)
+        raise
     code = proc.returncode
     detail = stderr.decode("utf-8", errors="replace").strip()
     return (1 if code is None else code), detail[-400:]
