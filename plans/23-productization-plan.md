@@ -30,7 +30,7 @@ Initial beta integration candidates are garak, Nuclei, and gitleaks, plus a genu
 ### Architecture defaults selected for this plan
 
 - Evolve the existing package. Add small domain modules; do not introduce a new service or orchestration framework for the CLI.
-- One typed result model drives terminal, JSON, HTML, SARIF, MCP, and the GitHub Action.
+- One typed result model drives terminal, JSON, HTML, SARIF, MCP, and CLI-based CI.
 - One capability registry drives selection, compatibility, support documentation, and benchmark requirements.
 - L1 becomes a versioned deterministic baseline. Until separately validated, L2/L3 requests fail with an actionable unsupported-profile error rather than silently executing L1. Existing configuration is never silently rewritten.
 - Standard coverage selects the registry's explicit verified primary implementation; thorough coverage adds verified alternatives with visible extra cost. Neither selects a fixture-only probe for a normal user scan.
@@ -76,7 +76,7 @@ Execution can therefore be incomplete while the policy already fails. Display bo
 | `2` | Configuration/readiness/execution incomplete or error, including an incomplete run that also contains findings |
 | `130` | User cancellation; preserve a finalized partial report when possible |
 
-Keep the legacy JSON `passed` field temporarily, true only for exit-0 semantics. Use schema version `2.0` for new run/scan documents and add `execution_status` and `policy_verdict`; documents with no schema version are legacy. Document this as a behavior change and update the Action/MCP clients in the same release.
+Keep the legacy JSON `passed` field temporarily, true only for exit-0 semantics. Use schema version `2.0` for new run/scan documents and add `execution_status` and `policy_verdict`; documents with no schema version are legacy. Document this as a behavior change and update the CI examples and MCP clients in the same release.
 
 ### 3.2 Data model
 
@@ -232,9 +232,9 @@ For the small deterministic beta acceptance suite, require all declared vulnerab
 
 ### F12 — Agent, MCP and CI contracts
 
-**Work:** adopt correct MCP stdio framing/lifecycle using a compatible SDK or narrowly tested implementation. Ensure stdout contains protocol only. Test a genuine client; distinguish Insidia's MCP server from support for scanning an MCP target. Align the agent skill, JSON outputs, exit semantics and Action. Bound MCP tool calls and preserve scope/cancellation; never let tool arguments broaden configured scope implicitly.
+**Work:** adopt correct MCP stdio framing/lifecycle using a compatible SDK or narrowly tested implementation. Ensure stdout contains protocol only. Test a genuine client; distinguish Insidia's MCP server from support for scanning an MCP target. Align the agent skill, JSON outputs, exit semantics and CI examples. Bound MCP tool calls and preserve scope/cancellation; never let tool arguments broaden configured scope implicitly.
 
-**Files:** [MCP](/home/rushi/Desktop/Rushi/Insidia-Labs/Insidia-Labs/core/insidia/mcp.py), `test_mcp_server.py`, `test_mcp.py`, [agent skill](/home/rushi/Desktop/Rushi/Insidia-Labs/Insidia-Labs/skills/insidia/SKILL.md), [Action](/home/rushi/Desktop/Rushi/Insidia-Labs/Insidia-Labs/actions/scan/action.yml), [llms.txt](/home/rushi/Desktop/Rushi/Insidia-Labs/Insidia-Labs/docs/public/llms.txt).
+**Files:** [MCP](/home/rushi/Desktop/Rushi/Insidia-Labs/Insidia-Labs/core/insidia/mcp.py), `test_mcp_server.py`, `test_mcp.py`, [agent skill](/home/rushi/Desktop/Rushi/Insidia-Labs/Insidia-Labs/skills/insidia/SKILL.md), [llms.txt](/home/rushi/Desktop/Rushi/Insidia-Labs/Insidia-Labs/docs/public/llms.txt).
 
 **Acceptance:** real initialize/tools-list/safe-call/cancel/error exchange succeeds; newline-delimited requests receive responses. CI uploads incomplete-run evidence without treating it as a pass; no `continue-on-error` hides the result. The skill follows the human quickstart and reports limits instead of broadening scope to make a scan succeed.
 
@@ -292,7 +292,7 @@ For the small deterministic beta acceptance suite, require all declared vulnerab
 
 Implement the candidate-build portion early enough to supply F18's recording and F20's pilots. F19 completion makes a signed release candidate available for pilots; it does not move the stable/latest channel. F20 authorizes the public-beta readiness decision, after which the same tested artifacts can be promoted through the normal publication process. This avoids a dependency cycle between recording, release validation and pilot testing.
 
-**Files:** [CI](/home/rushi/Desktop/Rushi/Insidia-Labs/Insidia-Labs/.github/workflows/ci.yml), [release](/home/rushi/Desktop/Rushi/Insidia-Labs/Insidia-Labs/.github/workflows/release.yml), Dockerfile, [license checker](/home/rushi/Desktop/Rushi/Insidia-Labs/Insidia-Labs/scripts/check_licenses.py), [notices](/home/rushi/Desktop/Rushi/Insidia-Labs/Insidia-Labs/THIRD_PARTY_NOTICES.md), core packaging, Action.
+**Files:** [CI](/home/rushi/Desktop/Rushi/Insidia-Labs/Insidia-Labs/.github/workflows/ci.yml), [release](/home/rushi/Desktop/Rushi/Insidia-Labs/Insidia-Labs/.github/workflows/release.yml), Dockerfile, [license checker](/home/rushi/Desktop/Rushi/Insidia-Labs/Insidia-Labs/scripts/check_licenses.py), [notices](/home/rushi/Desktop/Rushi/Insidia-Labs/Insidia-Labs/THIRD_PARTY_NOTICES.md), core packaging, CI examples.
 
 **Acceptance:** failed image/engine/benchmark/license stage cannot yield a public successful release or move `latest`. Wheel/image provenance, checksums, support table and migration notes are attached. New dependency or engine updates rerun affected contracts. A documented rollback restores a known good release without rewriting history. Test deployment URLs and content after publishing; local DNS failure alone is not evidence of a global outage.
 
@@ -379,7 +379,7 @@ Use pinned official interfaces when implementing; the table deliberately does no
 - [ ] Match after character 500, two locations with the same rule, and multi-engine provenance survive normalization.
 - [ ] Interrupted report writes and missing artifacts do not report success.
 - [ ] Legacy runs remain untouched and do not claim known completeness.
-- [ ] Real MCP client interoperates; Action preserves nonzero scan outcome while uploading evidence.
+- [ ] Real MCP client interoperates; CLI-based CI preserves nonzero scan outcome while archiving evidence.
 - [ ] Policy/engine/OS support tables match actual registry and installer behavior.
 - [ ] Benchmark scorer counts extra findings and missed positives correctly.
 - [ ] Public example fixes are established through comparable completed reruns.

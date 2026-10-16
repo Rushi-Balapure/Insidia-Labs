@@ -99,7 +99,7 @@ A phase is not done until its docs are published. This table is the minimum.
 | --- | --- |
 | 0 | Docs site scaffold, style guide, link-check CI, error-code framework |
 | 1A–1D | Install from GitHub, scope, CLI reference, target guides, the benchmark, the HTML report, engine credits |
-| 1E | The agent skill at the top, MCP, `llms.txt`, the GitHub Action |
+| 1E | The agent skill at the top, MCP, `llms.txt`, direct CLI usage in CI |
 | 2A–2B | Pointing the attacker at Insidia Cloud, custom attacks, reading a pentest-agent chain |
 | 2C | Dashboard walkthroughs, direct and runner modes, credentials, schedules |
 | 3 | Agent, MCP, and multi-agent guides; white box, AI-BOM, and the SDK; integrations |

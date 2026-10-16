@@ -38,7 +38,7 @@ insidia report --open</code></pre>
 
     <section class="block">
       <h2>CI</h2>
-      <p>Use <code>Rushi-Balapure/Insidia-Labs/actions/scan@main</code>, or pin a commit. No release tag exists yet. The action installs the CLI from that git ref and uploads SARIF. The workflow needs <code>security-events: write</code>.</p>
+      <p>Install the CLI from a tested commit, start your target app, then run <code>insidia scan --policy L1 --json</code>. Preserve <code>.insidia/runs/</code> even when the scan fails. Follow the <a href="/docs/guides/ci/">CI guide</a> for runner setup and artifact steps.</p>
     </section>
   </main>
   <Footer />

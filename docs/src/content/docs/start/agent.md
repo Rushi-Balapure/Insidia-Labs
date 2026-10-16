@@ -37,4 +37,4 @@ The agent should treat exit code `2` as an incomplete run, not a pass, and `130`
 
 `insidia mcp` is a local MCP server over stdio. It accepts newline-delimited JSON-RPC, as current MCP clients send, and the older Content-Length framing, and it negotiates protocol versions 2025-06-18, 2025-03-26, and 2024-11-05. Its tools are `init`, `doctor`, `scan`, `findings`, and `report`. `scan` does not take a URL. It runs only when `confirmed` is true and only against `insidia.yaml`.
 
-To automate the same scan, follow [Run in CI](/docs/guides/ci/). That guide covers runner setup, action revisions, SARIF, and preserving reports after a failure.
+To automate the same scan, follow [Run in CI](/docs/guides/ci/). That guide covers runner setup, CLI installation, SARIF, and preserving reports after a failure.
