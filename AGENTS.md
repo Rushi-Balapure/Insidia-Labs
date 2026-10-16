@@ -10,7 +10,6 @@ This file is for coding agents changing Insidia. The skill that runs a scan for 
 
 ## Layout
 
-- `cloud/` is Insidia Cloud (API, workers, hub).
 - `benchmark/` is the scanner benchmark and the framework mappings.
 - `core/` is the `insidia` CLI package (Python 3.12+).
 - `site/` is the marketing site. `dashboard/` is the hosted product UI.
@@ -26,16 +25,14 @@ This file is for coding agents changing Insidia. The skill that runs a scan for 
 
 ## Checks before you finish
 
-From `cloud/`: `uv run ruff check .`, `uv run mypy api workers`, and `uv run pytest`.
-
 From `core/`: `uv run ruff check .`, `uv run mypy insidia`, and `uv run pytest`.
 
-From the repository root: `uv run --project cloud ruff check benchmark` and `uv run --project cloud python -m pytest benchmark`.
+From the repository root: `uv run --project benchmark ruff check benchmark` and `uv run --project benchmark python -m pytest benchmark`.
 
 The matrix registry is generated. After a change to validity or ownership, run:
 
 ```bash
-uv run --project cloud python -m benchmark.matrix.cells --write
+uv run --project benchmark python -m benchmark.matrix.cells --write
 ```
 
 Then `--check` must pass.

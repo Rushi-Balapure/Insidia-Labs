@@ -1,3 +1,21 @@
+[project]
+name = "insidia-benchmark"
+version = "0.1.0"
+description = "Insidia scanner benchmark and sandboxed regression tests."
+requires-python = ">=3.14"
+dependencies = []
+
+[dependency-groups]
+dev = [
+  "docstring-parser>=0.15",
+  "email-validator>=2",
+  "httpx>=0.28",
+  "pydantic>=2.10",
+  "pytest>=8.4",
+  "pyyaml>=6.0",
+  "ruff>=0.12",
+]
+
 [tool.pytest.ini_options]
 pythonpath = [".."]
 testpaths = ["."]
