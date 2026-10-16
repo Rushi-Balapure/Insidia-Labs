@@ -5,47 +5,15 @@ on:
   pull_request:
 
 jobs:
-  python:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: insidia
-          POSTGRES_PASSWORD: insidia_dev_only
-          POSTGRES_DB: insidia
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U insidia -d insidia"
-          --health-interval 5s
-          --health-retries 20
-    defaults:
-      run:
-        working-directory: cloud
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-      - run: uv python install 3.14
-      - run: uv sync
-      - run: uv run ruff check .
-      - run: uv run mypy api workers
-      - run: uv run pytest
-        env:
-          INSIDIA_DEV_MODE: "true"
-          INSIDIA_DEV_ENDPOINTS: "true"
-          INSIDIA_TEST_DATABASE_URL: postgresql+psycopg://insidia:insidia_dev_only@localhost:5432/insidia
-          INSIDIA_MIGRATION_DATABASE_URL: postgresql+psycopg://insidia:insidia_dev_only@localhost:5432/insidia
-
   matrix:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
       - run: uv python install 3.14
-        working-directory: cloud
-      - run: uv sync
-        working-directory: cloud
+        working-directory: benchmark
+      - run: uv sync --locked
+        working-directory: benchmark
       - name: Clone the vulnerable apps the white-box cells read
         run: |
           root="../local-targets"
@@ -66,9 +34,8 @@ jobs:
           curl -fsSL -o /tmp/google-chrome-stable_current_amd64.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
           sudo apt-get update
           sudo apt-get install -y /tmp/google-chrome-stable_current_amd64.deb
-      - run: uv run --project cloud ruff check benchmark
-      # --project is resolved from this step's directory, so cloud is ../cloud.
-      - run: uv run --project ../cloud python -m pytest
+      - run: uv run --project benchmark ruff check benchmark
+      - run: uv run python -m pytest
         working-directory: benchmark
 
   core:
@@ -93,35 +60,6 @@ jobs:
       - run: uv run pytest
       - run: uv build --wheel
         if: runner.os == 'Linux'
-
-  go:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "1.24"
-      - run: go test ./...
-        working-directory: runner
-      - run: go test ./...
-        working-directory: cloud/hub
-
-  dashboard:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: dashboard
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: dashboard/package-lock.json
-      - run: npm ci
-      - run: npm run lint
-      - run: npm test
-      - run: npm run build
 
   docs:
     runs-on: ubuntu-latest
@@ -157,17 +95,3 @@ jobs:
       - run: npm run links
       - run: node scripts/secrets.mjs dist
 
-  compose:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: docker compose -f deploy/compose/docker-compose.yml config
-
-  licenses:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: python scripts/check_licenses.py

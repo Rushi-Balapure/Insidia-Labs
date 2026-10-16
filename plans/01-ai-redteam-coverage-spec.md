@@ -91,4 +91,4 @@ This is the exit for Phases 1B and 1C, run on the user's machine:
 - Attempt hidden-context and secret exfil
 - Measure unbounded consumption
 - Emit a report mapped to LLM01-10 and ASI01-10, with ATLAS tags
-- After this exit: full ATLAS predictive matrix and live multi-agent chaos (Phase 3); continuous CI gates (GitHub Action in Phase 1E, schedules in Phase 2C)
+- After this exit: full ATLAS predictive matrix and live multi-agent chaos (Phase 3); continuous CI gates (CLI-based CI in Phase 1E, schedules in Phase 2C)

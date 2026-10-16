@@ -160,13 +160,13 @@ Captions:
 
 ### 2:40 — CI and your coding agent (15 s)
 
-Scene, split screen. Left: a workflow file using `actions/scan@[tag]` with `policy: L1`, and a pull request check turning red. Right: a generic agent chat (no product logo). The user types "Test this app with Insidia. Only scan localhost." The agent asks to confirm two hosts.
+Scene, split screen. Left: a workflow file installing the CLI from a tested commit and running `insidia scan --policy L1 --json`, and a pull request check turning red. Right: a generic agent chat (no product logo). The user types "Test this app with Insidia. Only scan localhost." The agent asks to confirm two hosts.
 
 Captions:
 - "In CI, a failed policy blocks the merge."
 - "Or hand it to your coding agent. You confirm the hosts."
 
-Gate: this chapter ships only after the Action and the skill pass on the tagged release (F12). Until then it is cut, and the film runs about 2:45.
+Gate: this chapter ships only after the CLI-based CI workflow and the skill pass on the tagged release (F12). Until then it is cut, and the film runs about 2:45.
 
 ### 2:55 — End (10 s)
 

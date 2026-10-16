@@ -215,7 +215,6 @@ Flags that go before or after the command: `--config PATH` (default `insidia.yam
 | [`core/`](core) | The `insidia` package: CLI, configuration, scope guard, engines, probes, findings, and reports |
 | [`benchmark/`](benchmark) | Scanner matrix, framework mappings, sandboxed targets, and regression tests |
 | [`skills/insidia/`](skills/insidia) | Instructions for coding agents to install and run Insidia |
-| [`actions/scan/`](actions/scan) | GitHub Action for running the CLI in CI |
 | [`Dockerfile`](Dockerfile) | CLI container image with the pinned scanner engines |
 | [`site/`](site) | Marketing site, published at [insidialabs.com](https://insidialabs.com) |
 | [`docs/`](docs) | Documentation, published at [insidialabs.com/docs](https://insidialabs.com/docs/) |

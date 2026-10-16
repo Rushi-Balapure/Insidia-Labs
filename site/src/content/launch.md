@@ -39,14 +39,9 @@ You confirm the hosts. The skill tells the agent not to add a host you did not n
 
 ## CI
 
-```yaml
-permissions:
-  security-events: write
-steps:
-  - uses: actions/checkout@v4
-  - uses: Rushi-Balapure/Insidia-Labs/actions/scan@main
-    with:
-      policy: L1
+```bash
+uv tool install "git+https://github.com/Rushi-Balapure/Insidia-Labs#subdirectory=core"
+insidia scan --policy L1 --json
 ```
 
-The action installs the CLI from that git ref and uploads SARIF.
+Run these commands after checking out your repository and starting its target app. Pin the install URL to a tested commit and preserve `.insidia/runs/` even when the scan fails. The [CI guide](/docs/guides/ci/) includes runner setup and artifact steps.
