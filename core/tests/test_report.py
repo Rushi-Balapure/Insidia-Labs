@@ -216,6 +216,58 @@ def test_finding_cards_list_fields_in_order_and_escape_evidence(tmp_path: Path) 
     assert "insidia rerun run-card" in card
 
 
+def test_not_tested_rows_say_why_and_passes_are_counted_honestly(tmp_path: Path) -> None:
+    import re
+
+    controls = [
+        {
+            "id": "ai.bias",
+            "target": "nova",
+            "result": "not tested",
+            "taxonomy": "owasp-llm:LLM01",
+            "detail": "needs a judge model: `models: {}`",
+        },
+        {
+            "id": "infra.tls",
+            "target": "shop",
+            "result": "not tested",
+            "taxonomy": "owasp-web:A02",
+            "detail": "http:// target has no TLS to test",
+        },
+        {
+            "id": "logic.race",
+            "target": "shop",
+            "result": "not tested",
+            "taxonomy": "owasp-web:A04",
+        },
+        {
+            "id": "web.ssti",
+            "target": "shop",
+            "result": "pass",
+            "taxonomy": "owasp-web:A03,cwe:CWE-1336",
+        },
+    ]
+    directory = write_run(tmp_path, "run-cov", "L1", True, [], controls, [])
+    html = (directory / "report.html").read_text()
+    assert "not evidence that those risks are absent" in html
+    reasons = []
+    for row in re.findall(r"<tr>(.*?)</tr>", html, re.S):
+        if "NOT TESTED" not in row:
+            continue
+        why = re.search(r'data-l="Why">(.*?)</td>', row)
+        assert why is not None
+        text = why.group(1).strip()
+        assert text
+        reasons.append(text)
+    assert len(reasons) == 3
+    assert len(set(reasons)) == 3
+    assert any("judge model" in reason for reason in reasons)
+    assert any("no TLS" in reason for reason in reasons)
+    assert any("logic.race" in reason for reason in reasons)
+    assert "<tr><td>OWASP LLM Top 10</td><td>0</td><td>0</td><td>10</td></tr>" in html
+    assert "<tr><td>OWASP Web Top 10</td><td>0</td><td>1</td><td>9</td></tr>" in html
+
+
 def test_unknown_taxonomy_id_is_rejected() -> None:
     controls = [{"id": "x", "target": "chat", "result": "fail", "taxonomy": "owasp-llm:LLM99"}]
     with pytest.raises(ValueError, match="unknown taxonomy id owasp-llm:LLM99"):

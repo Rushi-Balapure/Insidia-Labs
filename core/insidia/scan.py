@@ -305,15 +305,8 @@ def _scan_targets(
                 )
             records.extend(family_records)
             result = _family_result(family_records)
-            controls.append(
-                _recorded(
-                    policy,
-                    family,
-                    target.name,
-                    result,
-                    _detail(result, reasons, family_records),
-                )
-            )
+            detail = _detail(result, reasons, family_records)
+            controls.append(_recorded(policy, family, target.name, result, detail))
             # A limited run is too shallow to credit. A finding still names the engine that saw it.
             finished = tuple(
                 record.engine
@@ -328,7 +321,7 @@ def _scan_targets(
                     family,
                     finished,
                     result,
-                    _detail(result, reasons, family_records),
+                    detail,
                     time.monotonic() - began,
                 ),
             )
@@ -453,17 +446,17 @@ def _target_facts(project: Project) -> tuple[tuple[str, str, str], ...]:
 
 
 def _recorded(
-    policy: Policy, family: str, target: str, result: str, reason: str = ""
+    policy: Policy, family: str, target: str, result: str, detail: str = ""
 ) -> dict[str, str]:
-    recorded = {
+    row = {
         "id": family,
         "target": target,
         "result": result,
         "taxonomy": ",".join(policy.control(family).taxonomy),
     }
-    if reason:
-        recorded["reason"] = reason
-    return recorded
+    if detail:
+        row["detail"] = detail
+    return row
 
 
 def _validate_targets(project: Project, root: Path) -> None:

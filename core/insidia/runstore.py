@@ -495,7 +495,8 @@ def _render(
         (
             '<p class="note">This report is test evidence mapped to framework ids. '
             "It is not a certification. A pass means our probes did not trigger, "
-            "not that the risk is absent.</p>"
+            "not that the risk is absent. Checks that were not tested are not "
+            "evidence that those risks are absent.</p>"
         ),
         '<h2 id="targets">Targets</h2>',
         _targets_table(findings, controls, targets),
@@ -767,7 +768,6 @@ def _remediation_table(findings: list[Finding]) -> str:
 
 
 def _coverage_by_target(controls: list[dict[str, str]], skips: list[str]) -> str:
-    del skips
     if not controls:
         return '<p class="note">No checks were recorded.</p>'
     by_target: dict[str, list[dict[str, str]]] = {}
@@ -783,7 +783,7 @@ def _coverage_by_target(controls: list[dict[str, str]], skips: list[str]) -> str
                 "pass": ("PASS", "pass"),
                 "not tested": ("NOT TESTED", "nt"),
             }.get(result, (result.upper() or "NOT TESTED", "nt"))
-            why = _coverage_why(control)
+            why = _coverage_why(control, skips)
             body.append(
                 "<tr>"
                 f'<td data-l="Check"><code>{_escape(str(control.get("id", "")))}</code></td>'
@@ -800,18 +800,35 @@ def _coverage_by_target(controls: list[dict[str, str]], skips: list[str]) -> str
     return "\n".join(blocks)
 
 
-def _coverage_why(control: dict[str, str]) -> str:
-    detail = control.get("detail", "")
+# Same cause, so the same sentence. Different causes must not share this text.
+_JUDGE_WHY = {
+    "ai.harmful_content_policy": "needs a judge model: `models: {}`",
+    "ai.bias": "needs a judge model: `models: {}`",
+    "ai.citation_groundedness": "needs a judge model: `models: {}`",
+}
+
+
+def _coverage_why(control: dict[str, str], skips: list[str]) -> str:
+    detail = control.get("detail", "").strip()
     if detail:
         return detail
     result = control.get("result", "")
+    family = str(control.get("id", ""))
+    target = str(control.get("target", ""))
     if result == "fail":
         return "A probe reported this check."
     if result == "pass":
         return "Probes ran and did not trigger."
-    if result == "not tested":
-        return "This check did not run."
-    return "No result recorded."
+    if result != "not tested":
+        return result or "No result recorded."
+    for skip in skips:
+        if family and family in skip:
+            return skip
+    if family in _JUDGE_WHY:
+        return _JUDGE_WHY[family]
+    if family:
+        return f"{family} was not run for {target or 'this target'}"
+    return "No check id was recorded for this row."
 
 
 def _scan_table(

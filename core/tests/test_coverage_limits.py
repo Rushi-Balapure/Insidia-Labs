@@ -155,7 +155,7 @@ targets:
     for family in ("web.ssti", "web.cmdi", "web.path_lfi", "api.bola_idor"):
         rows = _rows(benchmark, family)
         assert rows and {row["result"] for row in rows} == {"not tested"}
-        assert all(_NO_PAYLOAD in row["reason"] for row in rows)
+        assert all(_NO_PAYLOAD in row["detail"] for row in rows)
     cve = _rows(benchmark, "infra.cve")
     assert {row["result"] for row in cve} == {"fail"}
     assert "infra.cve" in benchmark["finding_attacks"]
@@ -256,7 +256,7 @@ targets:
         )
     rows = _rows(benchmark, "ai.data_leakage")
     assert rows and {row["result"] for row in rows} == {"not tested"}
-    assert all(_NO_PAYLOAD in row["reason"] for row in rows)
+    assert all(_NO_PAYLOAD in row["detail"] for row in rows)
     # Preflight still checks the endpoint. The probes themselves do not.
     assert len(recorder.requests) == 1
 
