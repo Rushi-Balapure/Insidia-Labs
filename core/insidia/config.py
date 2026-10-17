@@ -113,15 +113,24 @@ class Project:
     judge: ModelRole | None
 
 
+def init_destination(path: Path) -> Path:
+    """File init will write. A directory means ``<directory>/insidia.yaml``."""
+    if path.is_dir():
+        return path / "insidia.yaml"
+    return path
+
+
 def init_config(
-    directory: Path,
+    destination: Path,
     *,
     url: str | None = None,
     kind: str | None = None,
 ) -> Path:
-    destination = directory / "insidia.yaml"
-    if destination.exists():
-        raise ConfigError(f"{destination} already exists")
+    path = init_destination(destination)
+    if path.exists():
+        raise ConfigError(f"{path} already exists")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    destination = path
     if url is None and kind is None:
         destination.write_text(_INIT)
         return destination

@@ -10,10 +10,16 @@ import webbrowser
 from pathlib import Path
 
 from insidia import version_text
-from insidia.config import init_config, load_project, prepare_init_kind, prepare_init_url
+from insidia.config import (
+    init_config,
+    init_destination,
+    load_project,
+    prepare_init_kind,
+    prepare_init_url,
+)
 from insidia.doctor import diagnose
 from insidia.engines import install, list_engines
-from insidia.errors import CliError
+from insidia.errors import CliError, ConfigError
 from insidia.mcp import serve
 from insidia.policy import POLICIES, get_policy
 from insidia.runstore import latest_run, read_manifest, verdict_text
@@ -242,12 +248,15 @@ def _run(args: argparse.Namespace) -> int:
     if args.command == "init":
         url = args.url
         kind = args.kind
+        destination = init_destination(Path(args.config))
+        if destination.exists():
+            raise ConfigError(f"{destination} already exists")
         if url is not None:
             prepare_init_url(url)
         if kind is not None:
             prepare_init_kind(url or "http://127.0.0.1:8080/chat", kind)
-        _progress(args, "Writing insidia.yaml in this directory.")
-        path = init_config(Path.cwd(), url=url, kind=kind)
+        _progress(args, f"Writing {destination}.")
+        path = init_config(Path(args.config), url=url, kind=kind)
         written = url or "http://127.0.0.1:8080/chat"
         document: dict[str, object] = {"wrote": path.name, "url": written}
         text = f"Wrote {path.name} with targets.app.url {written}."
