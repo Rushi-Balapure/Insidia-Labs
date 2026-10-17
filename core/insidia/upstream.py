@@ -234,15 +234,37 @@ def _web_prepare(engine: str) -> Callable[[ProbeSpec, ScopedUrl, Path], Invocati
                 "-silent",
                 "-disable-update-check",
                 "-no-interactsh",
+                # Nuclei follows off-host redirects only when -fr is set. -dr
+                # keeps that off even if a template asks to follow.
+                "-dr",
             )
         elif engine == "zap":
+            # The plan already names a context for this URL. No proxy.
             (workspace / "plan.yaml").write_text(_zap_plan(url, workspace, report))
             args = ("-cmd", "-silent", "-autorun", str(workspace / "plan.yaml"))
         elif engine == "dalfox":
+            # -F / --follow-redirects is off unless passed. Do not pass it.
             args = ("url", "--url", url, "--format", "json", "--output", report, "--silence")
         elif engine == "katana":
-            args = ("-u", url, "-silent", "-jsonl", "-o", report, "-d", "1")
+            # Katana follows redirects unless -dr is set. Default field scope
+            # is the registrable domain, so pin the crawl to this origin.
+            args = (
+                "-u",
+                url,
+                "-silent",
+                "-jsonl",
+                "-o",
+                report,
+                "-d",
+                "1",
+                "-dr",
+                "-fs",
+                "fqdn",
+                "-cs",
+                _origin_scope(url),
+            )
         elif engine == "httpx":
+            # httpx follows redirects only with -fr. Do not pass it.
             args = ("-u", url, "-silent", "-json", "-o", report, "-irr")
         else:
             raise ValueError(engine)
@@ -709,6 +731,11 @@ def _nuclei_path(view: ScopedUrl) -> str:
 def _origin(url: str) -> str:
     parsed = urlparse(url)
     return f"{parsed.scheme}://{parsed.netloc}"
+
+
+def _origin_scope(url: str) -> str:
+    """Katana `-cs` regex. Only URLs on this origin are in scope."""
+    return rf"^{re.escape(_origin(url))}(?:/|$)"
 
 
 def _nuclei_yaml(path: str) -> str:

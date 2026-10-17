@@ -502,6 +502,41 @@ def test_web_engines_receive_the_query_template(tmp_path: Path) -> None:
         assert "fn=ssti" in blob
 
 
+# Flags that tell the tool to follow a redirect onto another host.
+_OFF_SCOPE_REDIRECT = {
+    "httpx": ("-fr", "-follow-redirects"),
+    "dalfox": ("-F", "--follow-redirects"),
+    "nuclei": ("-fr", "-follow-redirects", "-fhr", "-follow-host-redirects"),
+}
+
+
+def test_crawlers_do_not_follow_redirects_off_scope(tmp_path: Path) -> None:
+    view = ScopedUrl("http://127.0.0.1:8080/call", QUERY)
+    for name, banned in _OFF_SCOPE_REDIRECT.items():
+        workspace = tmp_path / name
+        workspace.mkdir()
+        adapter = _engine(name)
+        invocation = adapter.prepare(adapter.probes[0], view, workspace)  # type: ignore[arg-type]
+        for flag in banned:
+            assert flag not in invocation.args
+        if name == "nuclei":
+            assert "-dr" in invocation.args
+    katana_dir = tmp_path / "katana"
+    katana_dir.mkdir()
+    katana = _engine("katana").prepare(_engine("katana").probes[0], view, katana_dir)  # type: ignore[attr-defined]
+    assert "-dr" in katana.args
+    assert katana.args[katana.args.index("-fs") + 1] == "fqdn"
+    scope = katana.args[katana.args.index("-cs") + 1]
+    assert scope.startswith(r"^http://127\.0\.0\.1:8080")
+    zap_dir = tmp_path / "zap"
+    zap_dir.mkdir()
+    zap = _engine("zap").prepare(_engine("zap").probes[0], view, zap_dir)  # type: ignore[attr-defined]
+    plan = (zap_dir / "plan.yaml").read_text()
+    assert "contexts:" in plan
+    assert "proxy:" not in plan
+    assert "proxy" not in zap.args
+
+
 def test_repo_engines_are_pointed_at_the_repo(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
