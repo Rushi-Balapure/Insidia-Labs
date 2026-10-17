@@ -50,7 +50,7 @@ This skill installs with `npx skills add Rushi-Balapure/Insidia-Labs`, which nee
 
 ## MCP
 
-`insidia mcp` speaks MCP over stdio. Tools are `init`, `doctor`, `scan`, `findings`, and `report`. `scan` runs only when `confirmed` is true, and it reads `insidia.yaml`. It does not take a URL.
+`insidia mcp` speaks MCP over stdio. Tools are `init`, `doctor`, `scan`, `findings`, and `report`. `scan` runs only when `confirmed` is true, and it reads `insidia.yaml`. It does not take a URL. A localhost scope can run that way. Any other host needs `insidia mcp --allow-remote` or `INSIDIA_MCP_ALLOW_REMOTE=1` set by the person who starts the server. Do not treat `confirmed: true` as permission for a non-local host.
 
 ## Rules
 

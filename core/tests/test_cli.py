@@ -158,6 +158,20 @@ targets:
     assert code == 2
 
 
+def test_mcp_allow_remote_is_a_launch_flag(monkeypatch: object) -> None:
+    seen: dict[str, object] = {}
+
+    def fake_serve(*_args: object, allow_remote: bool = False) -> int:
+        seen["allow_remote"] = allow_remote
+        return 0
+
+    monkeypatch.setattr("insidia.cli.serve", fake_serve)  # type: ignore[attr-defined]
+    assert main(["mcp"]) == 0
+    assert seen["allow_remote"] is False
+    assert main(["mcp", "--allow-remote"]) == 0
+    assert seen["allow_remote"] is True
+
+
 def test_engine_install_names_each_engine(monkeypatch: object) -> None:
     monkeypatch.setattr(  # type: ignore[attr-defined]
         "insidia.engines._install_one",

@@ -123,7 +123,7 @@ Paste this into Claude Code, Cursor, Codex, or any agent that can run a shell:
 Test this app with Insidia. Only scan localhost, and open the report when you're done.
 ```
 
-You confirm the hosts. The agent should install the CLI, keep the scope you named, read `.insidia/runs/<run-id>/findings.json`, and open `report.html`. The skill is `skills/insidia/SKILL.md` (`npx skills add Rushi-Balapure/Insidia-Labs`, which needs Node.js 22 or later). `insidia mcp` is the local MCP server over stdio. It reads newline-delimited JSON-RPC or Content-Length framing and negotiates MCP 2025-06-18, 2025-03-26, or 2024-11-05. The CLI remains the contract: `--json`, `--yes`, and stable exit codes.
+You confirm the hosts. The agent should install the CLI, keep the scope you named, read `.insidia/runs/<run-id>/findings.json`, and open `report.html`. The skill is `skills/insidia/SKILL.md` (`npx skills add Rushi-Balapure/Insidia-Labs`, which needs Node.js 22 or later). `insidia mcp` is the local MCP server over stdio. It reads newline-delimited JSON-RPC or Content-Length framing and negotiates MCP 2025-06-18, 2025-03-26, or 2024-11-05. A localhost scope can be scanned through it. Any other host needs `insidia mcp --allow-remote` or `INSIDIA_MCP_ALLOW_REMOTE=1` when the server starts. The CLI remains the contract: `--json`, `--yes`, and stable exit codes.
 
 ## Planned coverage
 

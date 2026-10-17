@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import BinaryIO, cast
 
@@ -13,18 +14,35 @@ from insidia.errors import CliError
 from insidia.policy import POLICIES
 from insidia.runstore import latest_run
 from insidia.scan import execute
+from insidia.scope import needs_confirmation
 
 # Newest first. A client that asks for one of these gets it back. Any other
 # request gets the newest, and the client decides whether to continue.
 PROTOCOLS = ("2025-06-18", "2025-03-26", "2024-11-05")
+# Set only by `insidia mcp --allow-remote`. The model cannot set this.
+_allow_remote = False
+_REMOTE_REFUSAL = (
+    "non-local scope is refused over MCP; "
+    "start the server with --allow-remote or INSIDIA_MCP_ALLOW_REMOTE=1"
+)
 
 
-def serve(stdin: BinaryIO, stdout: BinaryIO) -> int:
+def serve(stdin: BinaryIO, stdout: BinaryIO, allow_remote: bool = False) -> int:
     """Newline-delimited JSON-RPC, as the MCP stdio transport specifies.
 
     Content-Length framing from older clients is still read, and those
     clients get framed replies.
     """
+    global _allow_remote
+    previous = _allow_remote
+    _allow_remote = allow_remote
+    try:
+        return _serve(stdin, stdout)
+    finally:
+        _allow_remote = previous
+
+
+def _serve(stdin: BinaryIO, stdout: BinaryIO) -> int:
     while True:
         try:
             read = _read(stdin)
@@ -107,6 +125,13 @@ def _doctor(arguments: dict[str, object]) -> dict[str, object]:
     return {"checks": checks}
 
 
+def _remote_allowed() -> bool:
+    """Human opt-in for a non-local scope. A tool argument cannot set this."""
+    if _allow_remote:
+        return True
+    return os.environ.get("INSIDIA_MCP_ALLOW_REMOTE") == "1"
+
+
 def _scan(arguments: dict[str, object]) -> dict[str, object]:
     if arguments.get("confirmed") is not True:
         raise CliError("scan requires confirmed true after the user names the hosts")
@@ -115,6 +140,8 @@ def _scan(arguments: dict[str, object]) -> dict[str, object]:
         raise CliError(f"unknown policy {policy}")
     policy_name = policy if isinstance(policy, str) else None
     project = load_project(Path("insidia.yaml"))
+    if needs_confirmation(project.scope) and not _remote_allowed():
+        raise CliError(_REMOTE_REFUSAL)
     outcome = execute(project, Path.cwd(), policy_name=policy_name, assume_yes=True)
     return {
         "schema_version": "2.0",
@@ -238,14 +265,21 @@ _TOOLS: tuple[dict[str, object], ...] = (
     },
     {
         "name": "scan",
-        "description": "Scan the hosts already listed in insidia.yaml. Does not accept a URL.",
+        "description": (
+            "Scan the hosts already listed in insidia.yaml. Does not accept a URL. "
+            "Localhost scope only, unless the server was started with --allow-remote "
+            "or INSIDIA_MCP_ALLOW_REMOTE=1."
+        ),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "policy": {"type": "string", "enum": ["L1", "L2", "L3"]},
                 "confirmed": {
                     "type": "boolean",
-                    "description": "True only after the user names the hosts to test.",
+                    "description": (
+                        "True only after the user names the hosts to test. "
+                        "This does not authorize a non-local scope."
+                    ),
                 },
             },
             "required": ["confirmed"],

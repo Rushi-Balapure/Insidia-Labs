@@ -80,6 +80,7 @@ Scans again with the policy and coverage recorded for that run. If `insidia.yaml
 
 ```bash
 insidia mcp
+insidia mcp --allow-remote
 ```
 
-Speaks MCP over stdio. Tools: `init`, `doctor`, `scan`, `findings`, `report`. `scan` requires `confirmed: true` and reads `insidia.yaml`. It does not accept a URL. See [Use a coding agent](/docs/start/agent/).
+Speaks MCP over stdio. Tools: `init`, `doctor`, `scan`, `findings`, `report`. `scan` requires `confirmed: true` and reads `insidia.yaml`. It does not accept a URL. Localhost, `127.0.0.1`, and `::1` run by default. A scope that names any other host is refused unless the person who starts the server passes `--allow-remote` or sets `INSIDIA_MCP_ALLOW_REMOTE=1`. The calling model cannot turn that on. See [Use a coding agent](/docs/start/agent/).

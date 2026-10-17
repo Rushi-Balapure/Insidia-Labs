@@ -184,14 +184,20 @@ def main(argv: list[str] | None = None) -> int:
         description="Scan again with the policy and config recorded for a run.",
     )
     rerun.add_argument("run_id", nargs="?", help="run to repeat (default: the latest run)")
-    subcommands.add_parser(
+    mcp = subcommands.add_parser(
         "mcp",
         parents=[shared],
         help="serve local MCP tools on stdin and stdout",
         description=(
             "Serve local MCP tools on stdin and stdout. "
-            "The tools read insidia.yaml and do not take a URL."
+            "The tools read insidia.yaml and do not take a URL. "
+            "A non-local scope runs only with --allow-remote or INSIDIA_MCP_ALLOW_REMOTE=1."
         ),
+    )
+    mcp.add_argument(
+        "--allow-remote",
+        action="store_true",
+        help="allow a scan whose scope names a host other than localhost",
     )
 
     args = parser.parse_args(argv)
@@ -332,7 +338,7 @@ def _run(args: argparse.Namespace) -> int:
         _emit(args.json, {"report": str(report_path), "opened": opened}, text)
         return 0
     if args.command == "mcp":
-        return serve(sys.stdin.buffer, sys.stdout.buffer)
+        return serve(sys.stdin.buffer, sys.stdout.buffer, allow_remote=args.allow_remote)
     raise CliError(f"unknown command {args.command}")
 
 

@@ -4,6 +4,7 @@ from pathlib import Path
 
 from insidia.mcp import PROTOCOLS, dispatch, serve
 from insidia.scan import ScanOutcome
+from insidia.scope import ScopeHost
 
 
 def test_initialize_and_list_tools() -> None:
@@ -46,7 +47,10 @@ def test_scan_runs_only_the_project_file(tmp_path: Path, monkeypatch: object) ->
         return ScanOutcome("run-1", tmp_path / "run", True, [], [])
 
     monkeypatch.setattr("insidia.mcp.execute", fake_execute)  # type: ignore[attr-defined]
-    monkeypatch.setattr("insidia.mcp.load_project", lambda _path: object())  # type: ignore[attr-defined]
+    monkeypatch.setattr(
+        "insidia.mcp.load_project",
+        lambda _path: _project((ScopeHost("127.0.0.1", False),)),
+    )  # type: ignore[attr-defined]
     response = dispatch(
         {
             "jsonrpc": "2.0",
@@ -60,6 +64,65 @@ def test_scan_runs_only_the_project_file(tmp_path: Path, monkeypatch: object) ->
     assert body["run_id"] == "run-1"
     assert seen["assume_yes"] is True
     assert seen["policy_name"] == "L1"
+
+
+def test_scan_refuses_non_local_scope_without_a_human_switch(
+    tmp_path: Path, monkeypatch: object
+) -> None:
+    monkeypatch.chdir(tmp_path)  # type: ignore[attr-defined]
+    (tmp_path / "insidia.yaml").write_text("version: 1\n")
+    remote = (ScopeHost("::ffff:127.0.0.1", True),)
+
+    def explode(*_args: object, **_kwargs: object) -> ScanOutcome:
+        raise AssertionError("scan should not run")
+
+    monkeypatch.setattr("insidia.mcp.execute", explode)  # type: ignore[attr-defined]
+    monkeypatch.setattr(
+        "insidia.mcp.load_project", lambda _path: _project(remote)
+    )  # type: ignore[attr-defined]
+    response = _scan_call()
+    assert response is not None
+    assert response["result"]["isError"] is True
+    assert "INSIDIA_MCP_ALLOW_REMOTE" in response["result"]["content"][0]["text"]
+
+    monkeypatch.setenv("INSIDIA_MCP_ALLOW_REMOTE", "1")  # type: ignore[attr-defined]
+    seen: dict[str, object] = {}
+
+    def fake_execute(*_args: object, **kwargs: object) -> ScanOutcome:
+        seen.update(kwargs)
+        return ScanOutcome("run-1", tmp_path / "run", True, [], [])
+
+    monkeypatch.setattr("insidia.mcp.execute", fake_execute)  # type: ignore[attr-defined]
+    allowed = _scan_call()
+    assert allowed is not None
+    assert allowed["result"]["isError"] is False
+    assert seen["assume_yes"] is True
+
+    monkeypatch.delenv("INSIDIA_MCP_ALLOW_REMOTE", raising=False)  # type: ignore[attr-defined]
+    monkeypatch.setattr("insidia.mcp._allow_remote", True)  # type: ignore[attr-defined]
+    flagged = _scan_call()
+    assert flagged is not None
+    assert flagged["result"]["isError"] is False
+
+
+def _project(scope: tuple[ScopeHost, ...]) -> object:
+    class _Loaded:
+        pass
+
+    loaded = _Loaded()
+    loaded.scope = scope  # type: ignore[attr-defined]
+    return loaded
+
+
+def _scan_call() -> dict[str, object] | None:
+    return dispatch(
+        {
+            "jsonrpc": "2.0",
+            "id": 4,
+            "method": "tools/call",
+            "params": {"name": "scan", "arguments": {"confirmed": True, "policy": "L1"}},
+        }
+    )
 
 
 def test_init_writes_localhost_scope(tmp_path: Path, monkeypatch: object) -> None:
