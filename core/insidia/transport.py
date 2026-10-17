@@ -283,10 +283,15 @@ def fetch(
     current = url
     request_headers = dict(headers or {})
     for _ in range(4):
-        check_url(current, scope)
+        try:
+            check_url(current, scope)
+        except ScopeError as exc:
+            if current == origin:
+                raise
+            raise _refused_hop(current, str(exc)) from exc
         refusal = redirect_refusal(origin, current)
         if refusal is not None:
-            raise ScopeError(refusal)
+            raise _refused_hop(current, refusal)
         if limiter is not None:
             limiter.wait()
         request = urllib.request.Request(
@@ -357,11 +362,18 @@ def _refuse_unrequested_location(origin: str, nxt: str, scope: tuple[ScopeHost, 
     """
     try:
         check_url(nxt, scope)
-        refusal = redirect_refusal(origin, nxt)
+    except ScopeError as exc:
+        raise _refused_hop(nxt, str(exc)) from exc
     except ConfigError:
         return
+    refusal = redirect_refusal(origin, nxt)
     if refusal is not None:
-        raise ScopeError(refusal)
+        raise _refused_hop(nxt, refusal)
+
+
+def _refused_hop(hop: str, reason: str) -> ScopeError:
+    """The next URL was not requested. The message names that hop."""
+    return ScopeError(f"refused redirect to {hop} ({reason})")
 
 
 def repo_path(target: Target, root: Path) -> Path:

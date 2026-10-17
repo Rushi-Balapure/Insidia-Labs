@@ -296,7 +296,7 @@ def test_spaced_location_that_changes_port_is_not_contacted() -> None:
 
 
 def test_scan_refuses_a_same_host_port_change(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     hit = {"followed": False}
 
@@ -349,8 +349,134 @@ targets:
         server.shutdown()
         other.shutdown()
     assert code == 2
-    assert "redirect changed port" in capsys.readouterr().out
     assert hit["followed"] is False
+    benchmark = json.loads(_latest(tmp_path, "benchmark.json").read_text())
+    text = json.dumps(benchmark)
+    hop = f"http://127.0.0.1:{other_port}/secret"
+    assert f"hop: refused redirect to {hop}" in text
+    assert "redirect changed port" in text
+    assert benchmark["execution_status"] == "incomplete"
+
+
+def test_a_refused_redirect_keeps_the_earlier_target(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    code, benchmark, findings, followed, hop = _scan_then_refuse_redirect(
+        tmp_path, monkeypatch, finding=False
+    )
+    assert code == 2
+    assert findings == []
+    assert followed == 0
+    assert benchmark["execution_status"] == "incomplete"
+    assert any(
+        row["target"] == "kept" and row["result"] == "pass" for row in benchmark["controls"]
+    )
+    refused = json.dumps([row for row in benchmark["controls"] if row["target"] == "second"])
+    assert f"second: refused redirect to {hop}" in refused
+    assert "redirect changed port" in refused
+
+
+def test_a_refused_redirect_keeps_an_earlier_finding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    code, benchmark, findings, followed, hop = _scan_then_refuse_redirect(
+        tmp_path, monkeypatch, finding=True
+    )
+    assert code == 1
+    assert followed == 0
+    assert any(
+        item["target"] == "kept" and item["attack"] == "web.open_redirect" for item in findings
+    )
+    refused = json.dumps(benchmark)
+    assert f"second: refused redirect to {hop}" in refused
+    assert "redirect changed port" in refused
+
+
+def _scan_then_refuse_redirect(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, finding: bool
+) -> tuple[int, dict[str, object], list[dict[str, object]], int, str]:
+    """Scan a finished target, then refuse a port-changing redirect on the next one."""
+    followed = {"n": 0}
+
+    class Other(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            followed["n"] += 1
+            self.send_response(200)
+            self.end_headers()
+
+        def log_message(self, fmt: str, *args: object) -> None:
+            return
+
+    other = ThreadingHTTPServer(("127.0.0.1", 0), Other)
+    other_port = int(other.server_address[1])
+    hop = f"http://127.0.0.1:{other_port}/secret"
+
+    class Kept(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            if finding and "insidia-redirect.invalid" in self.path:
+                self.send_response(302)
+                self.send_header("Location", "https://insidia-redirect.invalid/")
+                self.end_headers()
+                return
+            body = b"ok"
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, fmt: str, *args: object) -> None:
+            return
+
+    class Second(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            self.send_response(302)
+            self.send_header("Location", hop)
+            self.end_headers()
+
+        def log_message(self, fmt: str, *args: object) -> None:
+            return
+
+    kept = ThreadingHTTPServer(("127.0.0.1", 0), Kept)
+    second = ThreadingHTTPServer(("127.0.0.1", 0), Second)
+    for server in (other, kept, second):
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+    monkeypatch.setenv("INSIDIA_TOOLCHAIN", str(tmp_path / "toolchain"))
+    kept_port = int(kept.server_address[1])
+    second_port = int(second.server_address[1])
+    (tmp_path / "insidia.yaml").write_text(
+        f"""\
+version: 1
+scope:
+  - host: 127.0.0.1
+targets:
+  kept:
+    kind: web
+    url: http://127.0.0.1:{kept_port}/hello
+    method: GET
+    query:
+      q: "{{{{payload}}}}"
+    rate_limit:
+      rps: 100
+      concurrency: 1
+  second:
+    kind: web
+    url: http://127.0.0.1:{second_port}/go
+    method: GET
+    query:
+      q: "{{{{payload}}}}"
+    rate_limit:
+      rps: 100
+      concurrency: 1
+"""
+    )
+    try:
+        code = main(["scan", "--config", str(tmp_path / "insidia.yaml"), "--quiet"])
+    finally:
+        for server in (kept, second, other):
+            server.shutdown()
+    benchmark = json.loads(_latest(tmp_path, "benchmark.json").read_text())
+    findings = json.loads(_latest(tmp_path, "findings.json").read_text())
+    return code, benchmark, findings, followed["n"], hop
 
 
 def test_local_command_is_not_executed(tmp_path: Path) -> None:

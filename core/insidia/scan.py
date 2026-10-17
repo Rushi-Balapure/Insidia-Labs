@@ -199,7 +199,12 @@ def _scan_targets(
             )
             continue
         families = policy.families(target.kind)
-        unreachable = preflight(target, project.scope, root) if families else ""
+        try:
+            unreachable = preflight(target, project.scope, root) if families else ""
+        except ScopeError as exc:
+            # Contact already started. Keep earlier targets and finish the run.
+            _record_refused_redirect(target, exc, skips, records, progress)
+            continue
         if unreachable:
             reason = short(mask(unreachable), limit=140)
             skips.append(f"{target.name}: {reason}")
@@ -258,10 +263,17 @@ def _scan_targets(
                     notes.append(note)
                     _say(progress, Event("note", detail=note))
                 adapter, spec = find(capability.probe)
+                reason_limit = 90
                 try:
                     attempt = run(adapter, spec, target, project, root, policy.control(family))
-                except (EngineFailed, ProbeError) as exc:
+                except ScopeError as exc:
+                    # A hop refused mid-check is this check's result, not a scan abort.
                     attempt_hits: tuple[ProbeHit, ...] = ()
+                    error = _refused_redirect(target, exc)
+                    untested = ""
+                    reason_limit = 300
+                except (EngineFailed, ProbeError) as exc:
+                    attempt_hits = ()
                     error = str(exc)
                     untested = ""
                 else:
@@ -270,7 +282,7 @@ def _scan_targets(
                     untested = attempt.untested
                 hits.extend(attempt_hits)
                 if error:
-                    reason = short(mask(error))
+                    reason = short(mask(error), limit=reason_limit)
                     reasons.append(reason)
                     skips.append(f"{capability.engine}: {reason}")
                     family_records.append(
@@ -457,6 +469,27 @@ def _recorded(
     if detail:
         row["detail"] = detail
     return row
+
+
+def _refused_redirect(target: Target, exc: ScopeError) -> str:
+    """Names the target and the hop a mid-scan redirect refusal would not request."""
+    return f"{target.name}: {exc}"
+
+
+def _record_refused_redirect(
+    target: Target,
+    exc: ScopeError,
+    skips: list[str],
+    records: list[CheckRecord],
+    progress: Callable[[Event], None] | None,
+) -> None:
+    reason = short(mask(_refused_redirect(target, exc)), limit=300)
+    skips.append(reason)
+    records.append(CheckRecord(target.name, "target", "", ERROR, reason))
+    _say(
+        progress,
+        Event("end", target.name, "target", result="inconclusive", detail=reason),
+    )
 
 
 def _validate_targets(project: Project, root: Path) -> None:
