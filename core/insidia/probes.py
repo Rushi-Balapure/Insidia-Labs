@@ -330,7 +330,8 @@ def _paired_tls(
         return [], str(exc), ""
     if ORACLES["infra.tls"]("proto", planted, target) is not None:
         return [EngineHit("insidia-tls", "proto", planted, planted)], "", ""
-    assert target.url is not None
+    if target.url is None:
+        raise ConfigError(f"{target.name} needs a url")
     parsed = urlparse(target.url)
     if parsed.scheme not in {"https", "wss"} or parsed.hostname is None:
         return [], "", f"{parsed.scheme}:// target has no TLS to test"
@@ -406,7 +407,8 @@ def _paired_cve(
         return [], str(exc), ""
     if ORACLES["infra.cve"]("banner", planted, target) is not None:
         return [EngineHit("insidia-banner", "banner", planted, planted)], "", ""
-    assert target.url is not None
+    if target.url is None:
+        raise ConfigError(f"{target.name} needs a url")
     try:
         _status, headers, _body = fetch(target.url, scope, headers=dict(target.headers))
     except ProbeError as exc:

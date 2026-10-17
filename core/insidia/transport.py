@@ -146,7 +146,8 @@ def _app_answer(target: Target, missing: HttpStatus, scope: tuple[ScopeHost, ...
     `/file?name=hello` may answer "no such file", and that is the app talking.
     A 404 that matches the catch-all page means the route itself is wrong.
     """
-    assert target.url is not None
+    if target.url is None:
+        raise ConfigError(f"{target.name} needs a url")
     parsed = urlparse(target.url)
     missing_path = f"/insidia-no-such-route-{os.urandom(4).hex()}"
     probe = urlunparse(parsed._replace(path=missing_path, query=""))
@@ -158,7 +159,8 @@ def _app_answer(target: Target, missing: HttpStatus, scope: tuple[ScopeHost, ...
 
 
 def _http(target: Target, payload: str, scope: tuple[ScopeHost, ...]) -> str:
-    assert target.url is not None
+    if target.url is None:
+        raise ConfigError(f"{target.name} needs a url")
     limiter, gate = _slot(target)
     url = _with_query(_in_path(target.url, payload), target.query, payload)
     method = target.method
@@ -180,10 +182,12 @@ def _http(target: Target, payload: str, scope: tuple[ScopeHost, ...]) -> str:
 
 
 def _websocket(target: Target, payload: str, scope: tuple[ScopeHost, ...]) -> str:
-    assert target.url is not None
+    if target.url is None:
+        raise ConfigError(f"{target.name} needs a url")
     check_url(target.url, scope)
     parsed = urlparse(target.url)
-    assert parsed.hostname is not None
+    if parsed.hostname is None:
+        raise ConfigError("URL is missing a host")
     port = parsed.port or (443 if parsed.scheme == "wss" else 80)
     sock = socket.create_connection((parsed.hostname, port), timeout=10)
     try:
