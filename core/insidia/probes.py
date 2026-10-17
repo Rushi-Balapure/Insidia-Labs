@@ -465,10 +465,112 @@ def _paired_cve(
     return [], "", f"no known-vulnerable version in {banner[:60]}"
 
 
+# A database error that is already on the baseline page is the app's normal reply.
+_SQL_ERROR = re.compile(
+    r"sqlite3\.OperationalError"
+    r"|unrecognized token"
+    r"|syntax error near"
+    r"|SQLSTATE"
+    r"|You have an error in your SQL syntax"
+    r"|PG::SyntaxError"
+    r"|ORA-\d*"
+    r"|near\s+[\"'].{0,40}?syntax error",
+    re.IGNORECASE,
+)
+_SQLI_BASELINE = "aa"
+_SQLI_TRUE = "' OR '1'='1"
+_SQLI_FALSE = "' AND '1'='2"
+_SQLI_QUOTE = "'"
+# Echoing a short payload changes the length by a few bytes. A real boolean
+# leak returns the rows the true condition added.
+_SQLI_GROWTH = 48
+
+
+def _paired_sqli(
+    target: Target,
+    scope: tuple[ScopeHost, ...],
+    root: Path,
+) -> tuple[list[EngineHit], str, str]:
+    """Error-based and boolean-based SQL injection, each compared with a baseline.
+
+    A quote that produces a database error only on the attack, or a true
+    condition that returns more rows than both the baseline and a false
+    condition, is a finding. The same error on every reply is not.
+    """
+    try:
+        baseline = _send(target, _SQLI_BASELINE, scope, root)
+        quoted = _send(target, _SQLI_QUOTE, scope, root)
+        truth = _send(target, _SQLI_TRUE, scope, root)
+        falsehood = _send(target, _SQLI_FALSE, scope, root)
+    except ProbeError as exc:
+        return [], str(exc), ""
+    for payload, body in ((_SQLI_QUOTE, quoted), (_SQLI_TRUE, truth), (_SQLI_FALSE, falsehood)):
+        evidence = _sql_error(baseline, payload, body)
+        if evidence is not None:
+            return [EngineHit("insidia-sqli", payload, body, evidence)], "", ""
+    evidence = _boolean_sqli(baseline, truth, falsehood)
+    if evidence is not None:
+        return [EngineHit("insidia-sqli", _SQLI_TRUE, truth, evidence)], "", ""
+    return [], "", ""
+
+
+def _sql_error(baseline: str, attack: str, response: str) -> str | None:
+    found = _SQL_ERROR.search(response)
+    if found is None:
+        return None
+    evidence = found.group(0)
+    folded = evidence.lower()
+    if folded in baseline.lower() or folded in attack.lower():
+        return None
+    return evidence
+
+
+def _boolean_sqli(baseline: str, truth: str, falsehood: str) -> str | None:
+    base_rows, true_rows, false_rows = (
+        _listed_rows(baseline),
+        _listed_rows(truth),
+        _listed_rows(falsehood),
+    )
+    if base_rows is not None and true_rows is not None and false_rows is not None:
+        if true_rows > base_rows and true_rows > false_rows:
+            return (
+                f"{true_rows} rows for a true condition, "
+                f"{base_rows} for the baseline, {false_rows} for a false condition"
+            )
+        return None
+    if (
+        len(truth) >= len(baseline) + _SQLI_GROWTH
+        and len(truth) >= len(falsehood) + _SQLI_GROWTH
+        and len(truth) > int(len(baseline) * 1.5)
+        and len(truth) > int(len(falsehood) * 1.5)
+    ):
+        return (
+            f"true condition is {len(truth)} bytes, "
+            f"baseline {len(baseline)}, false condition {len(falsehood)}"
+        )
+    return None
+
+
+def _listed_rows(body: str) -> int | None:
+    try:
+        loaded: object = json.loads(body)
+    except json.JSONDecodeError:
+        return None
+    if isinstance(loaded, list):
+        return len(loaded)
+    if isinstance(loaded, dict):
+        for key in ("data", "accounts", "results", "rows", "items"):
+            value = loaded.get(key)
+            if isinstance(value, list):
+                return len(value)
+    return None
+
+
 _PAIRED: dict[
     str, Callable[[Target, tuple[ScopeHost, ...], Path], tuple[list[EngineHit], str, str]]
 ] = {
     "web.ssti": _paired_ssti,
+    "web.sqli": _paired_sqli,
     "api.bola_idor": _paired_bola,
     "infra.tls": _paired_tls,
     "infra.cve": _paired_cve,

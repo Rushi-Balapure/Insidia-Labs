@@ -153,6 +153,7 @@ def test_every_registered_probe_resolves_to_its_adapter(
         "web.cmdi",
         "web.deserialization",
         "web.path_lfi",
+        "web.sqli",
         "web.ssrf",
         "web.ssti",
         "web.xxe",

@@ -223,6 +223,12 @@ _CONTROLS = (
         taxonomy=("owasp-web:A03",),
     ),
     _control(
+        "web.sqli",
+        _WEB_API,
+        "Use parameterised queries so user input is never concatenated into SQL (CWE-89).",
+        taxonomy=("owasp-web:A03", "cwe:CWE-89"),
+    ),
+    _control(
         "web.path_lfi",
         _WEB_API,
         "Do not read files named by the user.",
