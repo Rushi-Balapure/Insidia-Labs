@@ -16,14 +16,12 @@ def diagnose(config_path: Path) -> tuple[list[dict[str, object]], int]:
     checks: list[dict[str, object]] = []
     python_ok = sys.version_info >= (3, 12)
     checks.append({"name": "python", "ok": python_ok, "detail": sys.version.split()[0]})
-    config_ok = False
     if config_path.is_file():
         try:
             project = load_project(config_path)
         except CliError as exc:
             checks.append({"name": "config", "ok": False, "detail": str(exc)})
         else:
-            config_ok = True
             checks.append({"name": "config", "ok": True, "detail": str(config_path.name)})
             checks.extend(_model_checks(project))
     else:
@@ -50,16 +48,12 @@ def diagnose(config_path: Path) -> tuple[list[dict[str, object]], int]:
                 "detail": f"downloaded but cannot run: needs {needs}",
             }
         )
-    code = 0 if python_ok and config_ok and _model_secrets_ready(checks) else 2
+    code = 0 if _required_ok(checks) else 2
     return checks, code
 
 
-def _model_secrets_ready(checks: list[dict[str, object]]) -> bool:
-    for check in checks:
-        if str(check["name"]).startswith("model.") and not check["ok"]:
-            if str(check["detail"]).startswith("environment variable "):
-                return False
-    return True
+def _required_ok(checks: list[dict[str, object]]) -> bool:
+    return all(bool(check["ok"]) or check.get("required") is False for check in checks)
 
 
 def _model_checks(project: Project) -> list[dict[str, object]]:
@@ -82,19 +76,14 @@ def _model_checks(project: Project) -> list[dict[str, object]]:
         except CliError as exc:
             checks.append({"name": f"model.{role.name}", "ok": False, "detail": str(exc)})
             continue
-        checks.append(
-            {
-                "name": f"model.{role.name}",
-                "ok": _reachable(role.base_url, project.scope),
-                "detail": role.base_url,
-            }
-        )
+        ok, detail = _probe_model(role.base_url, project.scope)
+        checks.append({"name": f"model.{role.name}", "ok": ok, "detail": detail})
     return checks
 
 
-def _reachable(url: str, scope: tuple[ScopeHost, ...]) -> bool:
+def _probe_model(url: str, scope: tuple[ScopeHost, ...]) -> tuple[bool, str]:
     try:
         read_url(url, scope, method="GET", timeout=2)
-    except CliError:
-        return False
-    return True
+    except CliError as exc:
+        return False, str(exc)
+    return True, url
