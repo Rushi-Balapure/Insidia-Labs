@@ -76,6 +76,7 @@ def execute(
             f"policy {policy.name} is not available yet. "
             "It runs the same checks as L1, so it is not a higher assurance level. Use L1."
         )
+    _require_model_secrets(project)
     mode = coverage or project.coverage
     config_digest = hashlib.sha256(project.path.read_bytes()).hexdigest()
     bind_secrets(_configured_secrets(project))
@@ -382,6 +383,15 @@ def _finish(
 def _say(progress: Callable[[Event], None] | None, event: Event) -> None:
     if progress is not None:
         progress(event)
+
+
+def _require_model_secrets(project: Project) -> None:
+    """Fail before any probe when a configured model key is missing."""
+    from insidia.config import resolve_secret
+
+    for role in (project.attacker, project.judge):
+        if role is not None and role.secret_ref:
+            resolve_secret(role.secret_ref)
 
 
 def _configured_secrets(project: Project) -> tuple[str, ...]:

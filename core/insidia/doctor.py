@@ -6,7 +6,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from insidia.config import Project, load_project
+from insidia.config import Project, load_project, resolve_secret
 from insidia.errors import CliError
 from insidia.scope import ScopeHost, check_url
 from insidia.transport import read_url
@@ -50,14 +50,32 @@ def diagnose(config_path: Path) -> tuple[list[dict[str, object]], int]:
                 "detail": f"downloaded but cannot run: needs {needs}",
             }
         )
-    code = 0 if python_ok and config_ok else 2
+    code = 0 if python_ok and config_ok and _model_secrets_ready(checks) else 2
     return checks, code
+
+
+def _model_secrets_ready(checks: list[dict[str, object]]) -> bool:
+    for check in checks:
+        if str(check["name"]).startswith("model.") and not check["ok"]:
+            if str(check["detail"]).startswith("environment variable "):
+                return False
+    return True
 
 
 def _model_checks(project: Project) -> list[dict[str, object]]:
     checks: list[dict[str, object]] = []
     for role in (project.attacker, project.judge):
-        if role is None or role.base_url is None:
+        if role is None:
+            continue
+        if role.secret_ref:
+            try:
+                resolve_secret(role.secret_ref)
+            except CliError as exc:
+                checks.append(
+                    {"name": f"model.{role.name}", "ok": False, "detail": str(exc)}
+                )
+                continue
+        if role.base_url is None:
             continue
         try:
             check_url(role.base_url, project.scope)

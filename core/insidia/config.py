@@ -144,12 +144,18 @@ def load_project(path: Path) -> Project:
     return Project(path, 1, policy, coverage, scope, targets, attacker, judge)
 
 
-def resolve_secret(secret_ref: str) -> str:
+def validate_secret_ref(secret_ref: str) -> str:
+    """Return the environment variable name. Does not read its value."""
     if not secret_ref.startswith("env:"):
         raise ConfigError("secret_ref must look like env:NAME")
     name = secret_ref.removeprefix("env:")
     if not _ENV_NAME.fullmatch(name):
         raise ConfigError("secret_ref must name one environment variable")
+    return name
+
+
+def resolve_secret(secret_ref: str) -> str:
+    name = validate_secret_ref(secret_ref)
     value = os.environ.get(name)
     if not value:
         raise ConfigError(f"environment variable {name} is not set")
@@ -232,12 +238,16 @@ def _model(name: str, value: object) -> ModelRole | None:
     entry = _mapping(value, f"models.{name}")
     _unknown(entry, _MODEL_FIELDS, f"models.{name}")
     provider = _text(entry.get("provider"), f"models.{name}.provider")
+    _known_provider(provider)
+    secret_ref = _optional_text(entry.get("secret_ref"), f"models.{name}.secret_ref")
+    if secret_ref is not None:
+        validate_secret_ref(secret_ref)
     return ModelRole(
         name,
         provider,
         _optional_text(entry.get("base_url"), f"models.{name}.base_url"),
         _optional_text(entry.get("model"), f"models.{name}.model"),
-        _optional_text(entry.get("secret_ref"), f"models.{name}.secret_ref"),
+        secret_ref,
     )
 
 
@@ -246,11 +256,20 @@ def _auth(value: object, target: str) -> Auth | None:
         return None
     entry = _mapping(value, f"{target}.auth")
     _unknown(entry, _AUTH_FIELDS, f"{target}.auth")
+    secret_ref = _text(entry.get("secret_ref"), f"{target}.auth.secret_ref")
+    validate_secret_ref(secret_ref)
     return Auth(
         _text(entry.get("header"), f"{target}.auth.header"),
-        _text(entry.get("secret_ref"), f"{target}.auth.secret_ref"),
+        secret_ref,
         _text(entry.get("scheme", "Bearer"), f"{target}.auth.scheme"),
     )
+
+
+def _known_provider(provider: str) -> None:
+    from insidia.providers import KNOWN_PROVIDERS
+
+    if provider not in KNOWN_PROVIDERS:
+        raise ConfigError(f"unknown model provider {provider}")
 
 
 def _timeout(value: object, name: str) -> float:

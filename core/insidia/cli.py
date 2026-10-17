@@ -225,7 +225,7 @@ def _run(args: argparse.Namespace) -> int:
     if args.command == "doctor":
         _progress(args, "Checking Python, the config file, and installed engines.")
         checks, code = diagnose(Path(args.config))
-        lines = [f"{check['name']}: {check['detail']}" for check in checks]
+        lines = [_doctor_line(check) for check in checks]
         _emit(args.json, {"checks": checks}, "\n".join(lines))
         return code
     if args.command == "engines" and args.engine_command in {None, "list"}:
@@ -432,6 +432,13 @@ def _terminal(args: argparse.Namespace) -> Terminal:
 
 def _progress(args: argparse.Namespace, message: str) -> None:
     _terminal(args).line(message)
+
+
+def _doctor_line(check: dict[str, object]) -> str:
+    mark = ""
+    if check.get("required") is not False:
+        mark = "✔ " if check["ok"] else "✘ "
+    return f"{mark}{check['name']}: {check['detail']}"
 
 
 def _emit(as_json: bool, document: dict[str, object], text: str) -> None:
