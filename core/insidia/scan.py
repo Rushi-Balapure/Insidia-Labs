@@ -369,6 +369,7 @@ def _finish(
         policy_verdict=policy_verdict,
         coverage=mode,
         config_text=config_text,
+        targets=_target_facts(project),
     )
     return ScanOutcome(
         run_id,
@@ -428,6 +429,20 @@ def _family_result(records: list[CheckRecord]) -> str:
     if _status == "complete":
         return "not tested"
     return "inconclusive"
+
+
+def _target_facts(project: Project) -> tuple[tuple[str, str, str], ...]:
+    """Name, kind, and endpoint (method plus URL, or the repo path) for the report."""
+    facts: list[tuple[str, str, str]] = []
+    for target in project.targets:
+        if target.kind == "repo":
+            endpoint = target.path or ""
+        elif target.url:
+            endpoint = f"{target.method} {target.url}"
+        else:
+            endpoint = ""
+        facts.append((target.name, target.kind, endpoint))
+    return tuple(facts)
 
 
 def _recorded(

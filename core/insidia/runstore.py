@@ -7,9 +7,10 @@ import json
 import re
 import secrets
 import time
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import UTC, datetime
 from pathlib import Path
+from urllib.parse import urlparse
 
 from insidia import __version__
 from insidia.errors import CliError
@@ -169,6 +170,7 @@ def write_run(
     config_digest: str = "",
     coverage: str = "standard",
     config_text: bytes | None = None,
+    targets: tuple[tuple[str, str, str], ...] = (),
 ) -> Path:
     runs = root / ".insidia" / "runs"
     staging = runs / f".{run_id}.partial"
@@ -178,7 +180,7 @@ def write_run(
     staging.mkdir(parents=True)
     verdict = policy_verdict or ("pass" if passed else "fail")
     passed = legacy_passed(execution_status, verdict)
-    findings = prepare_findings(findings)
+    findings = _stamp_targets(prepare_findings(findings), targets)
     payload = [finding.as_json() for finding in findings]
     (staging / "findings.json").write_text(json.dumps(payload, indent=2) + "\n")
     (staging / "results.sarif").write_text(json.dumps(_sarif(findings), indent=2) + "\n")
@@ -373,11 +375,27 @@ def _sarif_level(severity: str) -> str:
     return "none"
 
 
-def _sarif_location(location: str) -> dict[str, object] | None:
-    if not location:
+def _stamp_targets(
+    findings: list[Finding], targets: tuple[tuple[str, str, str], ...]
+) -> list[Finding]:
+    known = {name: (kind, endpoint) for name, kind, endpoint in targets}
+    stamped: list[Finding] = []
+    for finding in findings:
+        kind, endpoint = known.get(finding.target, ("", ""))
+        stamped.append(
+            replace(
+                finding,
+                target_kind=kind or finding.target_kind,
+                endpoint=endpoint or finding.endpoint,
+            )
+        )
+    return stamped
+
+
+def _file_location(location: str) -> dict[str, object] | None:
+    """A repository path stays file:line. A URL is not a file."""
+    if not location or "://" in location:
         return None
-    if "://" in location:
-        return {"physicalLocation": {"artifactLocation": {"uri": location}}}
     path, separator, line = location.rpartition(":")
     if separator and line.isdigit() and path:
         return {
@@ -387,6 +405,60 @@ def _sarif_location(location: str) -> dict[str, object] | None:
             }
         }
     return {"physicalLocation": {"artifactLocation": {"uri": location}}}
+
+
+def _endpoint_location(target: str, endpoint: str) -> dict[str, object]:
+    """Point GitHub code scanning at an endpoint that is not a file in the repo.
+
+    Code scanning requires physicalLocation.artifactLocation.uri to be a relative
+    path and drops results whose uri is an absolute URL. The method and URL are
+    the logicalLocation. The physicalLocation is a relative fallback plus a snippet
+    of that same endpoint, so the result still appears when the URL is not a file.
+    """
+
+    return {
+        "physicalLocation": {
+            "artifactLocation": {"uri": _relative_endpoint_uri(target, endpoint)},
+            "region": {"startLine": 1, "snippet": {"text": endpoint}},
+        },
+        "logicalLocations": [
+            {"kind": "endpoint", "name": target, "fullyQualifiedName": endpoint}
+        ],
+    }
+
+
+def _relative_endpoint_uri(target: str, endpoint: str) -> str:
+    text = endpoint.strip()
+    _method, separator, rest = text.partition(" ")
+    url = rest if separator and "://" in rest else text
+    if "://" not in url:
+        return f"insidia-endpoints/{_safe_part(target)}"
+    parsed = urlparse(url)
+    host = _safe_part(parsed.netloc or "unknown")
+    parts = [
+        _safe_part(part)
+        for part in parsed.path.split("/")
+        if part not in {"", ".", ".."}
+    ]
+    suffix = "/".join(parts) if parts else "root"
+    return f"insidia-endpoints/{host}/{suffix}"
+
+
+def _safe_part(value: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "-", value).strip("-.")
+    return cleaned or "target"
+
+
+def _sarif_result_location(finding: Finding) -> dict[str, object]:
+    filed = _file_location(finding.location)
+    if filed is not None:
+        return filed
+    endpoint = finding.endpoint
+    if not endpoint and finding.location and "://" in finding.location:
+        endpoint = finding.location
+    if not endpoint:
+        endpoint = finding.target or "target"
+    return _endpoint_location(finding.target or "target", endpoint)
 
 
 def _escape(value: str) -> str:
@@ -417,9 +489,7 @@ def _sarif(findings: list[Finding]) -> dict[str, object]:
                 "security-severity": f"{finding.risk_score:.1f}",
             },
         }
-        location = _sarif_location(finding.location)
-        if location is not None:
-            result["locations"] = [location]
+        result["locations"] = [_sarif_result_location(finding)]
         results.append(result)
     return {
         "version": "2.1.0",

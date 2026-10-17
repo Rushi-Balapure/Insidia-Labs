@@ -102,6 +102,91 @@ def test_unknown_taxonomy_id_is_rejected() -> None:
         score_frameworks(controls)
 
 
+def _bare(**overrides: object) -> Finding:
+    values: dict[str, object] = {
+        "track": "classic",
+        "engine": "insidia",
+        "probe": "insidia.web.ssti",
+        "severity": "high",
+        "confidence": "high",
+        "attack": "web.ssti",
+        "response": "49",
+        "trace_ref": "shop",
+        "taxonomy": ("owasp-web:A03",),
+        "remediation": "Do not evaluate user input as a template.",
+        "evidence_hash": "abc",
+        "cross_validated": False,
+        "target": "shop",
+    }
+    values.update(overrides)
+    return Finding(**values)  # type: ignore[arg-type]
+
+
+def test_every_sarif_result_locates_the_endpoint_or_the_file(tmp_path: Path) -> None:
+    chat = _bare(
+        track="ai",
+        probe="insidia.ai.data_leakage",
+        attack="ai.data_leakage",
+        response=mask(f"token {_SECRET}"),
+        taxonomy=("owasp-llm:LLM02",),
+        remediation="Stop returning secrets.",
+        target="nova",
+        location="",
+    )
+    repo = _bare(
+        probe="insidia.code.secrets",
+        attack="code.secrets",
+        response=mask(_SECRET),
+        taxonomy=("owasp-web:A05",),
+        remediation="Remove the key.",
+        target="tree",
+        location="pkg/secrets.py:12",
+    )
+    blank = _bare(target="orphan", location="")
+    endpoint = "POST http://127.0.0.1:8100/api/v1/assistant"
+    directory = write_run(
+        tmp_path,
+        "run-loc",
+        "L1",
+        False,
+        [chat, repo, blank],
+        [],
+        [],
+        targets=(
+            ("nova", "chat", endpoint),
+            ("tree", "repo", "benchmark/targets/insidia/repo"),
+        ),
+    )
+    payload = json.loads((directory / "findings.json").read_text())
+    by_target = {item["target"]: item for item in payload}
+    assert by_target["nova"]["endpoint"] == endpoint
+    assert by_target["nova"]["target_kind"] == "chat"
+    assert by_target["tree"]["target_kind"] == "repo"
+    assert by_target["tree"]["endpoint"] == "benchmark/targets/insidia/repo"
+    assert by_target["orphan"]["endpoint"] == ""
+    assert by_target["orphan"]["target_kind"] == ""
+    results = json.loads((directory / "results.sarif").read_text())["runs"][0]["results"]
+    assert len(results) == len(payload)
+    for result in results:
+        assert result["locations"]
+        physical = result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"]
+        assert "://" not in physical
+        assert not physical.startswith("/")
+    nova = next(item for item in results if "data_leakage" in item["ruleId"])
+    logical = nova["locations"][0]["logicalLocations"][0]
+    assert logical["kind"] == "endpoint"
+    assert logical["fullyQualifiedName"] == endpoint
+    assert nova["locations"][0]["physicalLocation"]["region"]["snippet"]["text"] == endpoint
+    assert nova["locations"][0]["physicalLocation"]["artifactLocation"]["uri"].startswith(
+        "insidia-endpoints/"
+    )
+    secret = next(item for item in results if item["ruleId"] == "insidia.code.secrets")
+    region = secret["locations"][0]["physicalLocation"]
+    assert region["artifactLocation"]["uri"] == "pkg/secrets.py"
+    assert region["region"]["startLine"] == 12
+    assert "logicalLocations" not in secret["locations"][0]
+
+
 def test_l1_tags_prompt_injection_and_template_injection() -> None:
     policy = get_policy("L1")
     assert "owasp-llm:LLM01" in policy.control("ai.prompt_injection_direct").taxonomy
