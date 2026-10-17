@@ -104,6 +104,7 @@ def execute(
             ),
         ),
     )
+    started = time.time()
     token = bind_budget(project.targets)
     try:
         return _run_targets(
@@ -118,6 +119,7 @@ def execute(
             skips,
             progress,
             snapshot,
+            started,
         )
     finally:
         reset_budget(token)
@@ -135,6 +137,7 @@ def _run_targets(
     skips: list[str],
     progress: Callable[[Event], None] | None,
     config_text: bytes,
+    started_epoch: float,
 ) -> ScanOutcome:
     notes: list[str] = []
     try:
@@ -168,6 +171,7 @@ def _run_targets(
         progress,
         config_text,
         notes,
+        started_epoch,
     )
 
 
@@ -351,6 +355,7 @@ def _finish(
     progress: Callable[[Event], None] | None,
     config_text: bytes,
     notes: list[str],
+    started_epoch: float,
 ) -> ScanOutcome:
     execution_status, policy_verdict = aggregate(records)
     findings = normalize(hits)
@@ -370,6 +375,8 @@ def _finish(
         coverage=mode,
         config_text=config_text,
         targets=_target_facts(project),
+        started_epoch=started_epoch,
+        scope_hosts=tuple(item.host for item in project.scope),
     )
     return ScanOutcome(
         run_id,

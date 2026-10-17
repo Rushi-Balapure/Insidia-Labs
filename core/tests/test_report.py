@@ -96,6 +96,79 @@ def test_report_scores_frameworks_and_names_the_engine(tmp_path: Path) -> None:
     assert run["results"][0]["properties"]["engine"] == "insidia"
 
 
+def test_report_sections_follow_the_nessus_order(tmp_path: Path) -> None:
+    import re
+
+    chat = _bare(
+        track="ai",
+        probe="insidia.ai.data_leakage",
+        attack="ai.data_leakage",
+        response=mask(f"token {_SECRET}"),
+        taxonomy=("owasp-llm:LLM02",),
+        remediation="Stop returning secrets.",
+        target="nova",
+    )
+    web = _bare(target="shop", attack="web.cmdi", probe="insidia.web.cmdi", response="uid=0")
+    controls = [
+        {
+            "id": "ai.data_leakage",
+            "target": "nova",
+            "result": "fail",
+            "taxonomy": "owasp-llm:LLM02",
+        },
+        {"id": "web.cmdi", "target": "shop", "result": "fail", "taxonomy": "owasp-web:A03"},
+        {
+            "id": "ai.bias",
+            "target": "nova",
+            "result": "not tested",
+            "taxonomy": "owasp-llm:LLM01",
+        },
+    ]
+    directory = write_run(
+        tmp_path,
+        "20261016T012713Z-a321e5",
+        "L1",
+        False,
+        [chat, web],
+        controls,
+        ["nova: ai.bias needs a judge"],
+        targets=(
+            ("nova", "chat", "POST http://127.0.0.1:8100/api/v1/assistant"),
+            ("shop", "web", "GET http://127.0.0.1:8090/ping"),
+        ),
+        started_epoch=1_700_000_000.0,
+        scope_hosts=("127.0.0.1",),
+    )
+    html = (directory / "report.html").read_text()
+    headings = re.findall(r"<h2[^>]*>([^<]+)</h2>", html)
+    assert headings == [
+        "Executive summary",
+        "Targets",
+        "Findings by severity",
+        "Remediation summary",
+        "Coverage by target",
+        "Framework mapping",
+        "Scan information",
+    ]
+    assert html.index("Executive summary") < html.index("Findings by severity")
+    assert html.index("Findings by severity") < html.index("Coverage by target")
+    assert "OWASP item list" in html
+    assert html.index("Framework mapping") < html.index("OWASP item list")
+    for label in ("Critical", "High", "Medium", "Low", "Info"):
+        assert label in html
+    payload = json.loads((directory / "findings.json").read_text())
+    sarif = json.loads((directory / "results.sarif").read_text())["runs"][0]["results"]
+    shown = [int(item) for item in re.findall(r'class="tile t-[a-z]+"><b>(\d+)</b>', html)]
+    assert sum(shown) == len(payload) == len(sarif) == 2
+    manifest = json.loads((directory / "manifest.json").read_text())
+    assert manifest["finished_at"]
+    assert manifest["duration_s"] >= 0
+    assert manifest["insidia_version"].startswith("insidia ")
+    assert "Security scan report: nova, shop" in html
+    assert "127.0.0.1" in html
+    assert html.count("insidia rerun 20261016T012713Z-a321e5") == 1
+
+
 def test_unknown_taxonomy_id_is_rejected() -> None:
     controls = [{"id": "x", "target": "chat", "result": "fail", "taxonomy": "owasp-llm:LLM99"}]
     with pytest.raises(ValueError, match="unknown taxonomy id owasp-llm:LLM99"):
