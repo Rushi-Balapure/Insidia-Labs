@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from insidia.findings import Finding
 from insidia.mask import mask
-from insidia.policy import get_policy
+from insidia.policy import MARKDOWN_BEACON, get_policy
 from insidia.runstore import write_run
 from insidia.score import score_frameworks
 
@@ -376,3 +376,41 @@ def test_l1_tags_prompt_injection_and_template_injection() -> None:
     assert "owasp-llm:LLM01" in policy.control("ai.prompt_injection_direct").taxonomy
     assert "owasp-web:A03" in policy.control("web.ssti").taxonomy
     assert "owasp-llm:LLM06" in policy.control("ai.unbounded_consumption").taxonomy
+
+
+_LLM_INDEX = "https://genai.owasp.org/llm-top-10/"
+_LIVE_LLM = {
+    "01": "https://genai.owasp.org/llmrisk/llm01-prompt-injection/",
+    "02": "https://genai.owasp.org/llmrisk/llm022025-sensitive-information-disclosure/",
+    "03": "https://genai.owasp.org/llmrisk/llm032025-supply-chain/",
+    "04": "https://genai.owasp.org/llmrisk/llm042025-data-and-model-poisoning/",
+    "05": "https://genai.owasp.org/llmrisk/llm052025-improper-output-handling/",
+    "06": "https://genai.owasp.org/llmrisk/llm062025-excessive-agency/",
+    "07": "https://genai.owasp.org/llmrisk/llm072025-system-prompt-leakage/",
+    "08": "https://genai.owasp.org/llmrisk/llm082025-vector-and-embedding-weaknesses/",
+    "09": "https://genai.owasp.org/llmrisk/llm092025-misinformation/",
+    "10": "https://genai.owasp.org/llmrisk/llm102025-unbounded-consumption/",
+}
+
+
+def test_owasp_llm_references_use_a_live_page_or_the_index() -> None:
+    controls = (*get_policy("L1").controls, MARKDOWN_BEACON)
+    checked = 0
+    for control in controls:
+        numbers = [
+            item.removeprefix("owasp-llm:LLM")
+            for item in control.taxonomy
+            if item.startswith("owasp-llm:LLM")
+        ]
+        for url in control.references:
+            if not numbers:
+                continue
+            checked += 1
+            assert "2026" not in url
+            for number in numbers:
+                if number == "08":
+                    assert "llm07" not in url
+                if number == "10":
+                    assert "llm05" not in url
+                assert url == _LLM_INDEX or url == _LIVE_LLM[number]
+    assert checked
