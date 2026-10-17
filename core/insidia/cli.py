@@ -30,7 +30,7 @@ _HELP = """\
 global options, before or after the command:
   --config PATH   file to read (default: insidia.yaml)
   --json          print a JSON object instead of text
-  --yes           do not ask before scanning a host other than localhost
+  --yes           do not ask before scanning a host other than localhost, 127.0.0.1, or ::1
   --quiet, -q     print only the result
   --no-color      plain text, no color
 """
@@ -51,7 +51,7 @@ def _global_options(parser: argparse.ArgumentParser, after_command: bool) -> Non
         "--yes",
         action="store_true",
         default=default(False),
-        help="do not ask before scanning a host other than localhost",
+        help="do not ask before scanning a host other than localhost, 127.0.0.1, or ::1",
     )
     parser.add_argument(
         "--config",

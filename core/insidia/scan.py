@@ -10,7 +10,7 @@ from pathlib import Path
 
 from insidia.adapters import find
 from insidia.config import Project, Target
-from insidia.errors import CliError, EngineFailed, ProbeError
+from insidia.errors import CliError, EngineFailed, ProbeError, ScopeError
 from insidia.findings import Finding, normalize
 from insidia.mask import bind_secrets, mask
 from insidia.policy import Policy, get_policy
@@ -30,7 +30,7 @@ from insidia.results import (
     legacy_passed,
 )
 from insidia.runstore import new_run_id, not_tested, write_run
-from insidia.scope import check_url, needs_confirmation
+from insidia.scope import check_url, needs_confirmation, unauthorized_host
 from insidia.transport import bind_budget, current_budget, preflight, repo_path, reset_budget
 from insidia.ui import Event, short
 
@@ -68,6 +68,9 @@ def execute(
     assume_yes: bool = False,
     progress: Callable[[Event], None] | None = None,
 ) -> ScanOutcome:
+    blocked = unauthorized_host(project.scope)
+    if blocked is not None:
+        raise ScopeError(f"{blocked} needs authorized: true in scope")
     if needs_confirmation(project.scope) and not assume_yes:
         raise CliError("a non-local host is in scope; pass --yes to scan it")
     policy = get_policy(policy_name or project.policy)

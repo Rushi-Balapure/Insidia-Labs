@@ -39,3 +39,11 @@ def hostname(url: str) -> str:
 
 def needs_confirmation(scope: tuple[ScopeHost, ...]) -> bool:
     return any(item.host not in LOCAL_HOSTS for item in scope)
+
+
+def unauthorized_host(scope: tuple[ScopeHost, ...]) -> str | None:
+    """First non-local host that is missing authorized: true."""
+    for item in scope:
+        if item.host not in LOCAL_HOSTS and not item.authorized:
+            return item.host
+    return None

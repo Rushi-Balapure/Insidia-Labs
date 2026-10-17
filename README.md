@@ -67,7 +67,7 @@ Set your app URL. `insidia init --url http://127.0.0.1:PORT/path` writes `insidi
 | `2` | The run was incomplete with no finding, or an error stopped it. |
 | `130` | The run was cancelled. |
 
-`--json` prints the run id, findings, and skips. `--yes` is only required when `scope` includes a host other than localhost. The same steps are on [the quickstart](https://insidialabs.com/docs/start/quickstart/).
+`--json` prints the run id, findings, and skips. `--yes` is only required when `scope` includes a host other than localhost, `127.0.0.1`, or `::1`. The same steps are on [the quickstart](https://insidialabs.com/docs/start/quickstart/).
 
 ## insidia.yaml
 
