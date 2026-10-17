@@ -500,7 +500,7 @@ def _render(
         '<h2 id="targets">Targets</h2>',
         _targets_table(findings, controls, targets),
         '<h2 id="findings">Findings by severity</h2>',
-        _finding_cards(findings),
+        _finding_cards(findings, run_id),
         '<h2 id="remediation">Remediation summary</h2>',
         _remediation_table(findings),
         '<h2 id="coverage">Coverage by target</h2>',
@@ -633,31 +633,103 @@ def _targets_table(
     return f"<table class=\"targets\"><thead>{head}</thead><tbody>{''.join(rows)}</tbody></table>"
 
 
-def _finding_cards(findings: list[Finding]) -> str:
+def _finding_cards(findings: list[Finding], run_id: str) -> str:
     if not findings:
         return '<p class="note">No findings.</p>'
-    return "\n".join(_finding_card(finding, index) for index, finding in enumerate(findings))
+    return "\n".join(
+        _finding_card(finding, index, run_id) for index, finding in enumerate(findings)
+    )
 
 
-def _finding_card(finding: Finding, index: int) -> str:
+def _finding_card(finding: Finding, index: int, run_id: str) -> str:
     bucket = _bucket(finding.severity)
     css = _BUCKET_CLASS[bucket]
     label = _BUCKET_LABEL[bucket].upper()
     opened = " open" if index < 2 else ""
     title = finding.title or finding.attack
     check = finding.check_id or finding.probe
+    factors = "; ".join(finding.risk_factors) or "base score"
+    fields = (
+        ("Synopsis", _escape(finding.synopsis or finding.remediation)),
+        ("Description", _escape(finding.description or finding.remediation)),
+        ("Solution", _escape(finding.remediation)),
+        ("Risk factor", f'<span class="sev sev-{css}">{label}</span>'),
+        (
+            "Insidia Risk Score",
+            _escape(f"{finding.risk_score:.1f}/10 ({factors})"),
+        ),
+        ("References", _escape(_reference_text(finding.taxonomy))),
+        ("See Also", _see_also(finding.references)),
+        ("Plugin output", _plugin_output(finding)),
+        ("Re-run", f"<code>insidia rerun {_escape(run_id)}</code>"),
+    )
+    body = "".join(f"<dt>{name}</dt><dd>{value}</dd>" for name, value in fields)
     return (
         f'<details class="finding"{opened}>'
         f'<summary class="bar bar-{css}">'
         f'<span class="pid">{_escape(check)}</span> {_escape(title)}'
         f'<span class="right">{_escape(finding.target)} · {label} {finding.risk_score:.1f}</span>'
-        "</summary>"
-        '<div class="body">'
-        f"<p>Probe <code>{_escape(finding.probe)}</code></p>"
-        f"<pre>{_escape(finding.response)}</pre>"
-        f"<p>{_escape(finding.remediation)}</p>"
-        "</div></details>"
+        f"</summary><dl>{body}</dl></details>"
     )
+
+
+def _reference_text(taxonomy: tuple[str, ...]) -> str:
+    labels: list[str] = []
+    for tag in taxonomy:
+        prefix, separator, item = tag.partition(":")
+        if not separator:
+            labels.append(tag)
+            continue
+        if prefix == "owasp-llm":
+            labels.append(f"OWASP {item}")
+        elif prefix == "owasp-web":
+            labels.append(f"OWASP Web {item}")
+        elif prefix == "owasp-api":
+            labels.append(f"OWASP API {item}")
+        elif prefix == "owasp-asi":
+            labels.append(f"OWASP ASI {item}")
+        elif prefix == "cwe":
+            labels.append(item)
+        else:
+            labels.append(tag)
+    return " · ".join(labels) or "None"
+
+
+def _see_also(urls: tuple[str, ...]) -> str:
+    links = []
+    for url in urls:
+        if url.startswith(("https://", "http://")):
+            href = _escape(url).replace('"', "%22")
+            links.append(f'<a href="{href}">{_escape(url)}</a>')
+        elif url:
+            links.append(_escape(url))
+    return "<br>".join(links) or "None"
+
+
+def _plugin_output(finding: Finding) -> str:
+    """Masked evidence as text. Counts and the endpoint or file:line sit with it."""
+    counts: dict[str, int] = {}
+    for item in finding.observations:
+        if item.evidence:
+            counts[item.evidence] = counts.get(item.evidence, 0) + 1
+    observed = "\n".join(f"[{count}x] {text}" for text, count in counts.items())
+    if finding.location and "://" not in finding.location:
+        affected = finding.location
+    else:
+        affected = finding.endpoint or finding.location or finding.target
+    kind = f" · {finding.target_kind}" if finding.target_kind else ""
+    lines = [
+        f"<pre>{_escape(finding.response)}</pre>",
+        (
+            f"<p>{len(finding.observations)} observations"
+            f" · probe <code>{_escape(finding.probe)}</code>"
+            f" · engine {_escape(finding.engine)}</p>"
+        ),
+        f"<pre>{_escape(observed)}</pre>" if observed else "",
+        f"<p>evidence_hash <code>{_escape(finding.evidence_hash)}</code></p>",
+        f"<p>Affected {_escape(finding.target)}{kind} · <code>{_escape(affected)}</code></p>",
+    ]
+    return "".join(lines)
 
 
 def _remediation_table(findings: list[Finding]) -> str:

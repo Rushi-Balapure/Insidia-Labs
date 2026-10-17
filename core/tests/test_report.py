@@ -166,7 +166,54 @@ def test_report_sections_follow_the_nessus_order(tmp_path: Path) -> None:
     assert manifest["insidia_version"].startswith("insidia ")
     assert "Security scan report: nova, shop" in html
     assert "127.0.0.1" in html
-    assert html.count("insidia rerun 20261016T012713Z-a321e5") == 1
+    footer = html.split("<footer>", 1)[1]
+    assert footer.count("insidia rerun 20261016T012713Z-a321e5") == 1
+
+
+def test_finding_cards_list_fields_in_order_and_escape_evidence(tmp_path: Path) -> None:
+    import re
+
+    leaked = "ghp_" + ("b" * 36)
+    stripe = "sk_live_" + ("c" * 20)
+    response = f"see <img src=\"https://evil.example/a.png\"> {leaked} {stripe} {_SECRET}"
+    finding = _bare(
+        track="ai",
+        probe="insidia.ai.data_leakage",
+        attack="ai.data_leakage",
+        response=mask(response),
+        taxonomy=("owasp-llm:LLM02", "cwe:CWE-200"),
+        remediation="Stop returning secrets.",
+        target="nova",
+        evidence_hash="abc123",
+    )
+    directory = write_run(tmp_path, "run-card", "L1", False, [finding], [], [])
+    html = (directory / "report.html").read_text()
+    card = html.split('<details class="finding"', 1)[1].split("</details>", 1)[0]
+    labels = re.findall(r"<dt>([^<]+)</dt>", card)
+    assert labels == [
+        "Synopsis",
+        "Description",
+        "Solution",
+        "Risk factor",
+        "Insidia Risk Score",
+        "References",
+        "See Also",
+        "Plugin output",
+        "Re-run",
+    ]
+    assert "Insidia Risk Score" in card
+    assert "CVSS" not in card.split("Insidia Risk Score", 1)[0]
+    assert "<img" not in html
+    assert "https://evil.example/a.png" in html
+    assert leaked not in html
+    assert stripe not in html
+    assert _SECRET not in html
+    assert "[GITHUB_TOKEN " in html
+    assert "[AWS_ACCESS_KEY " in html
+    assert "OWASP LLM02" in card
+    assert "CWE-200" in card
+    assert "genai.owasp.org" in card
+    assert "insidia rerun run-card" in card
 
 
 def test_unknown_taxonomy_id_is_rejected() -> None:
