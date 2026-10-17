@@ -49,6 +49,48 @@ def test_unknown_provider_is_rejected_at_load(tmp_path: Path) -> None:
         load_project(config)
 
 
+def test_insidia_cloud_fails_before_a_scan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    config = tmp_path / "insidia.yaml"
+    config.write_text(
+        """
+version: 1
+policy: L1
+coverage: standard
+scope:
+  - host: 127.0.0.1
+targets:
+  app:
+    kind: chat
+    url: http://127.0.0.1:9/chat
+models:
+  attacker:
+    provider: insidia-cloud
+    base_url: http://127.0.0.1:9/v1
+    model: dummy
+"""
+    )
+
+    def explode(*_args: object, **_kwargs: object) -> str:
+        raise AssertionError("insidia-cloud must fail before a scan contacts anything")
+
+    monkeypatch.setattr("insidia.scan.preflight", explode)
+    monkeypatch.setattr("insidia.doctor.read_url", explode)
+    monkeypatch.setattr("insidia.transport.read_url", explode)
+
+    with pytest.raises(ConfigError, match="unknown model provider insidia-cloud"):
+        load_project(config)
+
+    assert main(["--config", str(config), "--yes", "--quiet", "scan"]) == 2
+    assert "unknown model provider insidia-cloud" in capsys.readouterr().out
+
+    assert main(["--config", str(config), "doctor"]) == 2
+    doctor = capsys.readouterr().out
+    assert "✘ config:" in doctor
+    assert "unknown model provider insidia-cloud" in doctor
+
+
 def test_unset_model_secret_stops_the_scan_before_probes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

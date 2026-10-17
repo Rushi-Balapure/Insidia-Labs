@@ -7,8 +7,6 @@ from dataclasses import dataclass
 
 SCHEMA_VERSION = "2.0"
 
-QUEUED = "queued"
-RUNNING = "running"
 COMPLETE = "complete"
 # Finished, but too shallow to count as a pass. It still fails on a finding.
 LIMITED = "limited"

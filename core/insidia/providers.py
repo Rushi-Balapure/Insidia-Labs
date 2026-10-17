@@ -13,9 +13,7 @@ from insidia.transport import read_url
 _Body = Callable[[str, str], dict[str, object]]
 _Read = Callable[[dict[str, object]], str]
 
-KNOWN_PROVIDERS = frozenset(
-    {"openai-compatible", "anthropic", "gemini", "insidia-cloud", "bedrock"}
-)
+KNOWN_PROVIDERS = frozenset({"openai-compatible", "anthropic", "gemini", "bedrock"})
 
 
 class ModelProvider:
@@ -32,8 +30,6 @@ def build_provider(role: ModelRole, scope: tuple[ScopeHost, ...]) -> ModelProvid
         return _ChatProvider(role, scope, "/v1/messages", _anthropic_body, _anthropic_text)
     if role.provider == "gemini":
         return _GeminiProvider(role, scope)
-    if role.provider == "insidia-cloud":
-        raise ConfigError("Insidia Cloud models need insidia login, which is not in this release")
     if role.provider == "bedrock":
         raise ConfigError(
             "Bedrock needs an OpenAI-compatible base_url; set provider to openai-compatible"
