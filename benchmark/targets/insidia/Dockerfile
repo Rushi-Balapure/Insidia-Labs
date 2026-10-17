@@ -3,5 +3,8 @@ WORKDIR /opt/fixture
 COPY insidia /opt/fixture/insidia
 ENV PYTHONPATH=/opt/fixture
 ENV PYTHONDONTWRITEBYTECODE=1
+# The process is inside the sandbox network. 0.0.0.0 is required so other
+# containers can connect; the host default in serve.py stays 127.0.0.1.
+ENV INSIDIA_FIXTURE_HOST=0.0.0.0
 USER nobody
 CMD ["python", "-m", "insidia.serve"]
