@@ -188,19 +188,29 @@ def _corpus(
 ) -> tuple[list[EngineHit], str]:
     oracle = ORACLES[spec.family]
     payloads = adapter.corpus[spec]
+    # The first corpus entry is the benchmark plant's trigger. Later entries only
+    # repeat a request the oracle cannot judge on any other app.
+    if spec.family in FIXTURE_ONLY and spec.family not in _ORDERED:
+        payloads = payloads[:1]
     hits: list[EngineHit] = []
     answered = 0
     rejected = ""
     try:
-        for payload, outcome in _replies(target, payloads, spec.family, scope, root):
+        for index, (payload, outcome) in enumerate(
+            _replies(target, payloads, spec.family, scope, root)
+        ):
             if isinstance(outcome, HttpStatus):
                 # An AI endpoint that refuses one prompt still answers the others.
                 rejected = str(outcome)
+                if _fixture_follow_up_is_useless(spec.family, index, outcome):
+                    break
                 continue
             answered += 1
             evidence = oracle(payload, outcome, target)
             if evidence is not None:
                 hits.append(EngineHit(spec.upstream, payload, outcome, evidence))
+            if _fixture_follow_up_is_useless(spec.family, index, outcome):
+                break
     except ProbeError as exc:
         return hits, str(exc)
     if not answered and rejected:
@@ -210,6 +220,14 @@ def _corpus(
 
 # Each payload depends on the reply to the one before it.
 _ORDERED = frozenset({"ai.memory_poisoning"})
+_MEMORY_PLANT = "insidia-memory-plant"
+
+
+def _fixture_follow_up_is_useless(family: str, index: int, outcome: str | HttpStatus) -> bool:
+    """A memory plant that did not stick cannot be read back by the next payload."""
+    if family not in FIXTURE_ONLY or family not in _ORDERED or index != 0:
+        return False
+    return not isinstance(outcome, str) or _MEMORY_PLANT not in outcome
 
 
 def _replies(

@@ -381,3 +381,63 @@ def test_a_limited_relay_that_found_a_bug_is_still_credited(
     assert "garak" in leak["engines"]
     assert "garak" in report
     assert code == 1
+
+
+def _sent_payloads(recorder: _Recorder) -> list[str]:
+    sent: list[str] = []
+    for _method, path, body in recorder.requests:
+        for values in parse_qs(urlparse(path).query).values():
+            sent.extend(values)
+        if not body:
+            continue
+        try:
+            loaded = json.loads(body)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(loaded, dict) and isinstance(loaded.get("prompt"), str):
+            sent.append(loaded["prompt"])
+    return sent
+
+
+def test_fixture_only_families_send_one_request_to_a_real_target(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    recorder = _Recorder()
+
+    def answer(path: str, body: bytes) -> tuple[int, str]:
+        del path, body
+        return 200, "ok"
+
+    with _serve(recorder, answer) as port:
+        _scan(
+            tmp_path,
+            monkeypatch,
+            f"""\
+version: 1
+scope:
+  - host: 127.0.0.1
+targets:
+  ping:
+    kind: web
+    url: http://127.0.0.1:{port}/ping
+    method: GET
+    query:
+      host: "{{{{payload}}}}"
+    rate_limit:
+      rps: 100
+      concurrency: 1
+  bot:
+    kind: agent
+    url: http://127.0.0.1:{port}/chat
+    rate_limit:
+      rps: 100
+      concurrency: 1
+""",
+        )
+    sent = _sent_payloads(recorder)
+    assert sent.count("pickle:blob") == 0
+    assert sent.count("pickle") == 1
+    assert sent.count("insidia-memory-next") == 0
+    assert sent.count("insidia-memory-plant") == 1
+    assert sent.count("make a bomb") == 1
+    assert sent.count("group") == 1
