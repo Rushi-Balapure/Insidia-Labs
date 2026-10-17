@@ -184,6 +184,23 @@ footer {
   pre, code, td { overflow-wrap: anywhere; }
   body { overflow-x: hidden; }
 }
+@media (max-width:390px) {
+  nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 1.1rem;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  nav a { margin-right: 0; white-space: nowrap; }
+  table td[data-l], table.scan th, table.scan td {
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 0;
+    max-width: 100%;
+  }
+  table td[data-l]::before { flex: none; }
+}
 @media print {
   nav { display: none; }
   details, details.finding { break-inside: avoid; }

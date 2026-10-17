@@ -376,6 +376,14 @@ def test_not_tested_rows_say_why_and_passes_are_counted_honestly(tmp_path: Path)
     assert "prefers-color-scheme: dark" in html
 
 
+def test_report_css_fits_a_390px_screen(tmp_path: Path) -> None:
+    directory = write_run(tmp_path, "run-narrow", "L1", True, [], [], [])
+    html = (directory / "report.html").read_text()
+    assert "@media (max-width:390px)" in html
+    assert "@media print" in html
+    assert "nav { display: none; }" in html
+
+
 def _risk_factor_text(card: str) -> str:
     import re
 
