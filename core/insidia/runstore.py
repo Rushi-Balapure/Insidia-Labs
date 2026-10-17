@@ -13,7 +13,7 @@ from pathlib import Path
 
 from insidia import __version__
 from insidia.errors import CliError
-from insidia.findings import Finding
+from insidia.findings import Finding, prepare_findings
 from insidia.mask import SECRET_PATTERNS
 from insidia.results import SCHEMA_VERSION, legacy_passed
 from insidia.score import Score, coverage, score_frameworks
@@ -178,6 +178,7 @@ def write_run(
     staging.mkdir(parents=True)
     verdict = policy_verdict or ("pass" if passed else "fail")
     passed = legacy_passed(execution_status, verdict)
+    findings = prepare_findings(findings)
     payload = [finding.as_json() for finding in findings]
     (staging / "findings.json").write_text(json.dumps(payload, indent=2) + "\n")
     (staging / "results.sarif").write_text(json.dumps(_sarif(findings), indent=2) + "\n")
@@ -362,11 +363,14 @@ def _row(finding: Finding, run_id: str) -> str:
 
 
 def _sarif_level(severity: str) -> str:
+    """GitHub code scanning: error, warning, and note. Info and low are notes."""
     if severity in {"critical", "high"}:
         return "error"
-    if severity == "unspecified":
-        return "none"
-    return "warning"
+    if severity == "medium":
+        return "warning"
+    if severity in {"low", "informational", "info"}:
+        return "note"
+    return "none"
 
 
 def _sarif_location(location: str) -> dict[str, object] | None:
@@ -396,12 +400,22 @@ def _sarif(findings: list[Finding]) -> dict[str, object]:
     for finding in findings:
         if finding.probe not in seen:
             seen.add(finding.probe)
-            rules.append({"id": finding.probe, "name": finding.attack})
+            rules.append(
+                {
+                    "id": finding.probe,
+                    "name": finding.attack,
+                    "properties": {"security-severity": f"{finding.risk_score:.1f}"},
+                }
+            )
         result: dict[str, object] = {
             "ruleId": finding.probe,
             "level": _sarif_level(finding.severity),
             "message": {"text": f"{finding.engine}: {finding.attack} on {finding.target}"},
-            "properties": {"engine": finding.engine, "severity": finding.severity},
+            "properties": {
+                "engine": finding.engine,
+                "severity": finding.severity,
+                "security-severity": f"{finding.risk_score:.1f}",
+            },
         }
         location = _sarif_location(finding.location)
         if location is not None:

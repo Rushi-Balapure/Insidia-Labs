@@ -165,12 +165,36 @@ def test_every_registered_probe_resolves_to_its_adapter(
 
 
 def test_builtin_probe_kinds_match_every_policy_level() -> None:
-    medium = {"ai.harmful_content_policy", "ai.bias", "ai.citation_groundedness"}
+    # Base severity and Insidia Risk Score before modifiers. Anything not listed stays high / 7.5.
+    rated = {
+        "ai.bias": ("medium", 5.0),
+        "ai.citation_groundedness": ("medium", 5.0),
+        "ai.code_exec_sandbox_escape": ("critical", 9.5),
+        "ai.data_leakage": ("high", 7.5),
+        "ai.harmful_content_policy": ("medium", 5.5),
+        "ai.hidden_context_extraction": ("medium", 6.5),
+        "ai.jailbreak": ("high", 7.0),
+        "ai.output_handling_sinks": ("high", 7.4),
+        "ai.prompt_injection_direct": ("high", 7.5),
+        "ai.prompt_injection_indirect": ("high", 8.0),
+        "ai.rag_poisoning": ("high", 8.0),
+        "ai.unbounded_consumption": ("medium", 5.3),
+        "api.bola_idor": ("high", 8.1),
+        "infra.tls": ("medium", 4.3),
+        "web.cmdi": ("critical", 9.8),
+        "web.deserialization": ("critical", 9.3),
+        "web.path_lfi": ("high", 7.5),
+        "web.ssti": ("critical", 9.0),
+    }
     for spec in BUILT_IN.probes:
         for level in ("L1", "L2", "L3"):
             control = get_policy(level).control(spec.family)
             assert control.kinds == spec.target_kinds
-            assert control.severity == ("medium" if spec.family in medium else "high")
+            severity, score = rated.get(spec.family, ("high", 7.5))
+            assert control.severity == severity
+            assert control.base_score == score
+            assert control.check_id.startswith("INS-")
+            assert control.title
             assert control.track == ("ai" if spec.family.startswith("ai.") else "classic")
 
 
