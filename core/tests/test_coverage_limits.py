@@ -3,6 +3,7 @@
 import json
 import threading
 import time
+import urllib.request
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import replace
@@ -11,7 +12,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import pytest
-from insidia.adapters import BUILT_IN
+from insidia.adapters import BUILT_IN, Invocation, ProbeSpec, RelayAdapter, RelayEndpoint
 from insidia.cli import main
 from insidia.config import Project
 from insidia.errors import ProbeError
@@ -20,6 +21,7 @@ from insidia.probes import (
     _FIXTURE_ONLY_NOTE,
     _FIXTURE_ONLY_TIMEOUT,
     _JUDGE_UNUSED_NOTE,
+    _RELAY_MIN_PROMPTS,
     Attempt,
     ProbeHit,
     _judge,
@@ -292,26 +294,25 @@ def _garak_hit() -> ProbeHit:
     )
 
 
-def _install_shallow_garak(monkeypatch: pytest.MonkeyPatch, finding: bool) -> None:
+def _install_garak(
+    monkeypatch: pytest.MonkeyPatch, finding: bool, *, shallow: bool = True
+) -> None:
     def fake_select(
         family: str,
         coverage: str,
         model_available: bool = False,
         entries: tuple[Capability, ...] | None = None,
     ) -> list[Capability]:
-        chosen = real_select(
-            family, coverage, model_available=model_available, entries=entries
-        )
+        chosen = real_select(family, coverage, model_available=model_available, entries=entries)
         if family == "ai.data_leakage":
-            chosen.append(
-                Capability(family, "garak", "garak.ai.data_leakage", 50, False, True)
-            )
+            chosen.append(Capability(family, "garak", "garak.ai.data_leakage", 50, False, True))
         return chosen
 
     def fake_run(adapter: object, spec: object, *args: object, **kwargs: object) -> Attempt:
         if getattr(adapter, "engine", "") == "garak":
             hits = (_garak_hit(),) if finding else ()
-            return Attempt(hits, untested="garak sent only 1 prompt(s)")
+            note = "garak sent only 1 prompt(s)" if shallow else ""
+            return Attempt(hits, untested=note)
         return real_run(adapter, spec, *args, **kwargs)  # type: ignore[arg-type]
 
     monkeypatch.setattr("insidia.scan.select", fake_select)
@@ -343,7 +344,7 @@ def test_a_limited_relay_is_not_credited_for_a_pass(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.setenv("INSIDIA_TOOLCHAIN", str(tmp_path / "toolchain"))
-    _install_shallow_garak(monkeypatch, finding=False)
+    _install_garak(monkeypatch, finding=False)
     recorder = _Recorder()
 
     def answer(path: str, body: bytes) -> tuple[int, str]:
@@ -359,21 +360,25 @@ def test_a_limited_relay_is_not_credited_for_a_pass(
     err = capsys.readouterr().err
     line = _result_line(err, "ai.data_leakage", "pass")
     assert "insidia" in line
-    assert "garak" not in line
+    assert "garak sent only 1 prompt" in line
+    assert "insidia, garak" not in line
     runs = tmp_path / ".insidia" / "runs"
     latest = max(runs.iterdir(), key=lambda path: path.name)
     report = (latest / "report.html").read_text()
     findings = json.loads((latest / "findings.json").read_text())
-    assert "garak" not in report
+    benchmark = json.loads((latest / "benchmark.json").read_text())
+    rows = _rows(benchmark, "ai.data_leakage")
+    assert rows and all("garak sent only 1 prompt" in row["detail"] for row in rows)
+    assert "garak sent only 1 prompt" in report
     assert all("garak" not in item["engines"] for item in findings)
     assert code == 0
 
 
-def test_a_limited_relay_that_found_a_bug_is_still_credited(
+def test_a_one_prompt_hit_does_not_credit_garak(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.setenv("INSIDIA_TOOLCHAIN", str(tmp_path / "toolchain"))
-    _install_shallow_garak(monkeypatch, finding=True)
+    _install_garak(monkeypatch, finding=True)
     recorder = _Recorder()
 
     def answer(path: str, body: bytes) -> tuple[int, str]:
@@ -383,20 +388,108 @@ def test_a_limited_relay_that_found_a_bug_is_still_credited(
     with _serve(recorder, answer) as port:
         config = tmp_path / "insidia.yaml"
         config.write_text(_chat_config(port))
-        code = main(
-            ["scan", "--config", str(config), "--coverage", "thorough", "--yes"]
-        )
+        code = main(["scan", "--config", str(config), "--coverage", "thorough", "--yes"])
     err = capsys.readouterr().err
     line = _result_line(err, "ai.data_leakage", "FAIL")
-    assert "garak" in line
+    assert "garak sent only 1 prompt" in line
+    assert "insidia, garak" not in line
     runs = tmp_path / ".insidia" / "runs"
     latest = max(runs.iterdir(), key=lambda path: path.name)
     report = (latest / "report.html").read_text()
     findings = json.loads((latest / "findings.json").read_text())
-    leak = next(item for item in findings if item["attack"] == "ai.data_leakage")
-    assert "garak" in leak["engines"]
-    assert "garak" in report
+    benchmark = json.loads((latest / "benchmark.json").read_text())
+    rows = _rows(benchmark, "ai.data_leakage")
+    assert any(
+        row["result"] == "fail" and "garak sent only 1 prompt" in row["detail"] for row in rows
+    )
+    assert "garak sent only 1 prompt" in report
+    assert all("garak" not in item["engines"] for item in findings)
+    assert all(item["attack"] != "ai.data_leakage" for item in findings)
     assert code == 1
+
+
+def test_a_relay_at_the_minimum_is_credited(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("INSIDIA_TOOLCHAIN", str(tmp_path / "toolchain"))
+    _install_garak(monkeypatch, finding=True, shallow=False)
+    recorder = _Recorder()
+
+    def answer(path: str, body: bytes) -> tuple[int, str]:
+        del path, body
+        return 200, "ok"
+
+    with _serve(recorder, answer) as port:
+        config = tmp_path / "insidia.yaml"
+        config.write_text(_chat_config(port))
+        code = main(["scan", "--config", str(config), "--coverage", "thorough", "--yes"])
+    err = capsys.readouterr().err
+    line = _result_line(err, "ai.data_leakage", "FAIL")
+    assert "garak" in line
+    assert "sent only" not in line
+    runs = tmp_path / ".insidia" / "runs"
+    latest = max(runs.iterdir(), key=lambda path: path.name)
+    findings = json.loads((latest / "findings.json").read_text())
+    leak = next(item for item in findings if item["attack"] == "ai.data_leakage")
+    assert leak["engines"] == ["garak"]
+    assert leak["reported_by"] == 1
+    assert code == 1
+
+
+def test_a_relay_hit_keeps_the_shallow_note_until_the_minimum(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def exchange(app: object, payload: str, scope: object, root: object) -> str:
+        del app, payload, scope, root
+        return "insidia-plant-canary-7f3a"
+
+    monkeypatch.setattr("insidia.probes.exchange", exchange)
+    one = _relay_attempt(tmp_path, 1)
+    assert one.hits
+    assert one.untested == "garak sent only 1 prompt(s)"
+    covered = _relay_attempt(tmp_path, _RELAY_MIN_PROMPTS)
+    assert covered.hits
+    assert covered.untested == ""
+
+
+def _relay_attempt(tmp_path: Path, prompts: int) -> Attempt:
+    holder: list[RelayEndpoint] = []
+
+    def prepare(spec: ProbeSpec, endpoint: RelayEndpoint, workspace: Path) -> Invocation:
+        del spec, workspace
+        holder.append(endpoint)
+        return Invocation("garak", (), "unused.json")
+
+    def launch(invocation: Invocation, workspace: Path) -> None:
+        del invocation, workspace
+        endpoint = holder[0]
+        for index in range(prompts):
+            body = json.dumps({"prompt": f"probe-{index}"}).encode()
+            request = urllib.request.Request(
+                endpoint.url,
+                data=body,
+                headers={
+                    "Authorization": f"Bearer {endpoint.token}",
+                    "Content-Type": "application/json",
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(request, timeout=5) as response:
+                assert response.status == 200
+
+    spec = ProbeSpec("garak.ai.data_leakage", "test.Blank", "ai.data_leakage", 50, False, ("chat",))
+    adapter = RelayAdapter("garak", "Apache-2.0", (spec,), prepare)
+    project = Project(tmp_path / "insidia.yaml", 1, "L1", "standard", _LOCAL, (), None, None)
+    bot = target(kind="chat", url="http://127.0.0.1/chat")
+    return probe_run(
+        adapter,
+        spec,
+        bot,
+        project,
+        tmp_path,
+        POLICIES["L1"].control("ai.data_leakage"),
+        launch,
+    )
 
 
 def _sent_payloads(recorder: _Recorder) -> list[str]:

@@ -287,7 +287,9 @@ def _scan_targets(
                     attempt_hits = attempt.hits
                     error = attempt.error
                     untested = attempt.untested
-                hits.extend(attempt_hits)
+                # A relay under the prompt minimum stays out of engines and reported_by.
+                if not untested:
+                    hits.extend(attempt_hits)
                 if error:
                     reason = short(mask(error), limit=reason_limit)
                     reasons.append(reason)
@@ -326,12 +328,13 @@ def _scan_targets(
             result = _family_result(family_records)
             detail = _detail(result, reasons, family_records)
             controls.append(_recorded(policy, family, target.name, result, detail))
-            # A limited run is too shallow to credit. A finding still names the engine that saw it.
+            # A limited run is too shallow to credit, even when one prompt hit.
             finished = tuple(
                 record.engine
                 for record in family_records
-                if record.state == COMPLETE or record.finding_count > 0
+                if record.state == COMPLETE and record.engine
             )
+            shown = f"{', '.join(finished)} · {detail}" if finished and detail else detail
             _say(
                 progress,
                 Event(
@@ -340,7 +343,7 @@ def _scan_targets(
                     family,
                     finished,
                     result,
-                    detail,
+                    shown,
                     time.monotonic() - began,
                 ),
             )
@@ -437,6 +440,9 @@ def _detail(result: str, reasons: list[str], records: list[CheckRecord]) -> str:
         return reasons[0]
     if result == "not tested":
         return next((record.reason for record in records if record.reason), "")
+    limited = [record.reason for record in records if record.state == LIMITED and record.reason]
+    if limited:
+        return "; ".join(dict.fromkeys(limited))
     return ""
 
 

@@ -191,7 +191,10 @@ def run(
         case _:
             raise CliError(f"{adapter.engine}: no adapter arm")
     hits = tuple(_probe_hit(spec, target.name, adapter.engine, control, hit) for hit in found)
-    return Attempt(hits, error, "" if hits else untested)
+    # A hit clears a miss-only note. A relay under the prompt minimum stays limited.
+    if hits and not _is_relay_shallow_note(untested):
+        untested = ""
+    return Attempt(hits, error, untested)
 
 
 _FIXTURE_ONLY_NOTE = "this check only recognises Insidia's benchmark app"
@@ -206,6 +209,8 @@ _JUDGE_ONLY = frozenset(
 _JUDGE_UNUSED_NOTE = "this coverage does not call the judge"
 # Fewer prompts than this is a smoke test, not coverage of the family.
 _RELAY_MIN_PROMPTS = 3
+_SHALLOW_NOTE = " sent only "
+_SHALLOW_TAIL = " prompt(s)"
 _NO_PAYLOAD = (
     "no {{payload}} placeholder in url, query, or body, "
     "so every probe sent the same request"
@@ -225,6 +230,18 @@ def _payload_cannot_land(target: Target, family: str) -> bool:
     if target.kind == "repo" or family in _PAYLOAD_FREE or target.url is None:
         return False
     return not carries_payload(target)
+
+
+def _relay_shallow_note(engine: str, sent: int) -> str:
+    """Why a relay that sent too few prompts did not cover the family."""
+    return f"{engine}{_SHALLOW_NOTE}{sent}{_SHALLOW_TAIL}"
+
+
+def _is_relay_shallow_note(note: str) -> bool:
+    engine, marker, rest = note.partition(_SHALLOW_NOTE)
+    if not engine or not marker or not rest.endswith(_SHALLOW_TAIL):
+        return False
+    return rest.removesuffix(_SHALLOW_TAIL).isdigit()
 
 
 def _untested_note(family: str) -> str:
@@ -846,7 +863,7 @@ def _relay(
             if spec.family in FIXTURE_ONLY:
                 return hits, "", _untested_note(spec.family)
             if len(pairs) < _RELAY_MIN_PROMPTS:
-                return hits, "", f"{adapter.engine} sent only {len(pairs)} prompt(s)"
+                return hits, "", _relay_shallow_note(adapter.engine, len(pairs))
             return hits, "", ""
     finally:
         server.shutdown()

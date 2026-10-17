@@ -26,7 +26,7 @@ from insidia.adapters import (
     RepoPath,
     ScopedUrl,
 )
-from insidia.catalog import SPECS
+from insidia.catalog import SPECS, STATIC_PROMPT
 from insidia.config import Project, load_project
 from insidia.engines import (
     PINNED_SHA256,
@@ -330,6 +330,8 @@ def test_garak_raises_parallel_requests(tmp_path: Path) -> None:
     )
     assert invocation.args[invocation.args.index("--parallel_requests") + 1] == "8"
     assert '"parallel_requests": 8' in (tmp_path / "generator.json").read_text()
+    prompts = json.loads((tmp_path / "probe.json").read_text())["test"]["Blank"]["prompts"]
+    assert prompts == [STATIC_PROMPT]
 
 
 def test_promptfoo_disables_remote_generation_and_telemetry(tmp_path: Path) -> None:
@@ -1177,10 +1179,17 @@ def test_thorough_scan_cross_validates_without_a_model(tmp_path: Path) -> None:
     document = json.loads((outcome.run_dir / "findings.json").read_text())
     leak = next(item for item in document if item["attack"] == "ai.data_leakage")
     web = next(item for item in document if item["attack"] == "web.ssti")
+    benchmark = json.loads((outcome.run_dir / "benchmark.json").read_text())
+    leak_rows = [
+        row
+        for row in benchmark["controls"]
+        if row.get("id") == "ai.data_leakage" and row.get("target") == "sandbox-chat"
+    ]
     assert leak["engine"] == "insidia"
     assert leak["cross_validated"] is False, outcome.skips
-    assert leak["reported_by"] >= 2, outcome.skips
-    assert set(leak["engines"]) >= {"insidia", "garak", "promptfoo"}, outcome.skips
+    assert leak["engines"] == ["insidia"], outcome.skips
+    assert leak["reported_by"] == 1, outcome.skips
+    assert any("garak sent only 1 prompt" in row.get("detail", "") for row in leak_rows)
     assert web["engine"] == "insidia"
     assert web["cross_validated"] is False, outcome.skips
     assert web["reported_by"] >= 2, outcome.skips
