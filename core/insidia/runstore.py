@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import csv
 import hashlib
+import io
 import json
 import re
 import secrets
@@ -322,6 +324,7 @@ def write_run(
     findings = _stamp_targets(prepare_findings(findings), targets)
     payload = [finding.as_json() for finding in findings]
     (staging / "findings.json").write_text(json.dumps(payload, indent=2) + "\n")
+    (staging / "findings.csv").write_text(_findings_csv(findings, run_id, targets))
     (staging / "results.sarif").write_text(json.dumps(_sarif(findings), indent=2) + "\n")
     scores = score_frameworks(controls)
     benchmark = {
@@ -335,7 +338,7 @@ def write_run(
         "scores": [asdict(score) for score in scores],
     }
     (staging / "benchmark.json").write_text(json.dumps(benchmark, indent=2) + "\n")
-    names = ["findings.json", "results.sarif", "benchmark.json", "report.html"]
+    names = ["findings.json", "findings.csv", "results.sarif", "benchmark.json", "report.html"]
     if config_text is not None:
         (staging / "insidia.yaml").write_bytes(config_text)
         names.append("insidia.yaml")
@@ -404,6 +407,88 @@ def write_run(
     (staging / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     staging.rename(directory)
     return directory
+
+
+_CSV_COLUMNS = (
+    "check_id",
+    "title",
+    "severity",
+    "risk_score",
+    "target",
+    "target_kind",
+    "endpoint",
+    "cve",
+    "taxonomy",
+    "synopsis",
+    "solution",
+    "evidence",
+    "evidence_hash",
+    "engines",
+    "run_id",
+)
+_CSV_EVIDENCE_CAP = 500
+_CSV_TRIM_NOTE = " truncated to 500 characters"
+_CSV_FORMULA = ("=", "+", "-", "@")
+
+
+def _findings_csv(
+    findings: list[Finding],
+    run_id: str,
+    targets: tuple[tuple[str, str, str], ...],
+) -> str:
+    """One header, then one row per finding. Cells are masked and formula-safe."""
+    kinds = {name: kind for name, kind, _endpoint in targets}
+    buffer = io.StringIO(newline="")
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(_CSV_COLUMNS)
+    for finding in findings:
+        writer.writerow(
+            [
+                _csv_cell(finding.check_id),
+                _csv_cell(finding.title),
+                _csv_cell(finding.severity),
+                _csv_cell(json.dumps(finding.risk_score)),
+                _csv_cell(finding.target),
+                _csv_cell(kinds.get(finding.target, "")),
+                _csv_cell(finding.endpoint or finding.location),
+                _csv_cell("; ".join(finding.cve)),
+                _csv_cell("; ".join(finding.taxonomy)),
+                _csv_cell(finding.synopsis),
+                _csv_cell(finding.remediation),
+                _csv_evidence(finding),
+                _csv_cell(finding.evidence_hash),
+                _csv_cell("; ".join(finding.engines)),
+                _csv_cell(run_id),
+            ]
+        )
+    return buffer.getvalue()
+
+
+def _finding_evidence(finding: Finding) -> str:
+    """Observation evidence, or the response when no observation stored any."""
+    parts = [item.evidence for item in finding.observations if item.evidence]
+    if parts:
+        return "\n".join(parts)
+    return finding.response
+
+
+def _csv_evidence(finding: Finding) -> str:
+    """Mask evidence, then keep at most 500 characters."""
+    text = mask(_finding_evidence(finding))
+    if len(text) > _CSV_EVIDENCE_CAP:
+        text = text[:_CSV_EVIDENCE_CAP] + _CSV_TRIM_NOTE
+    return _formula_safe(text)
+
+
+def _csv_cell(value: str) -> str:
+    return _formula_safe(mask(value))
+
+
+def _formula_safe(value: str) -> str:
+    """A leading spreadsheet formula is text. Applied after masking and trimming."""
+    if value.startswith(_CSV_FORMULA):
+        return f"'{value}"
+    return value
 
 
 def not_tested(controls: list[dict[str, str | int]]) -> int:
@@ -686,8 +771,9 @@ def _render(
         ),
         "<footer>",
         (
-            "<p>Artefacts: findings.json, results.sarif, benchmark.json, "
-            "manifest.json, report.html</p>"
+            "<p>Artefacts: findings.json, "
+            '<a href="findings.csv">findings.csv</a>, '
+            "results.sarif, benchmark.json, manifest.json, report.html</p>"
         ),
         f"<p><code>insidia rerun {_escape(run_id)}</code></p>",
         "</footer>",

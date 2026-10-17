@@ -299,6 +299,132 @@ targets:
     assert set(shown) == set(files) - {"report.html"}
 
 
+def test_findings_csv_masks_formula_cells_and_is_hashed(tmp_path: Path) -> None:
+    import csv
+    import hashlib
+    import io
+
+    token = "ghp_" + ("b" * 36)
+    planted = _bare(
+        check_id="INS-AI-001",
+        title="Secret returned in chatbot reply",
+        severity="high",
+        risk_score=9.1,
+        risk_factors=("reported",),
+        target="nova",
+        taxonomy=("owasp-llm:LLM02", "cwe:CWE-200"),
+        cve=("CVE-2024-0001", "CVE-2024-0002"),
+        synopsis="The reply contained a credential.",
+        remediation="Stop returning secrets.",
+        evidence_hash="planted-hash",
+        engines=("insidia", "garak"),
+        location="reply:1",
+        observations=(
+            Observation(
+                "insidia",
+                "insidia.ai.data_leakage",
+                "high",
+                "reply:1",
+                f"={token}",
+            ),
+        ),
+        response="ordinary reply",
+    )
+    ordinary_evidence = "template returned 49 " + ("x" * 500)
+    ordinary = _bare(
+        check_id="INS-WEB-001",
+        title="Template injection",
+        severity="medium",
+        risk_score=5.0,
+        risk_factors=("reported",),
+        target="shop",
+        taxonomy=("owasp-web:A03",),
+        synopsis="User input was evaluated.",
+        remediation="Do not evaluate user input as a template.",
+        evidence_hash="ordinary-hash",
+        engines=("insidia",),
+        location="GET http://127.0.0.1:8090/ping",
+        observations=(
+            Observation(
+                "insidia",
+                "insidia.web.ssti",
+                "medium",
+                "/ping",
+                ordinary_evidence,
+            ),
+        ),
+    )
+    endpoint = "POST http://127.0.0.1:8100/api/v1/assistant"
+    directory = write_run(
+        tmp_path,
+        "run-csv",
+        "L1",
+        False,
+        [planted, ordinary],
+        [],
+        [],
+        targets=(("nova", "chat", endpoint),),
+    )
+    raw = (directory / "findings.csv").read_bytes()
+    text = raw.decode()
+    assert token not in text
+    assert "ghp_" not in text
+    rows = list(csv.reader(io.StringIO(text)))
+    header = [
+        "check_id",
+        "title",
+        "severity",
+        "risk_score",
+        "target",
+        "target_kind",
+        "endpoint",
+        "cve",
+        "taxonomy",
+        "synopsis",
+        "solution",
+        "evidence",
+        "evidence_hash",
+        "engines",
+        "run_id",
+    ]
+    assert rows[0] == header
+    payload = json.loads((directory / "findings.json").read_text())
+    assert len(rows) - 1 == len(payload) == 2
+    by_id = {row[0]: row for row in rows[1:]}
+    formula = by_id["INS-AI-001"]
+    evidence = formula[header.index("evidence")]
+    assert evidence.startswith("'=")
+    assert mask(token) in evidence
+    assert formula[header.index("target_kind")] == "chat"
+    assert formula[header.index("endpoint")] == endpoint
+    assert formula[header.index("cve")] == "CVE-2024-0001; CVE-2024-0002"
+    assert formula[header.index("taxonomy")] == "owasp-llm:LLM02; cwe:CWE-200"
+    assert formula[header.index("solution")] == "Stop returning secrets."
+    assert formula[header.index("engines")] == "insidia; garak"
+    assert formula[header.index("run_id")] == "run-csv"
+    plain = by_id["INS-WEB-001"]
+    plain_evidence = plain[header.index("evidence")]
+    masked_ordinary = mask(ordinary_evidence)
+    assert plain_evidence == masked_ordinary[:500] + " truncated to 500 characters"
+    assert plain[header.index("target_kind")] == ""
+    assert plain[header.index("endpoint")] == "GET http://127.0.0.1:8090/ping"
+    manifest = json.loads((directory / "manifest.json").read_text())
+    files = manifest["files"]
+    assert isinstance(files, dict)
+    assert files["findings.csv"] == hashlib.sha256(raw).hexdigest()
+    report_bytes = (directory / "report.html").read_bytes()
+    assert files["report.html"] == hashlib.sha256(report_bytes).hexdigest()
+    footer = report_bytes.decode().split("<footer>", 1)[1]
+    assert 'href="findings.csv"' in footer
+
+    empty = write_run(tmp_path, "run-empty", "L1", True, [], [], [])
+    empty_raw = (empty / "findings.csv").read_bytes()
+    empty_rows = list(csv.reader(io.StringIO(empty_raw.decode())))
+    assert empty_rows == [header]
+    empty_files = json.loads((empty / "manifest.json").read_text())["files"]
+    assert empty_files["findings.csv"] == hashlib.sha256(empty_raw).hexdigest()
+
+
 def _scan_cell(html: str, label: str) -> str:
     table = html.split('<table class="scan">', 1)[1].split("</table>", 1)[0]
     needle = f"<th>{label}</th><td>"
