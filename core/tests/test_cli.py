@@ -215,6 +215,65 @@ def test_allow_unverified_is_passed_to_install(monkeypatch: object) -> None:
     assert seen["allow_unverified"] is True
 
 
+def test_out_of_scope_target_is_refused_before_any_contact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    contacted: list[str] = []
+
+    def fetch(*_args: object, **_kwargs: object) -> tuple[int, dict[str, str], str]:
+        contacted.append("fetch")
+        raise AssertionError("a target was contacted")
+
+    monkeypatch.setattr("insidia.transport.fetch", fetch)
+    for name, body in (("local-first", _LOCAL_THEN_REMOTE), ("remote-first", _REMOTE_THEN_LOCAL)):
+        contacted.clear()
+        work = tmp_path / name
+        work.mkdir()
+        (work / "insidia.yaml").write_text(body)
+        code = main(["scan", "--config", str(work / "insidia.yaml"), "--yes", "--quiet"])
+        captured = capsys.readouterr()
+        assert code == 2
+        assert "example.com is not in scope" in captured.out
+        assert "No target was contacted." in captured.out
+        assert contacted == []
+        assert not (work / ".insidia").exists()
+
+
+_LOCAL_THEN_REMOTE = """\
+version: 1
+policy: L1
+coverage: standard
+scope:
+  - host: 127.0.0.1
+targets:
+  local:
+    kind: web
+    url: http://127.0.0.1:8090/hello
+    method: GET
+  ext:
+    kind: web
+    url: http://example.com/
+    method: GET
+"""
+
+_REMOTE_THEN_LOCAL = """\
+version: 1
+policy: L1
+coverage: standard
+scope:
+  - host: 127.0.0.1
+targets:
+  ext:
+    kind: web
+    url: http://example.com/
+    method: GET
+  local:
+    kind: web
+    url: http://127.0.0.1:8090/hello
+    method: GET
+"""
+
+
 def test_engine_install_names_each_engine(monkeypatch: object) -> None:
     def already(name: str, allow_unverified: bool = False) -> str:
         del allow_unverified

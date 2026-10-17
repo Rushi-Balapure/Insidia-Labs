@@ -81,6 +81,7 @@ def execute(
         )
     _require_model_secrets(project)
     mode = coverage or project.coverage
+    _validate_targets(project, root)
     config_digest = hashlib.sha256(project.path.read_bytes()).hexdigest()
     bind_secrets(_configured_secrets(project))
     if project.attacker is not None:
@@ -184,7 +185,6 @@ def _scan_targets(
     notes: list[str],
 ) -> None:
     for target in project.targets:
-        _guard(target, project, root)
         if _grpc(target):
             reason = "gRPC probes are not available in this CLI yet"
             skips.append(f"{target.name}: {reason}")
@@ -442,6 +442,15 @@ def _recorded(
     if reason:
         recorded["reason"] = reason
     return recorded
+
+
+def _validate_targets(project: Project, root: Path) -> None:
+    """Refuse a bad target before any of them is contacted."""
+    for target in project.targets:
+        try:
+            _guard(target, project, root)
+        except ScopeError as exc:
+            raise ScopeError(f"{exc}. No target was contacted.") from exc
 
 
 def _grpc(target: Target) -> bool:
