@@ -20,7 +20,7 @@ from urllib.parse import parse_qsl, quote, urlencode, urljoin, urlparse, urlunpa
 
 from insidia.config import Target, resolve_secret
 from insidia.errors import CliError, ConfigError, HttpStatus, ProbeError, ScopeError
-from insidia.scope import ScopeHost, check_url, hostname
+from insidia.scope import ScopeHost, check_url, redirect_refusal
 
 _MAX_BODY = 1_000_000
 _REDIRECTS = frozenset({301, 302, 303, 307, 308})
@@ -251,7 +251,7 @@ def read_url(
     limiter: RateLimiter | None = None,
     timeout: float = 10,
 ) -> str:
-    """Read one URL. Redirects that change host are refused, and no proxy is used."""
+    """Read one URL. A redirect that changes host or port, or downgrades TLS, is refused."""
     status, _headers, text = fetch(url, scope, method, body, headers, limiter, timeout)
     if status >= 400:
         raise HttpStatus(status, text)
@@ -277,13 +277,14 @@ def fetch(
     opener = urllib.request.OpenerDirector()
     opener.add_handler(urllib.request.HTTPHandler())
     opener.add_handler(urllib.request.HTTPSHandler())
-    origin = hostname(url)
+    origin = url
     current = url
     request_headers = dict(headers or {})
     for _ in range(4):
         check_url(current, scope)
-        if hostname(current) != origin:
-            raise ScopeError(f"redirect left {origin}")
+        refusal = redirect_refusal(origin, current)
+        if refusal is not None:
+            raise ScopeError(refusal)
         if limiter is not None:
             limiter.wait()
         request = urllib.request.Request(

@@ -3,7 +3,14 @@ from pathlib import Path
 import pytest
 from insidia.cli import main
 from insidia.errors import ScopeError
-from insidia.scope import LOCAL_HOSTS, ScopeHost, check_url, needs_confirmation, unauthorized_host
+from insidia.scope import (
+    LOCAL_HOSTS,
+    ScopeHost,
+    check_url,
+    needs_confirmation,
+    redirect_refusal,
+    unauthorized_host,
+)
 
 from support import REPO
 
@@ -13,6 +20,9 @@ LOCAL = (ScopeHost("localhost", False), ScopeHost("127.0.0.1", False))
 def test_localhost_is_in_scope_without_authorization() -> None:
     assert "localhost" in LOCAL_HOSTS
     assert check_url("http://localhost:8080/chat", LOCAL) == "localhost"
+    assert check_url("http://127.0.0.1:6379/redis", LOCAL) == "127.0.0.1"
+    local = (*LOCAL, ScopeHost("::1", False))
+    assert check_url("http://[::1]:9/", local) == "::1"
 
 
 def test_unlisted_host_is_rejected() -> None:
@@ -22,6 +32,32 @@ def test_unlisted_host_is_rejected() -> None:
         assert "not in scope" in str(exc)
     else:
         raise AssertionError("expected ScopeError")
+
+
+def test_redirect_refusal_blocks_port_changes_and_downgrades() -> None:
+    assert redirect_refusal("http://127.0.0.1:8080/a", "http://127.0.0.1:8080/b") is None
+    assert redirect_refusal("http://127.0.0.1/", "http://127.0.0.1:80/b") is None
+    assert redirect_refusal("https://127.0.0.1/a", "https://127.0.0.1:443/b") is None
+    assert redirect_refusal("http://127.0.0.1:8443/a", "https://127.0.0.1:8443/a") is None
+    assert (
+        redirect_refusal("http://127.0.0.1:8080/a", "http://127.0.0.1:6379/")
+        == "redirect changed port"
+    )
+    assert (
+        redirect_refusal("https://127.0.0.1:8443/r", "http://127.0.0.1:8443/")
+        == "redirect downgraded https to http"
+    )
+    assert (
+        redirect_refusal("https://127.0.0.1/a", "http://127.0.0.1/a")
+        == "redirect downgraded https to http"
+    )
+    assert (
+        redirect_refusal("wss://127.0.0.1/a", "ws://127.0.0.1/a") == "redirect downgraded wss to ws"
+    )
+    assert (
+        redirect_refusal("http://127.0.0.1:8080/a", "http://localhost:8080/a")
+        == "redirect left 127.0.0.1"
+    )
 
 
 def test_remote_host_needs_authorization_and_confirmation() -> None:
@@ -103,11 +139,7 @@ targets:
 
 def test_readme_yes_exempts_loopback_hosts() -> None:
     text = (REPO / "README.md").read_text()
-    matched = [
-        line
-        for line in text.splitlines()
-        if "--yes" in line and "only required" in line
-    ]
+    matched = [line for line in text.splitlines() if "--yes" in line and "only required" in line]
     assert len(matched) == 1
     assert "localhost" in matched[0]
     assert "127.0.0.1" in matched[0]

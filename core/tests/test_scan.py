@@ -7,6 +7,7 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import pytest
 from insidia.cli import main
 from insidia.config import ModelRole, load_project
 from insidia.errors import CliError, ScopeError
@@ -133,6 +134,145 @@ def test_redirect_to_another_in_scope_host_is_refused(tmp_path: Path) -> None:
     finally:
         server.shutdown()
         other.shutdown()
+    assert hit["followed"] is False
+
+
+def test_redirect_to_another_port_is_refused(tmp_path: Path) -> None:
+    hit = {"followed": False}
+
+    class Other(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            hit["followed"] = True
+            self.send_response(200)
+            self.end_headers()
+
+        def log_message(self, fmt: str, *args: object) -> None:
+            return
+
+    other = ThreadingHTTPServer(("127.0.0.1", 0), Other)
+    other_port = other.server_address[1]
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            self.send_response(302)
+            self.send_header("Location", f"http://127.0.0.1:{other_port}/secret")
+            self.end_headers()
+
+        def log_message(self, fmt: str, *args: object) -> None:
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threads = [
+        threading.Thread(target=server.serve_forever, daemon=True),
+        threading.Thread(target=other.serve_forever, daemon=True),
+    ]
+    for thread in threads:
+        thread.start()
+    port = server.server_address[1]
+    try:
+        exchange(
+            target(url=f"http://127.0.0.1:{port}/go", method="GET"),
+            "next",
+            (ScopeHost("127.0.0.1", False),),
+            tmp_path,
+        )
+    except ScopeError as exc:
+        assert "redirect changed port" in str(exc)
+    else:
+        raise AssertionError("expected ScopeError")
+    finally:
+        server.shutdown()
+        other.shutdown()
+    assert hit["followed"] is False
+
+
+def test_same_origin_redirect_is_followed(tmp_path: Path) -> None:
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            if self.path.startswith("/go"):
+                self.send_response(302)
+                self.send_header("Location", "/land")
+                self.end_headers()
+                return
+            body = b"land"
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, fmt: str, *args: object) -> None:
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    port = server.server_address[1]
+    try:
+        body = exchange(
+            target(url=f"http://127.0.0.1:{port}/go", method="GET"),
+            "next",
+            (ScopeHost("127.0.0.1", False),),
+            tmp_path,
+        )
+    finally:
+        server.shutdown()
+    assert body == "land"
+
+
+def test_scan_refuses_a_same_host_port_change(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    hit = {"followed": False}
+
+    class Other(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            hit["followed"] = True
+            self.send_response(200)
+            self.end_headers()
+
+        def log_message(self, fmt: str, *args: object) -> None:
+            return
+
+    other = ThreadingHTTPServer(("127.0.0.1", 0), Other)
+    other_port = int(other.server_address[1])
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            self.send_response(302)
+            self.send_header("Location", f"http://127.0.0.1:{other_port}/secret")
+            self.end_headers()
+
+        def log_message(self, fmt: str, *args: object) -> None:
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threads = [
+        threading.Thread(target=other.serve_forever, daemon=True),
+        threading.Thread(target=server.serve_forever, daemon=True),
+    ]
+    for thread in threads:
+        thread.start()
+    port = int(server.server_address[1])
+    monkeypatch.setenv("INSIDIA_TOOLCHAIN", str(tmp_path / "toolchain"))
+    config = tmp_path / "insidia.yaml"
+    config.write_text(
+        f"""\
+version: 1
+scope:
+  - host: 127.0.0.1
+targets:
+  hop:
+    kind: api
+    url: http://127.0.0.1:{port}/go
+    method: GET
+"""
+    )
+    try:
+        code = main(["scan", "--config", str(config), "--quiet"])
+    finally:
+        server.shutdown()
+        other.shutdown()
+    assert code == 2
+    assert "redirect changed port" in capsys.readouterr().out
     assert hit["followed"] is False
 
 
