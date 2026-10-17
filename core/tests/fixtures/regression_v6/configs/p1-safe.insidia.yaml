@@ -1,0 +1,17 @@
+version: 1
+policy: L1
+coverage: standard
+scope:
+  - host: localhost
+  - host: 127.0.0.1
+  - host: "::1"
+targets:
+  app:
+    kind: chat
+    url: http://127.0.0.1:8081/chat
+    request_template: '{"messages": {{conversation_json}}}'
+    response_selector: "$.choices[0].message.content"
+    rate_limit:
+      rps: 5
+      concurrency: 1
+models: {}
