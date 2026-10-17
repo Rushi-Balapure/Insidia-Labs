@@ -382,7 +382,11 @@ def _mark() -> str:
 def read_manifest(directory: Path) -> dict[str, object] | None:
     """Check a finalized manifest. A legacy run with no manifest is left unchanged."""
 
+    if directory.is_symlink():
+        raise CliError(f"run {directory.name} manifest escapes the run directory")
     path = directory / "manifest.json"
+    if path.is_symlink():
+        raise CliError(f"run {directory.name} manifest escapes the run directory")
     if not path.is_file():
         return None
     try:
@@ -398,7 +402,10 @@ def read_manifest(directory: Path) -> dict[str, object] | None:
     for name, digest in files.items():
         if not isinstance(name, str) or not isinstance(digest, str) or "/" in name:
             raise CliError(f"run {directory.name} manifest has an invalid file entry")
-        artifact = (directory / name).resolve()
+        artifact_path = directory / name
+        if artifact_path.is_symlink():
+            raise CliError(f"run {directory.name} manifest escapes the run directory")
+        artifact = artifact_path.resolve()
         if root != artifact and root not in artifact.parents:
             raise CliError(f"run {directory.name} manifest escapes the run directory")
         if not artifact.is_file():
@@ -409,12 +416,29 @@ def read_manifest(directory: Path) -> dict[str, object] | None:
     return loaded
 
 
+def is_contained_run(root: Path, path: Path) -> bool:
+    """True when path is a real directory inside root/.insidia/runs."""
+
+    insidia = root / ".insidia"
+    runs = insidia / "runs"
+    if insidia.is_symlink() or runs.is_symlink() or path.is_symlink() or not path.is_dir():
+        return False
+    try:
+        resolved = path.resolve()
+    except OSError:
+        return False
+    return runs.resolve() in resolved.parents
+
+
 def latest_run(root: Path) -> Path | None:
-    runs = root / ".insidia" / "runs"
-    if not runs.is_dir():
+    insidia = root / ".insidia"
+    runs = insidia / "runs"
+    if insidia.is_symlink() or runs.is_symlink() or not runs.is_dir():
         return None
     names = sorted(
-        path.name for path in runs.iterdir() if path.is_dir() and not path.name.startswith(".")
+        path.name
+        for path in runs.iterdir()
+        if not path.name.startswith(".") and is_contained_run(root, path)
     )
     if not names:
         return None
