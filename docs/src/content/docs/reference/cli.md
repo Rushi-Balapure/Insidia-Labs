@@ -41,6 +41,8 @@ insidia engines install --docker
 
 A downloaded engine binary is checked against a pinned SHA-256 for that engine, version, and platform before it is unpacked. If the bytes do not match, the install stops. If this platform has no pin, the install stops unless you pass `--allow-unverified`.
 
+`INSIDIA_ENGINE_MIRROR` is an optional `http` or `https` base URL, such as `http://127.0.0.1:8765`. It replaces only the `https://github.com` prefix of an engine download. The SHA-256 pin still names the canonical GitHub URL, so a file from the mirror that does not match that pin is not installed. A value that is not `http` or `https` is refused, and so is a download that is not on `https://github.com`. A localhost mirror is an install override and does not need `authorized: true`.
+
 ## policy
 
 ```bash

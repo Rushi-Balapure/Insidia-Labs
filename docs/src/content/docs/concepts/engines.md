@@ -32,7 +32,7 @@ insidia engines list
 insidia engines install garak zap
 ```
 
-A downloaded binary is checked against a pinned SHA-256 for that engine, version, and platform before it is unpacked or run. A mismatch stops the install. A platform with no pin is refused unless you pass `--allow-unverified`.
+A downloaded binary is checked against a pinned SHA-256 for that engine, version, and platform before it is unpacked or run. A mismatch stops the install. A platform with no pin is refused unless you pass `--allow-unverified`. Set `INSIDIA_ENGINE_MIRROR` to an `http` or `https` base URL to fetch those GitHub release files from a mirror. Only the `https://github.com` prefix changes. The pin stays on the canonical URL.
 
 Trivy and osv-scanner download vulnerability databases from the internet when a scan runs them. That traffic is outside `scope`. The scan names the engine when it does this. See [Data handling](/docs/security/data/).
 

@@ -5,10 +5,15 @@ import platform
 import socket
 import subprocess
 import sys
+import threading
 import time
 import types
+import urllib.parse
 import urllib.request
 import zipfile
+from collections.abc import Iterator
+from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
@@ -23,7 +28,7 @@ from insidia.adapters import (
 )
 from insidia.catalog import SPECS
 from insidia.config import Project, load_project
-from insidia.engines import _github, _publish, install
+from insidia.engines import _download, _github, _mirrored_download_url, _publish, install
 from insidia.errors import CliError, EngineFailed
 from insidia.policy import get_policy
 from insidia.probes import run
@@ -841,6 +846,184 @@ def test_a_missing_pin_needs_allow_unverified(
         install(("nuclei",))
     assert not (tmp_path / "nuclei").exists()
     assert install(("nuclei",), allow_unverified=True).startswith("installed nuclei")
+
+
+def _linux_amd64(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(platform, "machine", lambda: "x86_64")
+
+
+def _refuse_off_loopback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fail the test before a bug can fetch a real engine binary."""
+    real_build = urllib.request.build_opener
+
+    def build(*handlers: urllib.request.BaseHandler) -> urllib.request.OpenerDirector:
+        opener = real_build(*handlers)
+        original = opener.open
+
+        def open_url(
+            fullurl: object,
+            data: object = None,
+            timeout: float | None = None,
+        ) -> object:
+            raw = fullurl.full_url if isinstance(fullurl, urllib.request.Request) else str(fullurl)
+            host = urllib.parse.urlsplit(raw).hostname
+            if host != "127.0.0.1":
+                raise AssertionError(f"refusing non-loopback engine download: {raw}")
+            if timeout is None:
+                return original(fullurl, data=data)
+            return original(fullurl, data=data, timeout=timeout)
+
+        opener.open = open_url  # type: ignore[method-assign]
+        return opener
+
+    monkeypatch.setattr(urllib.request, "build_opener", build)
+
+
+@contextmanager
+def _local_mirror(payload: bytes) -> Iterator[tuple[str, list[str]]]:
+    requested: list[str] = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            requested.append(self.path)
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def log_message(self, format: str, *args: object) -> None:
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    port = server.server_address[1]
+    assert isinstance(port, int)
+    try:
+        yield f"http://127.0.0.1:{port}", requested
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_github_urls_stay_canonical_without_a_mirror(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("INSIDIA_ENGINE_MIRROR", raising=False)
+    _linux_amd64(monkeypatch)
+    seen = 0
+    for spec in SPECS:
+        try:
+            url = _github(spec)
+        except CliError:
+            continue
+        seen += 1
+        assert url.startswith("https://github.com/")
+    assert seen >= 9
+
+
+def test_a_mirror_rewrites_only_the_github_prefix(monkeypatch: pytest.MonkeyPatch) -> None:
+    canonical = "https://github.com/org/name/releases/download/v1/file.zip"
+    monkeypatch.delenv("INSIDIA_ENGINE_MIRROR", raising=False)
+    assert _mirrored_download_url(canonical) == canonical
+    monkeypatch.setenv("INSIDIA_ENGINE_MIRROR", "http://127.0.0.1:9/")
+    assert _mirrored_download_url(canonical) == (
+        "http://127.0.0.1:9/org/name/releases/download/v1/file.zip"
+    )
+    monkeypatch.setenv("INSIDIA_ENGINE_MIRROR", "ftp://127.0.0.1/engines")
+    with pytest.raises(CliError, match="http or https"):
+        _mirrored_download_url(canonical)
+    monkeypatch.setenv("INSIDIA_ENGINE_MIRROR", "http://127.0.0.1:9")
+    with pytest.raises(CliError, match="https://github.com"):
+        _mirrored_download_url("https://download.pytorch.org/whl/cpu/torch.whl")
+    with pytest.raises(CliError, match="https://github.com"):
+        _mirrored_download_url("https://github.com.evil/nuclei.zip")
+
+
+def test_a_non_http_mirror_is_refused_before_download(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("INSIDIA_TOOLCHAIN", str(tmp_path))
+    monkeypatch.setenv("INSIDIA_ENGINE_MIRROR", "file:///tmp/engines")
+    _linux_amd64(monkeypatch)
+
+    def fail_open(*args: object, **kwargs: object) -> object:
+        raise AssertionError("download started")
+
+    monkeypatch.setattr(urllib.request.OpenerDirector, "open", fail_open)
+    with pytest.raises(CliError, match="http or https"):
+        install(("nuclei",))
+    assert not (tmp_path / "nuclei").exists()
+    assert not (tmp_path / ".nuclei.staging").exists()
+
+
+def test_a_mirror_does_not_fetch_a_non_github_url(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("INSIDIA_ENGINE_MIRROR", "http://127.0.0.1:9")
+
+    def fail_open(*args: object, **kwargs: object) -> object:
+        raise AssertionError("download started")
+
+    monkeypatch.setattr(urllib.request.OpenerDirector, "open", fail_open)
+    with pytest.raises(CliError, match="https://github.com"):
+        _download("https://download.pytorch.org/whl/cpu/torch.whl", tmp_path / "torch")
+    assert not (tmp_path / "torch").exists()
+
+
+def test_a_tampered_mirror_archive_fails_sha256(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("INSIDIA_TOOLCHAIN", str(tmp_path))
+    monkeypatch.delenv("INSIDIA_ENGINE_MIRROR", raising=False)
+    _linux_amd64(monkeypatch)
+    _refuse_off_loopback(monkeypatch)
+    spec = next(item for item in SPECS if item.name == "nuclei")
+    canonical = _github(spec)
+    payload = _nuclei_zip()
+    monkeypatch.setattr(
+        "insidia.engines.PINNED_SHA256",
+        {canonical: hashlib.sha256(payload).hexdigest()},
+    )
+
+    def fail_extract(*args: object, **kwargs: object) -> None:
+        raise AssertionError("archive was extracted")
+
+    monkeypatch.setattr("insidia.engines._extract", fail_extract)
+    with _local_mirror(b"tampered-archive") as (mirror, requested):
+        monkeypatch.setenv("INSIDIA_ENGINE_MIRROR", mirror)
+        assert _github(spec) == canonical
+        with pytest.raises(CliError, match="failed SHA-256 verification"):
+            install(("nuclei",), allow_unverified=True)
+    assert requested
+    assert all(path.startswith("/projectdiscovery/nuclei/") for path in requested)
+    assert not (tmp_path / "nuclei").exists()
+    assert not (tmp_path / ".nuclei.staging").exists()
+
+
+def test_a_mirror_archive_matching_the_pin_installs(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("INSIDIA_TOOLCHAIN", str(tmp_path))
+    monkeypatch.delenv("INSIDIA_ENGINE_MIRROR", raising=False)
+    _linux_amd64(monkeypatch)
+    _refuse_off_loopback(monkeypatch)
+    spec = next(item for item in SPECS if item.name == "nuclei")
+    canonical = _github(spec)
+    payload = _nuclei_zip()
+    monkeypatch.setattr(
+        "insidia.engines.PINNED_SHA256",
+        {canonical: hashlib.sha256(payload).hexdigest()},
+    )
+    with _local_mirror(payload) as (mirror, requested):
+        monkeypatch.setenv("INSIDIA_ENGINE_MIRROR", mirror)
+        assert _github(spec) == canonical
+        assert install(("nuclei",)).startswith("installed nuclei")
+    assert requested
+    assert all(path.startswith("/projectdiscovery/nuclei/") for path in requested)
+    program = tmp_path / "nuclei" / "bin" / "nuclei"
+    assert program.is_file()
+    assert program.stat().st_mode & 0o111
 
 
 @pytest.mark.parametrize("machine", ["x86_64", "aarch64"])
