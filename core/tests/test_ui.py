@@ -40,6 +40,34 @@ def test_plain_output_has_no_escape_codes() -> None:
     assert view.totals() == "0 passed · 1 failed · 1 skipped"
 
 
+def test_each_target_header_precedes_its_first_row() -> None:
+    stream = _Stream()
+    view = ScanView(_terminal(stream))
+    view(Event("start", detail="scan · policy L1 · coverage standard · 2 targets"))
+    view(Event("begin", "app", "ai.data_leakage", ("insidia",)))
+    view(Event("end", "app", "ai.data_leakage", ("insidia",), "pass"))
+    view(
+        Event(
+            "end",
+            "dead",
+            "target",
+            result="inconclusive",
+            detail="http://127.0.0.1:9/chat: unreachable",
+        )
+    )
+    text = stream.getvalue()
+    assert text.index("\napp\n") < text.index("ai.data_leakage")
+    assert text.index("\ndead\n") < text.index("incomplete")
+    assert text.index("\napp\n") < text.index("\ndead\n")
+
+    alone = _Stream()
+    ScanView(_terminal(alone))(
+        Event("end", "dead", "target", result="inconclusive", detail="unreachable")
+    )
+    alone_text = alone.getvalue()
+    assert alone_text.index("\ndead\n") < alone_text.index("incomplete")
+
+
 def test_quiet_prints_nothing() -> None:
     stream = _Stream()
     terminal = Terminal(stream, quiet=True, animate=False, no_color=True)

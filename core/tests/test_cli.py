@@ -304,6 +304,80 @@ targets:
     assert all("qa-out-of-scope.invalid" not in item for item in seen)
 
 
+def test_incomplete_target_prints_its_own_header(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def preflight(target: object, *_args: object) -> str:
+        if getattr(target, "name", "") == "dead":
+            return "http://127.0.0.1:9/chat: unreachable"
+        return ""
+
+    monkeypatch.setattr("insidia.scan.preflight", preflight)
+    monkeypatch.setattr("insidia.scan.run", lambda *_args, **_kwargs: Attempt())
+
+    def run_case(name: str, body: str) -> tuple[int, str]:
+        work = tmp_path / name
+        work.mkdir()
+        (work / "insidia.yaml").write_text(body)
+        code = main(["scan", "--config", str(work / "insidia.yaml"), "--no-color"])
+        return code, capsys.readouterr().err
+
+    code, err = run_case("mixed", _APP_THEN_DEAD)
+    assert code == 2
+    assert err.index("\napp\n") < err.index("\ndead\n") < err.index("incomplete")
+
+    code, err = run_case("reordered", _DEAD_THEN_APP)
+    assert code == 2
+    assert err.index("\ndead\n") < err.index("incomplete") < err.index("\napp\n")
+
+    code, err = run_case("dead-only", _DEAD_ONLY)
+    assert code == 2
+    assert err.index("\ndead\n") < err.index("incomplete")
+
+
+_APP_THEN_DEAD = """\
+version: 1
+policy: L1
+coverage: standard
+scope:
+  - host: 127.0.0.1
+targets:
+  app:
+    kind: chat
+    url: http://127.0.0.1:8080/chat
+  dead:
+    kind: chat
+    url: http://127.0.0.1:9/chat
+"""
+
+_DEAD_THEN_APP = """\
+version: 1
+policy: L1
+coverage: standard
+scope:
+  - host: 127.0.0.1
+targets:
+  dead:
+    kind: chat
+    url: http://127.0.0.1:9/chat
+  app:
+    kind: chat
+    url: http://127.0.0.1:8080/chat
+"""
+
+_DEAD_ONLY = """\
+version: 1
+policy: L1
+coverage: standard
+scope:
+  - host: 127.0.0.1
+targets:
+  dead:
+    kind: chat
+    url: http://127.0.0.1:9/chat
+"""
+
+
 def _stub_probes(monkeypatch: pytest.MonkeyPatch, seen: list[str]) -> None:
     def preflight(target: object, *_args: object) -> str:
         seen.append(f"{target.name} {target.url}")  # type: ignore[attr-defined]
