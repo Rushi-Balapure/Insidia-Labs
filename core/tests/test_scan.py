@@ -8,11 +8,15 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from insidia.cli import main
-from insidia.config import ModelRole
+from insidia.config import ModelRole, load_project
 from insidia.errors import CliError, ScopeError
+from insidia.probes import Attempt
 from insidia.providers import build_provider
+from insidia.registry import Capability
+from insidia.scan import execute
 from insidia.scope import ScopeHost
 from insidia.transport import RateLimiter, exchange
+from insidia.ui import Event
 from tests.support import start_fixture, stop_fixture, target
 
 
@@ -285,6 +289,41 @@ targets:
       concurrency: 1
 """
     )
+
+
+def test_trivy_and_osv_scanner_are_named_in_the_scan_output(
+    tmp_path: Path, monkeypatch: object
+) -> None:
+    (tmp_path / "insidia.yaml").write_text(
+        "version: 1\npolicy: L1\ncoverage: thorough\nscope:\n"
+        "  - host: 127.0.0.1\ntargets:\n  repo:\n    kind: repo\n    path: .\n"
+    )
+
+    def fake_select(
+        family: str, mode: str, model_available: bool = False, entries: object = None
+    ) -> list[Capability]:
+        del mode, model_available, entries
+        if family != "deps.sca":
+            return []
+        return [
+            Capability("deps.sca", "trivy", "insidia.deps.sca", 40, False, True),
+            Capability("deps.sca", "osv-scanner", "insidia.deps.sca", 30, False, True),
+        ]
+
+    def fake_run(*_args: object, **_kwargs: object) -> Attempt:
+        return Attempt()
+
+    monkeypatch.setattr("insidia.scan.select", fake_select)  # type: ignore[attr-defined]
+    monkeypatch.setattr("insidia.scan.run", fake_run)  # type: ignore[attr-defined]
+    events: list[Event] = []
+    outcome = execute(
+        load_project(tmp_path / "insidia.yaml"), tmp_path, progress=events.append
+    )
+    assert outcome.notes == (
+        "trivy downloads a vulnerability database from the internet when it runs",
+        "osv-scanner downloads a vulnerability database from the internet when it runs",
+    )
+    assert [event.detail for event in events if event.kind == "note"] == list(outcome.notes)
 
 
 def _latest(root: Path, name: str) -> Path:

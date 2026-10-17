@@ -146,7 +146,7 @@ def _scan(arguments: dict[str, object]) -> dict[str, object]:
     if needs_confirmation(project.scope) and not _remote_allowed():
         raise CliError(_REMOTE_REFUSAL)
     outcome = execute(project, Path.cwd(), policy_name=policy_name, assume_yes=True)
-    return {
+    payload: dict[str, object] = {
         "schema_version": "2.0",
         "run_id": outcome.run_id,
         "passed": outcome.passed,
@@ -155,6 +155,9 @@ def _scan(arguments: dict[str, object]) -> dict[str, object]:
         "findings": len(outcome.findings),
         "run_dir": str(outcome.run_dir),
     }
+    if outcome.notes:
+        payload["notes"] = list(outcome.notes)
+    return payload
 
 
 def _findings(arguments: dict[str, object]) -> dict[str, object]:

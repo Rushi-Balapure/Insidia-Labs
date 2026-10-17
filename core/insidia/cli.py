@@ -326,6 +326,9 @@ def _run(args: argparse.Namespace) -> int:
                 untested=outcome.untested,
             ),
         }
+        if outcome.notes:
+            document["notes"] = list(outcome.notes)
+            text = text + "\n" + "\n".join(outcome.notes)
         _emit(args.json, document, text)
         return outcome.exit_code()
     if args.command == "rerun":

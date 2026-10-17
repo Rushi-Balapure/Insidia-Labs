@@ -34,6 +34,14 @@ from insidia.scope import check_url, needs_confirmation
 from insidia.transport import bind_budget, current_budget, preflight, repo_path, reset_budget
 from insidia.ui import Event, short
 
+# These engines fetch vulnerability data from the internet when a scan runs them.
+_NETWORK_DB = {
+    "trivy": "trivy downloads a vulnerability database from the internet when it runs",
+    "osv-scanner": (
+        "osv-scanner downloads a vulnerability database from the internet when it runs"
+    ),
+}
+
 
 @dataclass(frozen=True)
 class ScanOutcome:
@@ -45,6 +53,7 @@ class ScanOutcome:
     execution_status: str = "complete"
     policy_verdict: str = ""
     untested: int = 0
+    notes: tuple[str, ...] = ()
 
     def exit_code(self) -> int:
         verdict = self.policy_verdict or ("pass" if self.passed else "fail")
@@ -122,9 +131,20 @@ def _run_targets(
     progress: Callable[[Event], None] | None,
     config_digest: str,
 ) -> ScanOutcome:
+    notes: list[str] = []
     try:
         _scan_targets(
-            project, root, policy, mode, model_available, hits, records, controls, skips, progress
+            project,
+            root,
+            policy,
+            mode,
+            model_available,
+            hits,
+            records,
+            controls,
+            skips,
+            progress,
+            notes,
         )
     except KeyboardInterrupt:
         reason = "cancelled by the user"
@@ -132,7 +152,17 @@ def _run_targets(
         records.append(CheckRecord("", "scan", "", CANCELLED, reason))
         _say(progress, Event("cancel", detail="Scan cancelled. Saving what finished…"))
     return _finish(
-        project, root, policy, mode, hits, records, controls, skips, progress, config_digest
+        project,
+        root,
+        policy,
+        mode,
+        hits,
+        records,
+        controls,
+        skips,
+        progress,
+        config_digest,
+        notes,
     )
 
 
@@ -147,6 +177,7 @@ def _scan_targets(
     controls: list[dict[str, str]],
     skips: list[str],
     progress: Callable[[Event], None] | None,
+    notes: list[str],
 ) -> None:
     for target in project.targets:
         _guard(target, project, root)
@@ -214,6 +245,10 @@ def _scan_targets(
             family_records: list[CheckRecord] = []
             reasons: list[str] = []
             for capability in chosen:
+                note = _NETWORK_DB.get(capability.engine)
+                if note is not None and note not in notes:
+                    notes.append(note)
+                    _say(progress, Event("note", detail=note))
                 adapter, spec = find(capability.probe)
                 try:
                     attempt = run(adapter, spec, target, project, root, policy.control(family))
@@ -298,6 +333,7 @@ def _finish(
     skips: list[str],
     progress: Callable[[Event], None] | None,
     config_digest: str,
+    notes: list[str],
 ) -> ScanOutcome:
     execution_status, policy_verdict = aggregate(records)
     findings = normalize(hits)
@@ -326,6 +362,7 @@ def _finish(
         execution_status,
         policy_verdict,
         not_tested(controls),
+        tuple(notes),
     )
 
 
