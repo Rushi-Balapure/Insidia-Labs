@@ -216,6 +216,77 @@ def test_finding_cards_list_fields_in_order_and_escape_evidence(tmp_path: Path) 
     assert "insidia rerun run-card" in card
 
 
+def test_finding_card_shows_confidence_for_one_and_two_engines(tmp_path: Path) -> None:
+    leaked = "ghp_" + ("b" * 36)
+    shared = _bare(
+        track="ai",
+        probe="insidia.ai.data_leakage",
+        attack="ai.data_leakage",
+        severity="critical",
+        confidence="medium",
+        response=mask(leaked),
+        taxonomy=("owasp-llm:LLM02",),
+        remediation="Stop returning secrets.",
+        target="nova",
+        engines=("insidia", "garak"),
+        cross_validated=True,
+        check_id="INS-AI-002",
+        title="Sensitive data leaked",
+        risk_score=9.1,
+        risk_factors=("base 9.1",),
+    )
+    alone = _bare(
+        probe="insidia.web.cmdi",
+        attack="web.cmdi",
+        severity="critical",
+        confidence="high",
+        response="uid=0",
+        remediation="Do not pass user input to a shell.",
+        target="shop",
+        engines=("insidia",),
+        cross_validated=False,
+        check_id="INS-WEB-005",
+        title="Command injection",
+        risk_score=9.8,
+        risk_factors=("base 9.8",),
+    )
+    directory = write_run(tmp_path, "run-ux6", "L1", False, [shared, alone], [], [])
+    html = (directory / "report.html").read_text()
+    cards = {
+        card.split('class="pid">', 1)[1].split("<", 1)[0]: card.split("</details>", 1)[0]
+        for card in html.split('<details class="finding"')[1:]
+    }
+    assert _risk_factor_text(cards["INS-AI-002"]) == (
+        "CRITICAL · confidence medium · reported by 2 engines (cross-validated)"
+    )
+    assert _risk_factor_text(cards["INS-WEB-005"]) == (
+        "CRITICAL · confidence high · reported by 1 engine (not cross-validated)"
+    )
+    assert leaked not in html
+    assert "[GITHUB_TOKEN " in cards["INS-AI-002"]
+
+
+def test_sarif_result_properties_include_confidence(tmp_path: Path) -> None:
+    high = _bare(confidence="high", probe="insidia.web.cmdi", attack="web.cmdi")
+    medium = _bare(
+        confidence="medium",
+        probe="insidia.ai.data_leakage",
+        attack="ai.data_leakage",
+        target="nova",
+        track="ai",
+    )
+    directory = write_run(tmp_path, "run-conf", "L1", False, [high, medium], [], [])
+    results = json.loads((directory / "results.sarif").read_text())["runs"][0]["results"]
+    by_rule = {item["ruleId"]: item["properties"] for item in results}
+    assert by_rule["insidia.web.cmdi"]["confidence"] == "high"
+    assert by_rule["insidia.ai.data_leakage"]["confidence"] == "medium"
+    assert "shortDescription" not in by_rule["insidia.web.cmdi"]
+    rules = json.loads((directory / "results.sarif").read_text())["runs"][0]["tool"]["driver"][
+        "rules"
+    ]
+    assert all("help" not in rule and "helpUri" not in rule for rule in rules)
+
+
 def test_plugin_output_caps_a_long_passwd_body(tmp_path: Path) -> None:
     lines = [
         "nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin",
@@ -303,6 +374,13 @@ def test_not_tested_rows_say_why_and_passes_are_counted_honestly(tmp_path: Path)
     assert "@media print" in html
     assert "nav { display: none; }" in html
     assert "prefers-color-scheme: dark" in html
+
+
+def _risk_factor_text(card: str) -> str:
+    import re
+
+    chunk = card.split("<dt>Risk factor</dt><dd>", 1)[1].split("</dd>", 1)[0]
+    return re.sub(r"<[^>]+>", "", chunk)
 
 
 def _score_line(html: str, title: str) -> tuple[str, str, str]:

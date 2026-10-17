@@ -714,11 +714,19 @@ def _finding_card(finding: Finding, index: int, run_id: str) -> str:
     title = finding.title or finding.attack
     check = finding.check_id or finding.probe
     factors = "; ".join(finding.risk_factors) or "base score"
+    reported = len(finding.engines) or 1
+    engine_word = "engine" if reported == 1 else "engines"
+    corroborated = "cross-validated" if finding.cross_validated else "not cross-validated"
+    risk_factor = (
+        f'<span class="sev sev-{css}">{label}</span>'
+        f" · confidence {_escape(finding.confidence)}"
+        f" · reported by {reported} {engine_word} ({corroborated})"
+    )
     fields = (
         ("Synopsis", _escape(finding.synopsis or finding.remediation)),
         ("Description", _escape(finding.description or finding.remediation)),
         ("Solution", _escape(finding.remediation)),
-        ("Risk factor", f'<span class="sev sev-{css}">{label}</span>'),
+        ("Risk factor", risk_factor),
         (
             "Insidia Risk Score",
             _escape(f"{finding.risk_score:.1f}/10 ({factors})"),
@@ -1084,6 +1092,7 @@ def _sarif(findings: list[Finding]) -> dict[str, object]:
             "properties": {
                 "engine": finding.engine,
                 "severity": finding.severity,
+                "confidence": finding.confidence,
                 "security-severity": f"{finding.risk_score:.1f}",
             },
         }
