@@ -1,0 +1,23 @@
+version: 1
+policy: L1
+coverage: standard
+scope:
+  - host: 127.0.0.1
+targets:
+  search:
+    kind: api
+    method: GET
+    url: http://127.0.0.1:8111/v1/accounts
+    query: {q: "{{payload}}"}
+  redirect:
+    kind: api
+    method: GET
+    url: http://127.0.0.1:8111/v1/go
+    query: {next: "{{payload}}"}
+  users:
+    kind: api
+    method: GET
+    url: http://127.0.0.1:8111/v1/accounts/{{payload}}
+    headers:
+      X-User-Id: "1"
+models: {}
