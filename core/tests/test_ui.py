@@ -40,6 +40,49 @@ def test_plain_output_has_no_escape_codes() -> None:
     assert view.totals() == "0 passed · 1 failed · 1 skipped"
 
 
+def test_each_target_header_precedes_its_first_row() -> None:
+    stream = _Stream()
+    view = ScanView(_terminal(stream))
+    view(Event("start", detail="scan · policy L1 · coverage standard · 2 targets"))
+    view(Event("begin", "app", "ai.data_leakage", ("insidia",)))
+    view(Event("end", "app", "ai.data_leakage", ("insidia",), "pass"))
+    view(
+        Event(
+            "end",
+            "dead",
+            "target",
+            result="inconclusive",
+            detail="http://127.0.0.1:9/chat: unreachable",
+        )
+    )
+    text = stream.getvalue()
+    assert text.index("\napp\n") < text.index("ai.data_leakage")
+    assert text.index("\ndead\n") < text.index("incomplete")
+    assert text.index("\napp\n") < text.index("\ndead\n")
+
+    alone = _Stream()
+    ScanView(_terminal(alone))(
+        Event("end", "dead", "target", result="inconclusive", detail="unreachable")
+    )
+    alone_text = alone.getvalue()
+    assert alone_text.index("\ndead\n") < alone_text.index("incomplete")
+
+
+def test_not_tested_row_stays_under_its_target_header() -> None:
+    stream = _Stream()
+    view = ScanView(_terminal(stream))
+    view(Event("start", detail="scan · policy L1 · coverage standard · 1 target"))
+    view(Event("end", "code", "ai.agent_posture", result="not tested", detail="install nuguard"))
+    view(Event("begin", "code", "code.secrets", ("insidia",)))
+    view(Event("end", "code", "code.secrets", ("insidia",), "fail"))
+    text = stream.getvalue()
+    header = text.index("\ncode\n")
+    posture = text.index("ai.agent_posture")
+    secrets = text.index("code.secrets")
+    assert header < posture < secrets
+    assert "ai.agent_posture" not in text[:header]
+
+
 def test_quiet_prints_nothing() -> None:
     stream = _Stream()
     terminal = Terminal(stream, quiet=True, animate=False, no_color=True)

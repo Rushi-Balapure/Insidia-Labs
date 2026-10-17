@@ -27,6 +27,8 @@ services:
       context: .
       dockerfile: insidia/Dockerfile
     image: insidia-sandbox-fixtures:0.1.0
+    environment:
+      INSIDIA_FIXTURE_HOST: 0.0.0.0
     networks: [sandbox]
 
   agentdojo:

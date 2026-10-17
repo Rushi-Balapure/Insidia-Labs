@@ -13,6 +13,10 @@ from insidia.transport import read_url
 _Body = Callable[[str, str], dict[str, object]]
 _Read = Callable[[dict[str, object]], str]
 
+KNOWN_PROVIDERS = frozenset(
+    {"openai-compatible", "anthropic", "gemini", "insidia-cloud", "bedrock"}
+)
+
 
 class ModelProvider:
     def complete(self, prompt: str) -> str:
@@ -20,6 +24,8 @@ class ModelProvider:
 
 
 def build_provider(role: ModelRole, scope: tuple[ScopeHost, ...]) -> ModelProvider:
+    if role.provider not in KNOWN_PROVIDERS:
+        raise ConfigError(f"unknown model provider {role.provider}")
     if role.provider == "openai-compatible":
         return _ChatProvider(role, scope, "/chat/completions", _openai_body, _openai_text)
     if role.provider == "anthropic":

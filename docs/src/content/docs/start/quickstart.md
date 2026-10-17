@@ -5,19 +5,21 @@ description: Write a config, scan localhost, and open the report.
 
 You need [the CLI installed](/docs/start/install/) and your app running on localhost. This guide uses L1, the policy available in the current release. A model is optional for L1.
 
-## 1. Create the configuration
+## 1. Set your app URL
 
-Open a terminal in the project you want to test:
+Open a terminal in the project you want to test and point Insidia at the app that is already running:
 
 ```bash
-insidia init
+insidia init --url http://127.0.0.1:PORT/path
 ```
 
-This writes `insidia.yaml`. If you already have that file, keep it and review its targets.
+Replace `PORT` and `path` with your app, for example `insidia init --url http://127.0.0.1:8081/chat`. A path that ends in `/chat` is written as a chat target. Pass `--kind` (`web`, `api`, `agent`, `rag`, or `mcp`) when it is something else. Init adds the host to `scope` only when it is localhost, `127.0.0.1`, or `::1`. A non-local host is refused until you edit the file and set `authorized: true` yourself.
 
-## 2. Point it at your app
+Without `--url`, init still writes a sample `http://127.0.0.1:8080/chat` and tells you to set `targets.app.url` before you scan. If you already have `insidia.yaml`, keep it and review its targets.
 
-Open `insidia.yaml` **before you scan**. The generated target is a sample chat endpoint at `http://127.0.0.1:8080/chat`; replace it with your app's endpoint. Match `kind`, `request_template`, and `response_selector` to the request and response your app actually uses.
+## 2. Match the request
+
+Open `insidia.yaml` before you scan when the defaults do not match your app. Match `kind`, `request_template`, and `response_selector` to the request and response your app actually uses.
 
 A web target is sent as a `POST` with the payload in the body unless you set `method`. For a page that reads a query parameter, such as `/hello?name=...`, use `GET`:
 

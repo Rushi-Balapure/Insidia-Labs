@@ -3,20 +3,26 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import sys
 import webbrowser
 from pathlib import Path
 
 from insidia import version_text
-from insidia.config import init_config, load_project
+from insidia.config import (
+    Project,
+    init_config,
+    init_destination,
+    load_project,
+    prepare_init_kind,
+    prepare_init_url,
+)
 from insidia.doctor import diagnose
 from insidia.engines import install, list_engines
-from insidia.errors import CliError
+from insidia.errors import CliError, ConfigError
 from insidia.mcp import serve
 from insidia.policy import POLICIES, get_policy
-from insidia.runstore import latest_run, read_manifest, verdict_text
+from insidia.runstore import latest_run, local_time, read_manifest, verdict_text
 from insidia.scan import execute
 from insidia.ui import InstallView, ScanView, Terminal
 
@@ -24,7 +30,7 @@ _HELP = """\
 global options, before or after the command:
   --config PATH   file to read (default: insidia.yaml)
   --json          print a JSON object instead of text
-  --yes           do not ask before scanning a host other than localhost
+  --yes           do not ask before scanning a host other than localhost, 127.0.0.1, or ::1
   --quiet, -q     print only the result
   --no-color      plain text, no color
 """
@@ -45,7 +51,7 @@ def _global_options(parser: argparse.ArgumentParser, after_command: bool) -> Non
         "--yes",
         action="store_true",
         default=default(False),
-        help="do not ask before scanning a host other than localhost",
+        help="do not ask before scanning a host other than localhost, 127.0.0.1, or ::1",
     )
     parser.add_argument(
         "--config",
@@ -99,11 +105,19 @@ def main(argv: list[str] | None = None) -> int:
         title="commands",
         metavar="COMMAND",
     )
-    subcommands.add_parser(
+    init = subcommands.add_parser(
         "init",
         parents=[shared],
         help="write insidia.yaml in this directory",
-        description="Write insidia.yaml in this directory. Refuses to overwrite an existing file.",
+        description=(
+            "Write insidia.yaml in this directory. "
+            "Pass --url to set targets.app.url. Refuses to overwrite an existing file."
+        ),
+    )
+    init.add_argument("--url", help="app URL to write as targets.app.url (local hosts only)")
+    init.add_argument(
+        "--kind",
+        help="target kind (default: chat when the URL path ends with /chat)",
     )
     subcommands.add_parser(
         "doctor",
@@ -121,10 +135,12 @@ def main(argv: list[str] | None = None) -> int:
     engine_commands = engines.add_subparsers(dest="engine_command", title="commands")
     engine_commands.add_parser(
         "list",
+        parents=[shared],
         help="show each engine, its license, and whether it is installed",
     )
     install_parser = engine_commands.add_parser(
         "install",
+        parents=[shared],
         help="install the named engines",
         description="Install the named engines. With no names, built-in probes stay as they are.",
     )
@@ -134,6 +150,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="check that Docker is installed; engine images are not in this release",
     )
+    install_parser.add_argument(
+        "--allow-unverified",
+        action="store_true",
+        help="install a downloaded binary that has no pinned SHA-256 for this platform",
+    )
 
     policy = subcommands.add_parser(
         "policy",
@@ -142,10 +163,22 @@ def main(argv: list[str] | None = None) -> int:
         description="List, show, or validate a scan policy. L1 is the policy a scan can run.",
     )
     policy_commands = policy.add_subparsers(dest="policy_command", required=True, title="commands")
-    policy_commands.add_parser("list", help="show which policy names exist and which can run")
-    show = policy_commands.add_parser("show", help="print one policy and the checks it names")
+    policy_commands.add_parser(
+        "list",
+        parents=[shared],
+        help="show which policy names exist and which can run",
+    )
+    show = policy_commands.add_parser(
+        "show",
+        parents=[shared],
+        help="print one policy and the checks it names",
+    )
     show.add_argument("name", help="policy name, such as L1")
-    policy_commands.add_parser("validate", help="check the policy named in the config file")
+    policy_commands.add_parser(
+        "validate",
+        parents=[shared],
+        help="check the policy named in the config file",
+    )
 
     scan = subcommands.add_parser(
         "scan",
@@ -184,14 +217,20 @@ def main(argv: list[str] | None = None) -> int:
         description="Scan again with the policy and config recorded for a run.",
     )
     rerun.add_argument("run_id", nargs="?", help="run to repeat (default: the latest run)")
-    subcommands.add_parser(
+    mcp = subcommands.add_parser(
         "mcp",
         parents=[shared],
         help="serve local MCP tools on stdin and stdout",
         description=(
             "Serve local MCP tools on stdin and stdout. "
-            "The tools read insidia.yaml and do not take a URL."
+            "The tools read insidia.yaml and do not take a URL. "
+            "A non-local scope runs only with --allow-remote or INSIDIA_MCP_ALLOW_REMOTE=1."
         ),
+    )
+    mcp.add_argument(
+        "--allow-remote",
+        action="store_true",
+        help="allow a scan whose scope names a host other than localhost",
     )
 
     args = parser.parse_args(argv)
@@ -207,14 +246,32 @@ def main(argv: list[str] | None = None) -> int:
 
 def _run(args: argparse.Namespace) -> int:
     if args.command == "init":
-        _progress(args, "Writing insidia.yaml in this directory.")
-        path = init_config(Path.cwd())
-        _emit(args.json, {"wrote": path.name}, f"Wrote {path.name}.")
+        url = args.url
+        kind = args.kind
+        destination = init_destination(Path(args.config))
+        if destination.exists():
+            raise ConfigError(f"{destination} already exists")
+        if url is not None:
+            prepare_init_url(url)
+        if kind is not None:
+            prepare_init_kind(url or "http://127.0.0.1:8080/chat", kind)
+        _progress(args, f"Writing {destination}.")
+        path = init_config(Path(args.config), url=url, kind=kind)
+        written = url or "http://127.0.0.1:8080/chat"
+        document: dict[str, object] = {"wrote": path.name, "url": written}
+        text = f"Wrote {path.name} with targets.app.url {written}."
+        if url is None:
+            document["next"] = "Set targets.app.url to your app before you scan."
+            text += (
+                " Set targets.app.url to your app before you scan. "
+                "Example: insidia init --url http://127.0.0.1:PORT/path"
+            )
+        _emit(args.json, document, text)
         return 0
     if args.command == "doctor":
         _progress(args, "Checking Python, the config file, and installed engines.")
         checks, code = diagnose(Path(args.config))
-        lines = [f"{check['name']}: {check['detail']}" for check in checks]
+        lines = [_doctor_line(check) for check in checks]
         _emit(args.json, {"checks": checks}, "\n".join(lines))
         return code
     if args.command == "engines" and args.engine_command in {None, "list"}:
@@ -229,7 +286,12 @@ def _run(args: argparse.Namespace) -> int:
         return 0
     if args.command == "engines" and args.engine_command == "install":
         terminal = _terminal(args)
-        message = install(tuple(args.names), docker=args.docker, progress=InstallView(terminal))
+        message = install(
+            tuple(args.names),
+            docker=args.docker,
+            progress=InstallView(terminal),
+            allow_unverified=args.allow_unverified,
+        )
         _emit(args.json, {"message": message}, message)
         return 0
     if args.command == "policy" and args.policy_command == "list":
@@ -264,54 +326,7 @@ def _run(args: argparse.Namespace) -> int:
         return 0
     if args.command == "scan":
         config = Path(args.config)
-        project = load_project(config)
-        terminal = _terminal(args)
-        view = ScanView(terminal)
-        outcome = execute(
-            project,
-            config.resolve().parent,
-            policy_name=args.policy,
-            coverage=args.coverage,
-            assume_yes=args.yes,
-            progress=view,
-        )
-        terminal.line(terminal.dim(view.totals()))
-        report_path = outcome.run_dir / "report.html"
-        policy_name = args.policy if args.policy is not None else project.policy
-        opened = bool(getattr(args, "open", False)) and not args.json and _open(report_path)
-        text = scan_message(
-            policy_name,
-            outcome.passed,
-            len(outcome.findings),
-            str(report_path),
-            opened,
-            execution_status=outcome.execution_status,
-            policy_verdict=outcome.policy_verdict or None,
-            untested=outcome.untested,
-        )
-        document = {
-            "schema_version": "2.0",
-            "run_id": outcome.run_id,
-            "passed": outcome.passed,
-            "execution_status": outcome.execution_status,
-            "policy_verdict": outcome.policy_verdict or ("pass" if outcome.passed else "fail"),
-            "findings": [finding.as_json() for finding in outcome.findings],
-            "skips": outcome.skips,
-            "run_dir": str(outcome.run_dir),
-            "report": str(report_path),
-            "summary": scan_message(
-                policy_name,
-                outcome.passed,
-                len(outcome.findings),
-                str(report_path),
-                False,
-                execution_status=outcome.execution_status,
-                policy_verdict=outcome.policy_verdict or None,
-                untested=outcome.untested,
-            ),
-        }
-        _emit(args.json, document, text)
-        return outcome.exit_code()
+        return _finish_scan(args, load_project(config), config.resolve().parent)
     if args.command == "rerun":
         return _rerun(args)
     if args.command == "report":
@@ -332,8 +347,63 @@ def _run(args: argparse.Namespace) -> int:
         _emit(args.json, {"report": str(report_path), "opened": opened}, text)
         return 0
     if args.command == "mcp":
-        return serve(sys.stdin.buffer, sys.stdout.buffer)
+        return serve(sys.stdin.buffer, sys.stdout.buffer, allow_remote=args.allow_remote)
     raise CliError(f"unknown command {args.command}")
+
+
+def _finish_scan(args: argparse.Namespace, project: Project, root: Path) -> int:
+    terminal = _terminal(args)
+    view = ScanView(terminal)
+    outcome = execute(
+        project,
+        root,
+        policy_name=args.policy,
+        coverage=args.coverage,
+        assume_yes=args.yes,
+        progress=view,
+    )
+    terminal.line(terminal.dim(view.totals()))
+    report_path = outcome.run_dir / "report.html"
+    policy_name = args.policy if args.policy is not None else project.policy
+    opened = bool(getattr(args, "open", False)) and not args.json and _open(report_path)
+    text = scan_message(
+        policy_name,
+        outcome.passed,
+        len(outcome.findings),
+        str(report_path),
+        opened,
+        execution_status=outcome.execution_status,
+        policy_verdict=outcome.policy_verdict or None,
+        untested=outcome.untested,
+        run_id=outcome.run_id,
+    )
+    document = {
+        "schema_version": "2.0",
+        "run_id": outcome.run_id,
+        "passed": outcome.passed,
+        "execution_status": outcome.execution_status,
+        "policy_verdict": outcome.policy_verdict or ("pass" if outcome.passed else "fail"),
+        "findings": [finding.as_json() for finding in outcome.findings],
+        "skips": outcome.skips,
+        "run_dir": str(outcome.run_dir),
+        "report": str(report_path),
+        "summary": scan_message(
+            policy_name,
+            outcome.passed,
+            len(outcome.findings),
+            str(report_path),
+            False,
+            execution_status=outcome.execution_status,
+            policy_verdict=outcome.policy_verdict or None,
+            untested=outcome.untested,
+            run_id=outcome.run_id,
+        ),
+    }
+    if outcome.notes:
+        document["notes"] = list(outcome.notes)
+        text = text + "\n" + "\n".join(outcome.notes)
+    _emit(args.json, document, text)
+    return outcome.exit_code()
 
 
 def _rerun(args: argparse.Namespace) -> int:
@@ -341,13 +411,15 @@ def _rerun(args: argparse.Namespace) -> int:
     manifest = read_manifest(directory)
     if manifest is None:
         raise CliError(f"run {directory.name} has no manifest, so it cannot be rerun")
-    project = load_project(Path(args.config))
-    digest = hashlib.sha256(project.path.read_bytes()).hexdigest()
-    recorded = manifest.get("config_digest")
-    if not isinstance(recorded, str) or not recorded:
-        raise CliError(f"run {directory.name} does not record its configuration")
-    if recorded != digest and not args.yes:
-        raise CliError("configuration changed since that run; pass --yes to scan the current file")
+    snapshot = directory / "insidia.yaml"
+    files = manifest.get("files")
+    if not isinstance(files, dict) or "insidia.yaml" not in files or not snapshot.is_file():
+        raise CliError(
+            f"run {directory.name} does not record its configuration, so it cannot be rerun"
+        )
+    # The snapshot is the config that ran. --yes confirms that recorded scope
+    # only; a non-local host added to the current file is not approved.
+    project = load_project(snapshot)
     policy = manifest.get("policy")
     if policy != "L1":
         raise CliError(f"run used policy {policy}, which is not available. Use L1.")
@@ -356,8 +428,7 @@ def _rerun(args: argparse.Namespace) -> int:
         raise CliError(f"run {directory.name} does not record its coverage")
     args.policy = "L1"
     args.coverage = coverage
-    args.command = "scan"
-    return _run(args)
+    return _finish_scan(args, project, Path(args.config).resolve().parent)
 
 
 def _run_dir(run_id: str | None, config: str) -> Path:
@@ -382,6 +453,7 @@ def scan_message(
     execution_status: str = "complete",
     policy_verdict: str | None = None,
     untested: int = 0,
+    run_id: str = "",
 ) -> str:
     head = verdict_text(
         policy,
@@ -392,8 +464,14 @@ def scan_message(
         untested=untested,
     )
     if opened:
-        return f"{head} Opened {report}."
-    return f"{head} Report: {report}."
+        body = f"{head} Opened {report}."
+    else:
+        body = f"{head} Report: {report}."
+    if not run_id:
+        return body
+    started = local_time(run_id)
+    when = f" (started {started})" if started else ""
+    return f"Run {run_id}{when}\n{body}"
 
 
 def _open(report: Path) -> bool:
@@ -413,6 +491,13 @@ def _terminal(args: argparse.Namespace) -> Terminal:
 
 def _progress(args: argparse.Namespace, message: str) -> None:
     _terminal(args).line(message)
+
+
+def _doctor_line(check: dict[str, object]) -> str:
+    mark = ""
+    if check.get("required") is not False:
+        mark = "✔ " if check["ok"] else "✘ "
+    return f"{mark}{check['name']}: {check['detail']}"
 
 
 def _emit(as_json: bool, document: dict[str, object], text: str) -> None:

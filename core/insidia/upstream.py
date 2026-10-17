@@ -530,7 +530,8 @@ def _trivy_rules(loaded: object) -> list[str]:
     if not isinstance(loaded, dict) or not isinstance(loaded.get("Results"), list):
         raise EngineFailed("trivy report has an unexpected shape")
     results = loaded["Results"]
-    assert isinstance(results, list)
+    if not isinstance(results, list):
+        raise EngineFailed("trivy report has an unexpected shape")
     found: list[str] = []
     for result in results:
         if not isinstance(result, dict):

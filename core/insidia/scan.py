@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -10,7 +9,7 @@ from pathlib import Path
 
 from insidia.adapters import find
 from insidia.config import Project, Target
-from insidia.errors import CliError, EngineFailed, ProbeError
+from insidia.errors import CliError, EngineFailed, ProbeError, ScopeError
 from insidia.findings import Finding, normalize
 from insidia.mask import bind_secrets, mask
 from insidia.policy import Policy, get_policy
@@ -29,10 +28,18 @@ from insidia.results import (
     exit_for,
     legacy_passed,
 )
-from insidia.runstore import new_run_id, not_tested, write_run
-from insidia.scope import check_url, needs_confirmation
+from insidia.runstore import config_snapshot, new_run_id, not_tested, write_run
+from insidia.scope import check_url, needs_confirmation, unauthorized_host
 from insidia.transport import bind_budget, current_budget, preflight, repo_path, reset_budget
 from insidia.ui import Event, short
+
+# These engines fetch vulnerability data from the internet when a scan runs them.
+_NETWORK_DB = {
+    "trivy": "trivy downloads a vulnerability database from the internet when it runs",
+    "osv-scanner": (
+        "osv-scanner downloads a vulnerability database from the internet when it runs"
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -45,6 +52,7 @@ class ScanOutcome:
     execution_status: str = "complete"
     policy_verdict: str = ""
     untested: int = 0
+    notes: tuple[str, ...] = ()
 
     def exit_code(self) -> int:
         verdict = self.policy_verdict or ("pass" if self.passed else "fail")
@@ -59,6 +67,9 @@ def execute(
     assume_yes: bool = False,
     progress: Callable[[Event], None] | None = None,
 ) -> ScanOutcome:
+    blocked = unauthorized_host(project.scope)
+    if blocked is not None:
+        raise ScopeError(f"{blocked} needs authorized: true in scope")
     if needs_confirmation(project.scope) and not assume_yes:
         raise CliError("a non-local host is in scope; pass --yes to scan it")
     policy = get_policy(policy_name or project.policy)
@@ -67,9 +78,12 @@ def execute(
             f"policy {policy.name} is not available yet. "
             "It runs the same checks as L1, so it is not a higher assurance level. Use L1."
         )
+    _require_model_secrets(project)
     mode = coverage or project.coverage
-    config_digest = hashlib.sha256(project.path.read_bytes()).hexdigest()
-    bind_secrets(_configured_secrets(project))
+    _validate_targets(project, root)
+    secrets = _configured_secrets(project)
+    bind_secrets(secrets)
+    snapshot = config_snapshot(project.path.read_bytes(), secrets)
     if project.attacker is not None:
         build_provider(project.attacker, project.scope)
     if project.judge is not None:
@@ -90,6 +104,7 @@ def execute(
             ),
         ),
     )
+    started = time.time()
     token = bind_budget(project.targets)
     try:
         return _run_targets(
@@ -103,7 +118,8 @@ def execute(
             controls,
             skips,
             progress,
-            config_digest,
+            snapshot,
+            started,
         )
     finally:
         reset_budget(token)
@@ -120,11 +136,23 @@ def _run_targets(
     controls: list[dict[str, str]],
     skips: list[str],
     progress: Callable[[Event], None] | None,
-    config_digest: str,
+    config_text: bytes,
+    started_epoch: float,
 ) -> ScanOutcome:
+    notes: list[str] = []
     try:
         _scan_targets(
-            project, root, policy, mode, model_available, hits, records, controls, skips, progress
+            project,
+            root,
+            policy,
+            mode,
+            model_available,
+            hits,
+            records,
+            controls,
+            skips,
+            progress,
+            notes,
         )
     except KeyboardInterrupt:
         reason = "cancelled by the user"
@@ -132,7 +160,18 @@ def _run_targets(
         records.append(CheckRecord("", "scan", "", CANCELLED, reason))
         _say(progress, Event("cancel", detail="Scan cancelled. Saving what finished…"))
     return _finish(
-        project, root, policy, mode, hits, records, controls, skips, progress, config_digest
+        project,
+        root,
+        policy,
+        mode,
+        hits,
+        records,
+        controls,
+        skips,
+        progress,
+        config_text,
+        notes,
+        started_epoch,
     )
 
 
@@ -147,9 +186,9 @@ def _scan_targets(
     controls: list[dict[str, str]],
     skips: list[str],
     progress: Callable[[Event], None] | None,
+    notes: list[str],
 ) -> None:
     for target in project.targets:
-        _guard(target, project, root)
         if _grpc(target):
             reason = "gRPC probes are not available in this CLI yet"
             skips.append(f"{target.name}: {reason}")
@@ -202,7 +241,7 @@ def _scan_targets(
                 reason = unlock_hint(family, model_available)
                 skips.append(f"{target.name}: {family} has no runnable probe; {reason}")
                 records.append(CheckRecord(target.name, family, "", LIMITED, reason))
-                controls.append(_recorded(policy, family, target.name, "not tested"))
+                controls.append(_recorded(policy, family, target.name, "not tested", reason))
                 _say(
                     progress,
                     Event("end", target.name, family, result="not tested", detail=reason),
@@ -214,6 +253,10 @@ def _scan_targets(
             family_records: list[CheckRecord] = []
             reasons: list[str] = []
             for capability in chosen:
+                note = _NETWORK_DB.get(capability.engine)
+                if note is not None and note not in notes:
+                    notes.append(note)
+                    _say(progress, Event("note", detail=note))
                 adapter, spec = find(capability.probe)
                 try:
                     attempt = run(adapter, spec, target, project, root, policy.control(family))
@@ -262,8 +305,14 @@ def _scan_targets(
                 )
             records.extend(family_records)
             result = _family_result(family_records)
-            controls.append(_recorded(policy, family, target.name, result))
-            finished = tuple(record.engine for record in family_records if record.state != ERROR)
+            detail = _detail(result, reasons, family_records)
+            controls.append(_recorded(policy, family, target.name, result, detail))
+            # A limited run is too shallow to credit. A finding still names the engine that saw it.
+            finished = tuple(
+                record.engine
+                for record in family_records
+                if record.state == COMPLETE or record.finding_count > 0
+            )
             _say(
                 progress,
                 Event(
@@ -272,7 +321,7 @@ def _scan_targets(
                     family,
                     finished,
                     result,
-                    _detail(result, reasons, family_records),
+                    detail,
                     time.monotonic() - began,
                 ),
             )
@@ -297,7 +346,9 @@ def _finish(
     controls: list[dict[str, str]],
     skips: list[str],
     progress: Callable[[Event], None] | None,
-    config_digest: str,
+    config_text: bytes,
+    notes: list[str],
+    started_epoch: float,
 ) -> ScanOutcome:
     execution_status, policy_verdict = aggregate(records)
     findings = normalize(hits)
@@ -314,8 +365,11 @@ def _finish(
         skips,
         execution_status=execution_status,
         policy_verdict=policy_verdict,
-        config_digest=config_digest,
         coverage=mode,
+        config_text=config_text,
+        targets=_target_facts(project),
+        started_epoch=started_epoch,
+        scope_hosts=tuple(item.host for item in project.scope),
     )
     return ScanOutcome(
         run_id,
@@ -326,12 +380,22 @@ def _finish(
         execution_status,
         policy_verdict,
         not_tested(controls),
+        tuple(notes),
     )
 
 
 def _say(progress: Callable[[Event], None] | None, event: Event) -> None:
     if progress is not None:
         progress(event)
+
+
+def _require_model_secrets(project: Project) -> None:
+    """Fail before any probe when a configured model key is missing."""
+    from insidia.config import resolve_secret
+
+    for role in (project.attacker, project.judge):
+        if role is not None and role.secret_ref:
+            resolve_secret(role.secret_ref)
 
 
 def _configured_secrets(project: Project) -> tuple[str, ...]:
@@ -367,13 +431,41 @@ def _family_result(records: list[CheckRecord]) -> str:
     return "inconclusive"
 
 
-def _recorded(policy: Policy, family: str, target: str, result: str) -> dict[str, str]:
-    return {
+def _target_facts(project: Project) -> tuple[tuple[str, str, str], ...]:
+    """Name, kind, and endpoint (method plus URL, or the repo path) for the report."""
+    facts: list[tuple[str, str, str]] = []
+    for target in project.targets:
+        if target.kind == "repo":
+            endpoint = target.path or ""
+        elif target.url:
+            endpoint = f"{target.method} {target.url}"
+        else:
+            endpoint = ""
+        facts.append((target.name, target.kind, endpoint))
+    return tuple(facts)
+
+
+def _recorded(
+    policy: Policy, family: str, target: str, result: str, detail: str = ""
+) -> dict[str, str]:
+    row = {
         "id": family,
         "target": target,
         "result": result,
         "taxonomy": ",".join(policy.control(family).taxonomy),
     }
+    if detail:
+        row["detail"] = detail
+    return row
+
+
+def _validate_targets(project: Project, root: Path) -> None:
+    """Refuse a bad target before any of them is contacted."""
+    for target in project.targets:
+        try:
+            _guard(target, project, root)
+        except ScopeError as exc:
+            raise ScopeError(f"{exc}. No target was contacted.") from exc
 
 
 def _grpc(target: Target) -> bool:

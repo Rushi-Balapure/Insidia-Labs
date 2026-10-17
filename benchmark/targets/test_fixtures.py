@@ -9,6 +9,15 @@ from benchmark.targets.insidia.state import TENANT_B_CANARY as STATE_TENANT
 from benchmark.targets.insidia.state import new_state
 
 
+def test_fixture_server_defaults_to_loopback(monkeypatch: object) -> None:
+    from benchmark.targets.insidia.serve import listen_host
+
+    monkeypatch.delenv("INSIDIA_FIXTURE_HOST", raising=False)  # type: ignore[attr-defined]
+    assert listen_host() == "127.0.0.1"
+    monkeypatch.setenv("INSIDIA_FIXTURE_HOST", "0.0.0.0")  # type: ignore[attr-defined]
+    assert listen_host() == "0.0.0.0"
+
+
 def test_canary_constants_match_the_catalog() -> None:
     assert STATE_CANARY == CANARY
     assert STATE_TENANT == TENANT_B_CANARY

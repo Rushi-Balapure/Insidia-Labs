@@ -52,9 +52,11 @@ from insidia.scope import ScopeHost, check_url
 from insidia.transport import (
     AI_KINDS,
     BoundBudget,
+    carries_payload,
     current_budget,
     exchange,
     fetch,
+    fetch_target,
     repo_path,
 )
 
@@ -99,6 +101,8 @@ def run(
 ) -> Attempt:
     if target.kind not in spec.target_kinds:
         return Attempt()
+    if _payload_cannot_land(target, spec.family):
+        return Attempt(untested=_NO_PAYLOAD)
     untested = ""
     match adapter:
         case BuiltIn():
@@ -135,12 +139,25 @@ def run(
 _FIXTURE_ONLY_NOTE = "this check only recognises Insidia's benchmark app"
 # Fewer prompts than this is a smoke test, not coverage of the family.
 _RELAY_MIN_PROMPTS = 3
+_NO_PAYLOAD = (
+    "no {{payload}} placeholder in url, query, or body, "
+    "so every probe sent the same request"
+)
+# Banner and handshake checks read the server itself. They do not inject a payload.
+_PAYLOAD_FREE = frozenset({"infra.cve", "infra.tls"})
 
 _REPO_CHECKS = {
     "code.sast_sinks": repo_scan.sinks,
     "code.secrets": repo_scan.secrets,
     "deps.sca": repo_scan.dependencies,
 }
+
+
+def _payload_cannot_land(target: Target, family: str) -> bool:
+    """True when every payload would build the same request, so the check cannot run."""
+    if target.kind == "repo" or family in _PAYLOAD_FREE or target.url is None:
+        return False
+    return not carries_payload(target)
 
 
 def _judge(
@@ -172,19 +189,29 @@ def _corpus(
 ) -> tuple[list[EngineHit], str]:
     oracle = ORACLES[spec.family]
     payloads = adapter.corpus[spec]
+    # The first corpus entry is the benchmark plant's trigger. Later entries only
+    # repeat a request the oracle cannot judge on any other app.
+    if spec.family in FIXTURE_ONLY and spec.family not in _ORDERED:
+        payloads = payloads[:1]
     hits: list[EngineHit] = []
     answered = 0
     rejected = ""
     try:
-        for payload, outcome in _replies(target, payloads, spec.family, scope, root):
+        for index, (payload, outcome) in enumerate(
+            _replies(target, payloads, spec.family, scope, root)
+        ):
             if isinstance(outcome, HttpStatus):
                 # An AI endpoint that refuses one prompt still answers the others.
                 rejected = str(outcome)
+                if _fixture_follow_up_is_useless(spec.family, index, outcome):
+                    break
                 continue
             answered += 1
             evidence = oracle(payload, outcome, target)
             if evidence is not None:
                 hits.append(EngineHit(spec.upstream, payload, outcome, evidence))
+            if _fixture_follow_up_is_useless(spec.family, index, outcome):
+                break
     except ProbeError as exc:
         return hits, str(exc)
     if not answered and rejected:
@@ -194,6 +221,14 @@ def _corpus(
 
 # Each payload depends on the reply to the one before it.
 _ORDERED = frozenset({"ai.memory_poisoning"})
+_MEMORY_PLANT = "insidia-memory-plant"
+
+
+def _fixture_follow_up_is_useless(family: str, index: int, outcome: str | HttpStatus) -> bool:
+    """A memory plant that did not stick cannot be read back by the next payload."""
+    if family not in FIXTURE_ONLY or family not in _ORDERED or index != 0:
+        return False
+    return not isinstance(outcome, str) or _MEMORY_PLANT not in outcome
 
 
 def _replies(
@@ -330,7 +365,8 @@ def _paired_tls(
         return [], str(exc), ""
     if ORACLES["infra.tls"]("proto", planted, target) is not None:
         return [EngineHit("insidia-tls", "proto", planted, planted)], "", ""
-    assert target.url is not None
+    if target.url is None:
+        raise ConfigError(f"{target.name} needs a url")
     parsed = urlparse(target.url)
     if parsed.scheme not in {"https", "wss"} or parsed.hostname is None:
         return [], "", f"{parsed.scheme}:// target has no TLS to test"
@@ -406,7 +442,8 @@ def _paired_cve(
         return [], str(exc), ""
     if ORACLES["infra.cve"]("banner", planted, target) is not None:
         return [EngineHit("insidia-banner", "banner", planted, planted)], "", ""
-    assert target.url is not None
+    if target.url is None:
+        raise ConfigError(f"{target.name} needs a url")
     try:
         _status, headers, _body = fetch(target.url, scope, headers=dict(target.headers))
     except ProbeError as exc:
@@ -429,10 +466,170 @@ def _paired_cve(
     return [], "", f"no known-vulnerable version in {banner[:60]}"
 
 
+# A database error that is already on the baseline page is the app's normal reply.
+_SQL_ERROR = re.compile(
+    r"sqlite3\.OperationalError"
+    r"|unrecognized token"
+    r"|syntax error near"
+    r"|SQLSTATE"
+    r"|You have an error in your SQL syntax"
+    r"|PG::SyntaxError"
+    r"|ORA-\d*"
+    r"|near\s+[\"'].{0,40}?syntax error",
+    re.IGNORECASE,
+)
+_SQLI_BASELINE = "aa"
+_SQLI_TRUE = "' OR '1'='1"
+_SQLI_FALSE = "' AND '1'='2"
+_SQLI_QUOTE = "'"
+# Echoing a short payload changes the length by a few bytes. A real boolean
+# leak returns the rows the true condition added.
+_SQLI_GROWTH = 48
+
+
+def _paired_sqli(
+    target: Target,
+    scope: tuple[ScopeHost, ...],
+    root: Path,
+) -> tuple[list[EngineHit], str, str]:
+    """Error-based and boolean-based SQL injection, each compared with a baseline.
+
+    A quote that produces a database error only on the attack, or a true
+    condition that returns more rows than both the baseline and a false
+    condition, is a finding. The same error on every reply is not.
+    """
+    try:
+        baseline = _send(target, _SQLI_BASELINE, scope, root)
+        quoted = _send(target, _SQLI_QUOTE, scope, root)
+        truth = _send(target, _SQLI_TRUE, scope, root)
+        falsehood = _send(target, _SQLI_FALSE, scope, root)
+    except ProbeError as exc:
+        return [], str(exc), ""
+    for payload, body in ((_SQLI_QUOTE, quoted), (_SQLI_TRUE, truth), (_SQLI_FALSE, falsehood)):
+        evidence = _sql_error(baseline, payload, body)
+        if evidence is not None:
+            return [EngineHit("insidia-sqli", payload, body, evidence)], "", ""
+    evidence = _boolean_sqli(baseline, truth, falsehood)
+    if evidence is not None:
+        return [EngineHit("insidia-sqli", _SQLI_TRUE, truth, evidence)], "", ""
+    return [], "", ""
+
+
+def _sql_error(baseline: str, attack: str, response: str) -> str | None:
+    found = _SQL_ERROR.search(response)
+    if found is None:
+        return None
+    evidence = found.group(0)
+    folded = evidence.lower()
+    if folded in baseline.lower() or folded in attack.lower():
+        return None
+    return evidence
+
+
+def _boolean_sqli(baseline: str, truth: str, falsehood: str) -> str | None:
+    base_rows, true_rows, false_rows = (
+        _listed_rows(baseline),
+        _listed_rows(truth),
+        _listed_rows(falsehood),
+    )
+    if base_rows is not None and true_rows is not None and false_rows is not None:
+        if true_rows > base_rows and true_rows > false_rows:
+            return (
+                f"{true_rows} rows for a true condition, "
+                f"{base_rows} for the baseline, {false_rows} for a false condition"
+            )
+        return None
+    if (
+        len(truth) >= len(baseline) + _SQLI_GROWTH
+        and len(truth) >= len(falsehood) + _SQLI_GROWTH
+        and len(truth) > int(len(baseline) * 1.5)
+        and len(truth) > int(len(falsehood) * 1.5)
+    ):
+        return (
+            f"true condition is {len(truth)} bytes, "
+            f"baseline {len(baseline)}, false condition {len(falsehood)}"
+        )
+    return None
+
+
+def _listed_rows(body: str) -> int | None:
+    try:
+        loaded: object = json.loads(body)
+    except json.JSONDecodeError:
+        return None
+    if isinstance(loaded, list):
+        return len(loaded)
+    if isinstance(loaded, dict):
+        for key in ("data", "accounts", "results", "rows", "items"):
+            value = loaded.get(key)
+            if isinstance(value, list):
+                return len(value)
+    return None
+
+
+_REDIRECT_HOST = "insidia-redirect.invalid"
+_OPEN_REDIRECTS = (f"https://{_REDIRECT_HOST}/", f"//{_REDIRECT_HOST}")
+_REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
+_JS_REDIRECT = re.compile(
+    r"""(?i)(?:window\s*\.\s*)?location(?:\s*\.\s*href)?\s*=\s*['"]([^'"]+)['"]"""
+    r"""|location\s*\.\s*replace\(\s*['"]([^'"]+)['"]"""
+)
+
+
+def _paired_open_redirect(
+    target: Target,
+    scope: tuple[ScopeHost, ...],
+    root: Path,
+) -> tuple[list[EngineHit], str, str]:
+    """A 3xx or client redirect to the canary host. The canary host is never requested."""
+    del root
+    try:
+        for payload in _OPEN_REDIRECTS:
+            status, headers, body = fetch_target(target, payload, scope, follow=False)
+            evidence = _redirect_evidence(status, headers, body)
+            if evidence is not None:
+                return [EngineHit("insidia-open-redirect", payload, evidence, evidence)], "", ""
+    except ProbeError as exc:
+        return [], str(exc), ""
+    return [], "", ""
+
+
+def _redirect_evidence(status: int, headers: dict[str, str], body: str) -> str | None:
+    if status in _REDIRECT_STATUSES:
+        location = headers.get("location", "")
+        if _redirect_host(location) == _REDIRECT_HOST:
+            return f"{status} Location: {location.strip()}"
+    for url in _client_redirects(body):
+        if _redirect_host(url) == _REDIRECT_HOST:
+            return f"client redirect to {url}"
+    return None
+
+
+def _redirect_host(url: str) -> str:
+    return (urlparse(url.strip()).hostname or "").lower().rstrip(".")
+
+
+def _client_redirects(body: str) -> tuple[str, ...]:
+    found: list[str] = []
+    for tag in re.findall(r"(?is)<meta\b[^>]*>", body):
+        if re.search(r"(?i)http-equiv\s*=\s*['\"]?\s*refresh\b", tag) is None:
+            continue
+        match = re.search(r"(?i)\burl\s*=\s*['\"]?\s*([^'\"\s>]+)", tag)
+        if match is not None:
+            found.append(match.group(1))
+    for match in _JS_REDIRECT.finditer(body):
+        url = match.group(1) or match.group(2)
+        if url:
+            found.append(url)
+    return tuple(found)
+
+
 _PAIRED: dict[
     str, Callable[[Target, tuple[ScopeHost, ...], Path], tuple[list[EngineHit], str, str]]
 ] = {
     "web.ssti": _paired_ssti,
+    "web.sqli": _paired_sqli,
+    "web.open_redirect": _paired_open_redirect,
     "api.bola_idor": _paired_bola,
     "infra.tls": _paired_tls,
     "infra.cve": _paired_cve,

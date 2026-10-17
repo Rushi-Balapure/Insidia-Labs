@@ -6,11 +6,12 @@ import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlparse
 
 import yaml  # type: ignore[import-untyped]
 
 from insidia.errors import ConfigError
-from insidia.scope import ScopeHost
+from insidia.scope import LOCAL_HOSTS, ScopeHost, hostname
 
 _ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _KINDS = frozenset({"chat", "agent", "rag", "mcp", "web", "api", "repo"})
@@ -112,12 +113,94 @@ class Project:
     judge: ModelRole | None
 
 
-def init_config(directory: Path) -> Path:
-    destination = directory / "insidia.yaml"
-    if destination.exists():
-        raise ConfigError(f"{destination} already exists")
-    destination.write_text(_INIT)
+def init_destination(path: Path) -> Path:
+    """File init will write. A directory means ``<directory>/insidia.yaml``."""
+    if path.is_dir():
+        return path / "insidia.yaml"
+    return path
+
+
+def init_config(
+    destination: Path,
+    *,
+    url: str | None = None,
+    kind: str | None = None,
+) -> Path:
+    path = init_destination(destination)
+    if path.exists():
+        raise ConfigError(f"{path} already exists")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    destination = path
+    if url is None and kind is None:
+        destination.write_text(_INIT)
+        return destination
+    target_url = url or "http://127.0.0.1:8080/chat"
+    if url is not None:
+        prepare_init_url(target_url)
+    target_kind = prepare_init_kind(target_url, kind)
+    destination.write_text(_starter(target_url, target_kind))
     return destination
+
+
+def prepare_init_url(url: str) -> str:
+    """Reject a non-local app URL. Init never sets authorized: true."""
+    host = hostname(url)
+    if host not in LOCAL_HOSTS:
+        raise ConfigError(
+            f"{host} is not local. insidia init only writes localhost, 127.0.0.1, and ::1. "
+            "Set authorized: true yourself before scanning another host."
+        )
+    return url
+
+
+def prepare_init_kind(url: str, kind: str | None) -> str:
+    if kind == "repo":
+        raise ConfigError("insidia init writes a URL target; add a repo target by editing the file")
+    if kind is not None:
+        if kind not in _KINDS:
+            raise ConfigError(f"kind must be one of: {', '.join(sorted(_KINDS))}")
+        return kind
+    path = urlparse(url).path.lower().rstrip("/")
+    if path == "chat" or path.endswith("/chat"):
+        return "chat"
+    if path == "mcp" or path.endswith("/mcp"):
+        return "mcp"
+    if path == "agent" or path.endswith("/agent"):
+        return "agent"
+    if path == "rag" or path.endswith("/rag"):
+        return "rag"
+    if path == "api" or path.endswith("/api") or "/api/" in f"{path}/":
+        return "api"
+    return "web"
+
+
+def _starter(url: str, kind: str) -> str:
+    quoted = '"' + url.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    extra = ""
+    if kind == "chat":
+        extra = (
+            "    request_template: '{\"messages\": {{conversation_json}}}'\n"
+            '    response_selector: "$.choices[0].message.content"\n'
+        )
+    return (
+        "version: 1\n"
+        "policy: L1\n"
+        "coverage: standard\n"
+        "scope:\n"
+        "  - host: localhost\n"
+        "  - host: 127.0.0.1\n"
+        '  - host: "::1"\n'
+        "targets:\n"
+        "  app:\n"
+        f"    kind: {kind}\n"
+        f"    url: {quoted}\n"
+        f"{extra}"
+        "    rate_limit:\n"
+        "      rps: 5\n"
+        "      concurrency: 1\n"
+        "# A model host must also be listed in scope.\n"
+        "models: {}\n"
+    )
 
 
 def load_project(path: Path) -> Project:
@@ -144,12 +227,18 @@ def load_project(path: Path) -> Project:
     return Project(path, 1, policy, coverage, scope, targets, attacker, judge)
 
 
-def resolve_secret(secret_ref: str) -> str:
+def validate_secret_ref(secret_ref: str) -> str:
+    """Return the environment variable name. Does not read its value."""
     if not secret_ref.startswith("env:"):
         raise ConfigError("secret_ref must look like env:NAME")
     name = secret_ref.removeprefix("env:")
     if not _ENV_NAME.fullmatch(name):
         raise ConfigError("secret_ref must name one environment variable")
+    return name
+
+
+def resolve_secret(secret_ref: str) -> str:
+    name = validate_secret_ref(secret_ref)
     value = os.environ.get(name)
     if not value:
         raise ConfigError(f"environment variable {name} is not set")
@@ -232,12 +321,16 @@ def _model(name: str, value: object) -> ModelRole | None:
     entry = _mapping(value, f"models.{name}")
     _unknown(entry, _MODEL_FIELDS, f"models.{name}")
     provider = _text(entry.get("provider"), f"models.{name}.provider")
+    _known_provider(provider)
+    secret_ref = _optional_text(entry.get("secret_ref"), f"models.{name}.secret_ref")
+    if secret_ref is not None:
+        validate_secret_ref(secret_ref)
     return ModelRole(
         name,
         provider,
         _optional_text(entry.get("base_url"), f"models.{name}.base_url"),
         _optional_text(entry.get("model"), f"models.{name}.model"),
-        _optional_text(entry.get("secret_ref"), f"models.{name}.secret_ref"),
+        secret_ref,
     )
 
 
@@ -246,11 +339,20 @@ def _auth(value: object, target: str) -> Auth | None:
         return None
     entry = _mapping(value, f"{target}.auth")
     _unknown(entry, _AUTH_FIELDS, f"{target}.auth")
+    secret_ref = _text(entry.get("secret_ref"), f"{target}.auth.secret_ref")
+    validate_secret_ref(secret_ref)
     return Auth(
         _text(entry.get("header"), f"{target}.auth.header"),
-        _text(entry.get("secret_ref"), f"{target}.auth.secret_ref"),
+        secret_ref,
         _text(entry.get("scheme", "Bearer"), f"{target}.auth.scheme"),
     )
+
+
+def _known_provider(provider: str) -> None:
+    from insidia.providers import KNOWN_PROVIDERS
+
+    if provider not in KNOWN_PROVIDERS:
+        raise ConfigError(f"unknown model provider {provider}")
 
 
 def _timeout(value: object, name: str) -> float:

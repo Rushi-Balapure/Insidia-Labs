@@ -231,15 +231,14 @@ class ScanView:
         if event.kind == "start":
             term.line(f"{term.brand('insidia')} {term.dim('· ' + event.detail)}")
         elif event.kind == "begin":
-            if event.target != self._target:
-                self._target = event.target
-                term.line()
-                term.line(term.bold(event.target))
+            self._header(event.target)
             term.start(f"{event.family}  {term.dim(', '.join(event.engines))}", _requests(event))
         elif event.kind == "note":
+            self._header(event.target)
             term.line(f"    {term.symbol('note')} {event.detail}")
         elif event.kind == "end":
             term.stop_live()
+            self._header(event.target)
             self._row(event)
         elif event.kind == "cancel":
             term.stop_live()
@@ -249,6 +248,13 @@ class ScanView:
             term.stop_live()
             term.line()
             term.line(f"{term.dim(event.detail)}")
+
+    def _header(self, target: str) -> None:
+        if not target or target == self._target:
+            return
+        self._target = target
+        self.terminal.line()
+        self.terminal.line(self.terminal.bold(target))
 
     def _row(self, event: Event) -> None:
         term = self.terminal
