@@ -299,8 +299,10 @@ def write_run(
     finished_epoch = time.time()
     if started_epoch is None:
         duration_s = 0.0
+        started_at = local_time(run_id)
     else:
         duration_s = round(max(0.0, finished_epoch - started_epoch), 3)
+        started_at = _format_epoch(started_epoch)
     finished_at = _format_epoch(finished_epoch)
     version = version_text()
     html = _render(
@@ -312,7 +314,7 @@ def write_run(
         skips=skips,
         scores=scores,
         targets=targets,
-        started_at=local_time(run_id),
+        started_at=started_at,
         finished_at=finished_at,
         duration_s=duration_s,
         version=version,
@@ -326,7 +328,7 @@ def write_run(
     manifest = {
         "schema_version": SCHEMA_VERSION,
         "run_id": run_id,
-        "started_at": local_time(run_id),
+        "started_at": started_at,
         "finished_at": finished_at,
         "duration_s": duration_s,
         "insidia_version": version,

@@ -28,7 +28,7 @@ from insidia.results import (
     exit_for,
     legacy_passed,
 )
-from insidia.runstore import config_snapshot, new_run_id, not_tested, write_run
+from insidia.runstore import _format_epoch, config_snapshot, new_run_id, not_tested, write_run
 from insidia.scope import check_url, needs_confirmation, unauthorized_host
 from insidia.transport import bind_budget, current_budget, preflight, repo_path, reset_budget
 from insidia.ui import Event, short
@@ -57,6 +57,7 @@ class ScanOutcome:
     policy_verdict: str = ""
     untested: int = 0
     notes: tuple[str, ...] = ()
+    started_at: str = ""
 
     def exit_code(self) -> int:
         verdict = self.policy_verdict or ("pass" if self.passed else "fail")
@@ -399,6 +400,7 @@ def _finish(
         policy_verdict,
         not_tested(controls),
         tuple(notes),
+        started_at=_format_epoch(started_epoch),
     )
 
 

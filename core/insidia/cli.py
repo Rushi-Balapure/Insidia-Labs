@@ -376,6 +376,7 @@ def _finish_scan(args: argparse.Namespace, project: Project, root: Path) -> int:
         policy_verdict=outcome.policy_verdict or None,
         untested=outcome.untested,
         run_id=outcome.run_id,
+        started=outcome.started_at,
     )
     document = {
         "schema_version": "2.0",
@@ -397,6 +398,7 @@ def _finish_scan(args: argparse.Namespace, project: Project, root: Path) -> int:
             policy_verdict=outcome.policy_verdict or None,
             untested=outcome.untested,
             run_id=outcome.run_id,
+            started=outcome.started_at,
         ),
     }
     if outcome.notes:
@@ -454,6 +456,7 @@ def scan_message(
     policy_verdict: str | None = None,
     untested: int = 0,
     run_id: str = "",
+    started: str = "",
 ) -> str:
     head = verdict_text(
         policy,
@@ -469,8 +472,8 @@ def scan_message(
         body = f"{head} Report: {report}."
     if not run_id:
         return body
-    started = local_time(run_id)
-    when = f" (started {started})" if started else ""
+    shown = started or local_time(run_id)
+    when = f" (started {shown})" if shown else ""
     return f"Run {run_id}{when}\n{body}"
 
 

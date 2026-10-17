@@ -1,11 +1,12 @@
 import json
+from datetime import datetime
 from pathlib import Path
 
 import pytest
 from insidia.findings import Finding, Observation
 from insidia.mask import mask
 from insidia.policy import MARKDOWN_BEACON, get_policy
-from insidia.runstore import _PLUGIN_OUTPUT_CAP, write_run
+from insidia.runstore import _PLUGIN_OUTPUT_CAP, _format_epoch, local_time, write_run
 from insidia.score import score_frameworks
 
 _SECRET = "AKIAIOSFODNN7EXAMPLE"
@@ -170,6 +171,43 @@ def test_report_sections_follow_the_nessus_order(tmp_path: Path) -> None:
     assert "127.0.0.1" in html
     footer = html.split("<footer>", 1)[1]
     assert footer.count("insidia rerun 20261016T012713Z-a321e5") == 1
+
+
+def test_manifest_started_at_is_the_scan_start(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    started_epoch = 1_700_000_000.0
+    finished_epoch = started_epoch + 5.25
+    run_id = "20261016T120000Z-abc123"
+    monkeypatch.setattr("insidia.runstore.time.time", lambda: finished_epoch)
+    directory = write_run(
+        tmp_path,
+        run_id,
+        "L1",
+        True,
+        [],
+        [],
+        [],
+        started_epoch=started_epoch,
+    )
+    manifest = json.loads((directory / "manifest.json").read_text())
+    html = (directory / "report.html").read_text()
+    assert manifest["started_at"] == _format_epoch(started_epoch)
+    assert manifest["finished_at"] == _format_epoch(finished_epoch)
+    assert manifest["finished_at"] > manifest["started_at"]
+    assert manifest["duration_s"] == 5.25
+    assert manifest["started_at"] != local_time(run_id)
+    assert manifest["started_at"] in html
+    started = _wall_clock(str(manifest["started_at"]))
+    finished = _wall_clock(str(manifest["finished_at"]))
+    assert finished > started
+    elapsed = (finished - started).total_seconds()
+    assert abs(elapsed - float(manifest["duration_s"])) <= 2
+
+
+def _wall_clock(stamp: str) -> datetime:
+    wall, _zone = stamp.rsplit(" ", 1)
+    return datetime.strptime(wall, "%Y-%m-%d %H:%M:%S")
 
 
 def test_finding_cards_list_fields_in_order_and_escape_evidence(tmp_path: Path) -> None:
