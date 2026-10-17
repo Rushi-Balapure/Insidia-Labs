@@ -73,6 +73,22 @@ def test_branch_pins_and_triple_equals_are_flagged(tmp_path: Path) -> None:
     assert deps.untested == ""
 
 
+def test_django_1_x_pins_are_flagged(tmp_path: Path) -> None:
+    _write(tmp_path, "requirements.txt", "django==1.2\n")
+    _write(
+        tmp_path,
+        "setup.py",
+        "from setuptools import setup\n"
+        "setup(install_requires=[\n"
+        '    "django==1.11",\n'
+        "])\n",
+    )
+    deps = repo_scan.dependencies(tmp_path)
+    found = {(hit.line, hit.rule, hit.location) for hit in deps.hits}
+    assert ("django==1.2", "CVE-2022-28346", "requirements.txt:1") in found
+    assert ("django==1.11", "CVE-2022-28346", "setup.py:3") in found
+
+
 def test_patched_branch_versions_are_not_flagged(tmp_path: Path) -> None:
     _write(
         tmp_path,
