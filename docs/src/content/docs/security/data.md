@@ -5,7 +5,9 @@ description: What a local Insidia scan sends, and what it writes down.
 
 A CLI scan sends traffic to the targets in `insidia.yaml` and, if you configured them, to your attacker and judge endpoints. Insidia itself does not phone home. There is no telemetry switch in this pre-release because there is no telemetry.
 
-Trivy and osv-scanner do contact the internet. When they are installed and a scan runs them, each downloads a vulnerability database. That traffic is not limited to the hosts in `scope`. The scan prints a note naming the engine when that happens. The other engines do not download a vulnerability database.
+Nuclei, katana, and httpx start with the update check off, so a scan does not contact ProjectDiscovery to look for a newer release. Trivy and osv-scanner still contact the internet. When they are installed and a scan runs them, each downloads a vulnerability database. That traffic is not limited to the hosts in `scope`. The scan prints a note naming the engine when that happens. The other engines do not download a vulnerability database.
+
+`insidia engines install` downloads toolchains from PyPI, GitHub releases, and the ZAP host. That download runs when you install an engine, not during a scan.
 
 Secrets in evidence are masked before they are written. The report shows a type, a length, and a fingerprint, not the raw value.
 

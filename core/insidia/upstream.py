@@ -262,10 +262,20 @@ def _web_prepare(engine: str) -> Callable[[ProbeSpec, ScopedUrl, Path], Invocati
                 "fqdn",
                 "-cs",
                 _origin_scope(url),
+                "-disable-update-check",
             )
         elif engine == "httpx":
             # httpx follows redirects only with -fr. Do not pass it.
-            args = ("-u", url, "-silent", "-json", "-o", report, "-irr")
+            args = (
+                "-u",
+                url,
+                "-silent",
+                "-json",
+                "-o",
+                report,
+                "-irr",
+                "-disable-update-check",
+            )
         else:
             raise ValueError(engine)
         return Invocation(_program(engine), args, report, timeout=180)

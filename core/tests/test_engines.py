@@ -28,7 +28,14 @@ from insidia.adapters import (
 )
 from insidia.catalog import SPECS
 from insidia.config import Project, load_project
-from insidia.engines import _download, _github, _mirrored_download_url, _publish, install
+from insidia.engines import (
+    PINNED_SHA256,
+    _download,
+    _github,
+    _mirrored_download_url,
+    _publish,
+    install,
+)
 from insidia.errors import CliError, EngineFailed
 from insidia.policy import get_policy
 from insidia.probes import run
@@ -535,6 +542,22 @@ def test_crawlers_do_not_follow_redirects_off_scope(tmp_path: Path) -> None:
     assert "contexts:" in plan
     assert "proxy:" not in plan
     assert "proxy" not in zap.args
+
+
+def test_projectdiscovery_engines_disable_update_checks(tmp_path: Path) -> None:
+    view = ScopedUrl("http://127.0.0.1:8080/call", QUERY)
+    names = {
+        spec.name
+        for spec in SPECS
+        if any(f"/projectdiscovery/{spec.name}/" in url for url in PINNED_SHA256)
+    }
+    assert names == {"nuclei", "katana", "httpx"}
+    for name in sorted(names):
+        workspace = tmp_path / name
+        workspace.mkdir()
+        adapter = _engine(name)
+        invocation = adapter.prepare(adapter.probes[0], view, workspace)  # type: ignore[arg-type]
+        assert "-disable-update-check" in invocation.args
 
 
 def test_repo_engines_are_pointed_at_the_repo(tmp_path: Path) -> None:
