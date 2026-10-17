@@ -771,30 +771,54 @@ def _see_also(urls: tuple[str, ...]) -> str:
     return "<br>".join(links) or "None"
 
 
+# One card shows this many characters of plugin output. A longer body keeps
+# its start, and the card names this cap when that body was cut.
+_PLUGIN_OUTPUT_CAP = 500
+
+
 def _plugin_output(finding: Finding) -> str:
     """Masked evidence as text. Counts and the endpoint or file:line sit with it."""
-    counts: dict[str, int] = {}
-    for item in finding.observations:
-        if item.evidence:
-            counts[item.evidence] = counts.get(item.evidence, 0) + 1
-    observed = "\n".join(f"[{count}x] {text}" for text, count in counts.items())
+    excerpt, truncated = _capped_plugin_excerpt(finding)
     if finding.location and "://" not in finding.location:
         affected = finding.location
     else:
         affected = finding.endpoint or finding.location or finding.target
     kind = f" · {finding.target_kind}" if finding.target_kind else ""
+    cap = f" · truncated to {_PLUGIN_OUTPUT_CAP} characters" if truncated else ""
     lines = [
-        f"<pre>{_escape(finding.response)}</pre>",
+        f"<pre>{_escape(excerpt)}</pre>",
         (
             f"<p>{len(finding.observations)} observations"
             f" · probe <code>{_escape(finding.probe)}</code>"
-            f" · engine {_escape(finding.engine)}</p>"
+            f" · engine {_escape(finding.engine)}{cap}</p>"
         ),
-        f"<pre>{_escape(observed)}</pre>" if observed else "",
         f"<p>evidence_hash <code>{_escape(finding.evidence_hash)}</code></p>",
         f"<p>Affected {_escape(finding.target)}{kind} · <code>{_escape(affected)}</code></p>",
     ]
     return "".join(lines)
+
+
+def _capped_plugin_excerpt(finding: Finding) -> tuple[str, bool]:
+    """One excerpt. Observations that already hold the response are not copied again."""
+    text = _plugin_source(finding)
+    if len(text) <= _PLUGIN_OUTPUT_CAP:
+        return text, False
+    first, _, _rest = text.partition("\n")
+    excerpt = first if first.strip() else text[:_PLUGIN_OUTPUT_CAP]
+    if len(excerpt) > _PLUGIN_OUTPUT_CAP:
+        excerpt = excerpt[:_PLUGIN_OUTPUT_CAP]
+    return excerpt, True
+
+
+def _plugin_source(finding: Finding) -> str:
+    chunks: list[str] = []
+    for item in finding.observations:
+        if item.evidence and item.evidence not in chunks:
+            chunks.append(item.evidence)
+    response = finding.response
+    if response and not any(response in chunk for chunk in chunks):
+        chunks.append(response)
+    return "\n".join(chunks)
 
 
 def _remediation_table(findings: list[Finding]) -> str:

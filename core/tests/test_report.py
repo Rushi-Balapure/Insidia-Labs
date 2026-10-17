@@ -2,10 +2,10 @@ import json
 from pathlib import Path
 
 import pytest
-from insidia.findings import Finding
+from insidia.findings import Finding, Observation
 from insidia.mask import mask
 from insidia.policy import MARKDOWN_BEACON, get_policy
-from insidia.runstore import write_run
+from insidia.runstore import _PLUGIN_OUTPUT_CAP, write_run
 from insidia.score import score_frameworks
 
 _SECRET = "AKIAIOSFODNN7EXAMPLE"
@@ -214,6 +214,39 @@ def test_finding_cards_list_fields_in_order_and_escape_evidence(tmp_path: Path) 
     assert "CWE-200" in card
     assert "genai.owasp.org" in card
     assert "insidia rerun run-card" in card
+
+
+def test_plugin_output_caps_a_long_passwd_body(tmp_path: Path) -> None:
+    lines = [
+        "nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin",
+        "root:x:0:0:root:/root:/bin/bash",
+        *[f"user{i}:x:{i}:{i}::/home/user{i}:/bin/sh" for i in range(1, 40)],
+    ]
+    body = "\n".join(lines)
+    assert len(body) > _PLUGIN_OUTPUT_CAP
+    assert len(lines[0]) <= _PLUGIN_OUTPUT_CAP
+    finding = _bare(
+        probe="insidia.web.path_lfi",
+        attack="web.path_lfi",
+        response=body,
+        target="files",
+        observations=(
+            Observation("insidia", "insidia.web.path_lfi", "high", "/file", body),
+            Observation("insidia", "insidia.web.path_lfi", "high", "/file", body),
+        ),
+    )
+    directory = write_run(tmp_path, "run-lfi", "L1", False, [finding], [], [])
+    html = (directory / "report.html").read_text()
+    card = html.split('<details class="finding"', 1)[1].split("</details>", 1)[0]
+    plugin = card.split("Plugin output", 1)[1].split("<dt>", 1)[0]
+    assert plugin.count("<pre>") == 1
+    pre = plugin.split("<pre>", 1)[1].split("</pre>", 1)[0]
+    assert pre == lines[0]
+    assert len(pre) <= _PLUGIN_OUTPUT_CAP
+    assert f"{len(finding.observations)} observations" in plugin
+    assert f"truncated to {_PLUGIN_OUTPUT_CAP} characters" in plugin
+    for line in lines[1:]:
+        assert line not in html
 
 
 def test_not_tested_rows_say_why_and_passes_are_counted_honestly(tmp_path: Path) -> None:
