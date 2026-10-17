@@ -405,6 +405,9 @@ def _finish(
         targets=_target_facts(project),
         started_epoch=started_epoch,
         scope_hosts=tuple(item.host for item in project.scope),
+        engines=_engines_that_ran(records, findings),
+        judge=_judge_name(project),
+        rate_limits=_rate_limits(project),
     )
     return ScanOutcome(
         run_id,
@@ -468,6 +471,38 @@ def _family_result(records: list[CheckRecord]) -> str:
     if _status == "complete":
         return "not tested"
     return "inconclusive"
+
+
+def _judge_name(project: Project) -> str:
+    """Configured judge model, or none when models.judge is absent."""
+    role = project.judge
+    if role is None:
+        return "none"
+    return role.model or role.provider or "none"
+
+
+def _engines_that_ran(records: list[CheckRecord], findings: list[Finding]) -> tuple[str, ...]:
+    """Engines that finished a check, plus any engine that still produced a finding.
+
+    A limited or failed attempt is not listed. A clean run still names engines that
+    completed with no findings. Names that never ran are not added.
+    """
+    names: set[str] = set()
+    for record in records:
+        if record.state == COMPLETE and record.engine:
+            names.add(record.engine)
+    for finding in findings:
+        for name in finding.engines or (finding.engine,):
+            if name:
+                names.add(name)
+    return tuple(sorted(names))
+
+
+def _rate_limits(project: Project) -> tuple[tuple[str, float, int], ...]:
+    return tuple(
+        (target.name, target.rate_limit.rps, target.rate_limit.concurrency)
+        for target in project.targets
+    )
 
 
 def _target_facts(project: Project) -> tuple[tuple[str, str, str], ...]:

@@ -266,6 +266,9 @@ def write_run(
     targets: tuple[tuple[str, str, str], ...] = (),
     started_epoch: float | None = None,
     scope_hosts: tuple[str, ...] = (),
+    engines: tuple[str, ...] | None = None,
+    judge: str = "none",
+    rate_limits: tuple[tuple[str, float, int], ...] = (),
 ) -> Path:
     runs = root / ".insidia" / "runs"
     staging = runs / f".{run_id}.partial"
@@ -305,6 +308,14 @@ def write_run(
         started_at = _format_epoch(started_epoch)
     finished_at = _format_epoch(finished_epoch)
     version = version_text()
+    ran = _engine_names(findings, engines)
+    limits = _limit_rows(rate_limits)
+    # report.html is hashed after it is written, because the page lists these digests.
+    artefacts = {
+        name: hashlib.sha256((staging / name).read_bytes()).hexdigest()
+        for name in names
+        if name != "report.html"
+    }
     html = _render(
         run_id=run_id,
         policy=policy,
@@ -323,8 +334,14 @@ def write_run(
         coverage_name=coverage,
         scope_hosts=scope_hosts,
         config_digest=config_digest,
+        judge=judge,
+        rate_limits=limits,
+        engines=tuple(ran),
+        artefacts=tuple(artefacts.items()),
     )
     (staging / "report.html").write_text(html)
+    artefacts["report.html"] = hashlib.sha256((staging / "report.html").read_bytes()).hexdigest()
+    artefacts = {name: artefacts[name] for name in names}
     manifest = {
         "schema_version": SCHEMA_VERSION,
         "run_id": run_id,
@@ -337,10 +354,11 @@ def write_run(
         "policy_verdict": verdict,
         "config_digest": config_digest,
         "coverage": coverage,
-        "files": {
-            name: hashlib.sha256((staging / name).read_bytes()).hexdigest()
-            for name in names
-        },
+        "models": {"judge": judge},
+        "rate_limits": limits,
+        "engines": ran,
+        "skips": skips,
+        "files": artefacts,
     }
     (staging / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     staging.rename(directory)
@@ -530,6 +548,10 @@ def _render(
     coverage_name: str,
     scope_hosts: tuple[str, ...],
     config_digest: str,
+    judge: str,
+    rate_limits: list[dict[str, object]],
+    engines: tuple[str, ...],
+    artefacts: tuple[tuple[str, str], ...],
 ) -> str:
     names = _target_names(findings, controls, targets)
     title = "Security scan report"
@@ -614,9 +636,12 @@ def _render(
             execution_status,
             verdict,
             scope_hosts,
-            findings,
             skips,
             config_digest,
+            judge,
+            rate_limits,
+            engines,
+            artefacts,
         ),
         "<footer>",
         (
@@ -1031,6 +1056,47 @@ def _coverage_why(control: dict[str, str], skips: list[str]) -> str:
     return "No check id was recorded for this row."
 
 
+def _engine_names(findings: list[Finding], engines: tuple[str, ...] | None) -> list[str]:
+    """Engines the scan recorded. Without that list, use engines that produced findings."""
+    if engines is None:
+        names: list[str] = []
+        for finding in findings:
+            for name in finding.engines or (finding.engine,):
+                if name and name not in names:
+                    names.append(name)
+        names.sort()
+        return names
+    return sorted({name for name in engines if name})
+
+
+def _limit_rows(rate_limits: tuple[tuple[str, float, int], ...]) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for name, rps, concurrency in rate_limits:
+        shown: int | float = int(rps) if float(rps).is_integer() else rps
+        rows.append({"target": name, "rps": shown, "concurrency": concurrency})
+    return rows
+
+
+def _rate_limits_text(rate_limits: list[dict[str, object]]) -> str:
+    if not rate_limits:
+        return "none"
+    parts: list[str] = []
+    for row in rate_limits:
+        parts.append(f"{row['target']}: {row['rps']} rps, concurrency {row['concurrency']}")
+    return "; ".join(parts)
+
+
+def _skips_text(skips: list[str]) -> str:
+    count = len(skips)
+    if count == 0:
+        return "0"
+    return f"{count}: {'; '.join(skips)}"
+
+
+def _artefacts_text(artefacts: tuple[tuple[str, str], ...]) -> str:
+    return ", ".join(f"{name} {digest}" for name, digest in artefacts)
+
+
 def _scan_table(
     run_id: str,
     started_at: str,
@@ -1042,17 +1108,13 @@ def _scan_table(
     execution_status: str,
     verdict: str,
     scope_hosts: tuple[str, ...],
-    findings: list[Finding],
     skips: list[str],
     config_digest: str,
+    judge: str,
+    rate_limits: list[dict[str, object]],
+    engines: tuple[str, ...],
+    artefacts: tuple[tuple[str, str], ...],
 ) -> str:
-    engines: list[str] = []
-    for finding in findings:
-        names = finding.engines or (finding.engine,)
-        for name in names:
-            if name and name not in engines:
-                engines.append(name)
-    engines.sort()
     rows = (
         ("Run id", run_id),
         ("Started", started_at),
@@ -1064,9 +1126,12 @@ def _scan_table(
         ("Execution status", execution_status),
         ("Verdict", verdict),
         ("Scope hosts", ", ".join(scope_hosts)),
+        ("models/judge", judge),
+        ("Rate limits", _rate_limits_text(rate_limits)),
         ("Engines", ", ".join(engines)),
-        ("Skips", str(len(skips))),
+        ("Skips", _skips_text(skips)),
         ("Config digest", config_digest),
+        ("Artefacts", _artefacts_text(artefacts)),
     )
     body = "".join(
         f"<tr><th>{_escape(label)}</th><td>{_escape(value)}</td></tr>" for label, value in rows

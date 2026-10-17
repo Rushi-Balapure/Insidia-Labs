@@ -214,6 +214,106 @@ def _wall_clock(stamp: str) -> datetime:
     return datetime.strptime(wall, "%Y-%m-%d %H:%M:%S")
 
 
+def test_clean_run_lists_engines_and_artefact_hashes(tmp_path: Path) -> None:
+    import hashlib
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    from insidia.cli import main
+
+    class _Ok(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            body = b"ok"
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, fmt: str, *args: object) -> None:
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _Ok)
+    port = int(server.server_address[1])
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        (tmp_path / "insidia.yaml").write_text(
+            f"""\
+version: 1
+policy: L1
+coverage: standard
+scope:
+  - host: 127.0.0.1
+targets:
+  app:
+    kind: web
+    url: http://127.0.0.1:{port}/
+    method: GET
+    query:
+      q: "{{{{payload}}}}"
+    rate_limit:
+      rps: 100
+      concurrency: 1
+"""
+        )
+        assert main(["scan", "--config", str(tmp_path / "insidia.yaml"), "--quiet"]) == 0
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+    directory = next((tmp_path / ".insidia" / "runs").iterdir())
+    manifest = json.loads((directory / "manifest.json").read_text())
+    benchmark = json.loads((directory / "benchmark.json").read_text())
+    findings = json.loads((directory / "findings.json").read_text())
+    html = (directory / "report.html").read_text()
+    assert findings == []
+    engines = _scan_cell(html, "Engines")
+    assert engines.strip()
+    assert "insidia" in engines.split(", ")
+    assert engines.split(", ") == manifest["engines"]
+    assert _scan_cell(html, "models/judge") == "none"
+    assert manifest["models"] == {"judge": "none"}
+    assert manifest["rate_limits"] == [{"target": "app", "rps": 100, "concurrency": 1}]
+    assert _scan_cell(html, "Rate limits") == "app: 100 rps, concurrency 1"
+    skips = manifest["skips"]
+    assert skips == benchmark["skips"]
+    assert isinstance(skips, list)
+    skips_cell = _scan_cell(html, "Skips")
+    if skips:
+        assert skips_cell.startswith(f"{len(skips)}:")
+        for skip in skips:
+            assert skip in skips_cell
+    else:
+        assert skips_cell == "0"
+    files = manifest["files"]
+    assert isinstance(files, dict)
+    shown = _artefact_cells(html)
+    for name, digest in files.items():
+        assert isinstance(name, str)
+        assert isinstance(digest, str)
+        actual = hashlib.sha256((directory / name).read_bytes()).hexdigest()
+        assert digest == actual
+        if name == "report.html":
+            continue
+        assert shown[name] == digest
+    assert set(shown) == set(files) - {"report.html"}
+
+
+def _scan_cell(html: str, label: str) -> str:
+    table = html.split('<table class="scan">', 1)[1].split("</table>", 1)[0]
+    needle = f"<th>{label}</th><td>"
+    assert needle in table
+    return table.split(needle, 1)[1].split("</td>", 1)[0]
+
+
+def _artefact_cells(html: str) -> dict[str, str]:
+    shown: dict[str, str] = {}
+    for part in _scan_cell(html, "Artefacts").split(", "):
+        name, digest = part.split(" ", 1)
+        shown[name] = digest
+    return shown
+
+
 def test_finding_cards_list_fields_in_order_and_escape_evidence(tmp_path: Path) -> None:
     import re
 
