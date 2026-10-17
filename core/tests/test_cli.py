@@ -1,3 +1,4 @@
+import hashlib
 import json
 from pathlib import Path
 
@@ -6,7 +7,8 @@ from insidia.cli import main, scan_message
 from insidia.config import load_project
 from insidia.engines import install
 from insidia.findings import Finding
-from insidia.runstore import write_run
+from insidia.probes import Attempt
+from insidia.runstore import read_manifest, write_run
 from insidia.scan import ScanOutcome
 
 
@@ -160,20 +162,10 @@ def test_run_ids_sort_in_utc_and_show_local_time() -> None:
     assert local_time("run-1") == ""
 
 
-def test_rerun_refuses_a_changed_configuration(tmp_path: Path) -> None:
-    (tmp_path / "insidia.yaml").write_text(
-        """
-version: 1
-policy: L1
-coverage: standard
-scope:
-  - host: localhost
-targets:
-  app:
-    kind: chat
-    url: http://127.0.0.1:9/chat
-"""
-    )
+def test_rerun_refuses_a_run_without_a_recorded_config(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "insidia.yaml").write_text(_CHAT)
     write_run(
         tmp_path,
         "run-1",
@@ -187,6 +179,151 @@ targets:
     )
     code = main(["rerun", "run-1", "--config", str(tmp_path / "insidia.yaml"), "--quiet"])
     assert code == 2
+    assert "does not record its configuration" in capsys.readouterr().out
+
+
+def test_run_stores_the_config_and_rerun_uses_that_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    secret = "configured-secret-value-xyz"
+    monkeypatch.setenv("APP_TOKEN", secret)
+    config = tmp_path / "insidia.yaml"
+    config.write_text(
+        _CHAT.replace(
+            "    url: http://127.0.0.1:9/chat\n",
+            "    url: http://127.0.0.1:9/chat\n"
+            "    headers:\n"
+            f"      Authorization: Bearer {secret}\n"
+            "    auth:\n"
+            "      header: Authorization\n"
+            "      secret_ref: env:APP_TOKEN\n"
+            "# planted AKIAIOSFODNN7EXAMPLE\n",
+        )
+    )
+    seen: list[str] = []
+    _stub_probes(monkeypatch, seen)
+    assert main(["scan", "--config", str(config), "--quiet"]) == 0
+    run_dir = next((tmp_path / ".insidia" / "runs").iterdir())
+    manifest = read_manifest(run_dir)
+    assert manifest is not None
+    stored = (run_dir / "insidia.yaml").read_bytes()
+    digest = hashlib.sha256(stored).hexdigest()
+    assert manifest["config_digest"] == digest
+    files = manifest["files"]
+    assert isinstance(files, dict)
+    assert files["insidia.yaml"] == digest
+    text = stored.decode()
+    assert secret not in text
+    assert "AKIAIOSFODNN7EXAMPLE" not in text
+    assert "secret_ref: env:APP_TOKEN" in text
+    assert secret not in json.dumps(manifest)
+    recorded = load_project(run_dir / "insidia.yaml")
+    assert recorded.targets[0].name == "chat"
+    assert recorded.targets[0].headers["Authorization"] == "REDACTED"
+
+    config.write_text(
+        """\
+version: 1
+policy: L1
+coverage: standard
+scope:
+  - host: 127.0.0.1
+  - host: example.com
+    authorized: true
+targets:
+  ping:
+    kind: web
+    url: http://example.com/ping
+    method: GET
+"""
+    )
+    seen.clear()
+    code = main(["rerun", run_dir.name, "--config", str(config), "--yes", "--quiet"])
+    assert code == 0
+    assert seen
+    assert all(item.startswith("chat ") for item in seen)
+    assert all("example.com" not in item for item in seen)
+
+
+def test_rerun_yes_does_not_approve_a_new_non_local_host(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    config = tmp_path / "insidia.yaml"
+    config.write_text(
+        """\
+version: 1
+policy: L1
+coverage: standard
+scope:
+  - host: 127.0.0.1
+  - host: example.com
+    authorized: true
+targets:
+  ext:
+    kind: web
+    url: http://example.com/
+    method: GET
+"""
+    )
+    seen: list[str] = []
+    _stub_probes(monkeypatch, seen)
+    assert main(["scan", "--config", str(config), "--yes", "--quiet"]) == 0
+    run_id = next((tmp_path / ".insidia" / "runs").iterdir()).name
+    config.write_text(
+        """\
+version: 1
+policy: L1
+coverage: standard
+scope:
+  - host: 127.0.0.1
+  - host: example.com
+    authorized: true
+  - host: qa-out-of-scope.invalid
+    authorized: true
+targets:
+  ext:
+    kind: web
+    url: http://example.com/
+    method: GET
+  extra:
+    kind: web
+    url: http://qa-out-of-scope.invalid/
+    method: GET
+"""
+    )
+    seen.clear()
+    capsys.readouterr()
+    refused = main(["rerun", run_id, "--config", str(config), "--quiet"])
+    assert refused == 2
+    assert "pass --yes" in capsys.readouterr().out
+    assert seen == []
+    code = main(["rerun", run_id, "--config", str(config), "--yes", "--quiet"])
+    assert code == 0
+    assert seen
+    assert all(item.startswith("ext ") for item in seen)
+    assert all("qa-out-of-scope.invalid" not in item for item in seen)
+
+
+def _stub_probes(monkeypatch: pytest.MonkeyPatch, seen: list[str]) -> None:
+    def preflight(target: object, *_args: object) -> str:
+        seen.append(f"{target.name} {target.url}")  # type: ignore[attr-defined]
+        return ""
+
+    monkeypatch.setattr("insidia.scan.preflight", preflight)
+    monkeypatch.setattr("insidia.scan.run", lambda *_args, **_kwargs: Attempt())
+
+
+_CHAT = """\
+version: 1
+policy: L1
+coverage: standard
+scope:
+  - host: 127.0.0.1
+targets:
+  chat:
+    kind: chat
+    url: http://127.0.0.1:9/chat
+"""
 
 
 def test_mcp_allow_remote_is_a_launch_flag(monkeypatch: object) -> None:

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import sys
 import webbrowser
@@ -11,6 +10,7 @@ from pathlib import Path
 
 from insidia import version_text
 from insidia.config import (
+    Project,
     init_config,
     init_destination,
     load_project,
@@ -326,57 +326,7 @@ def _run(args: argparse.Namespace) -> int:
         return 0
     if args.command == "scan":
         config = Path(args.config)
-        project = load_project(config)
-        terminal = _terminal(args)
-        view = ScanView(terminal)
-        outcome = execute(
-            project,
-            config.resolve().parent,
-            policy_name=args.policy,
-            coverage=args.coverage,
-            assume_yes=args.yes,
-            progress=view,
-        )
-        terminal.line(terminal.dim(view.totals()))
-        report_path = outcome.run_dir / "report.html"
-        policy_name = args.policy if args.policy is not None else project.policy
-        opened = bool(getattr(args, "open", False)) and not args.json and _open(report_path)
-        text = scan_message(
-            policy_name,
-            outcome.passed,
-            len(outcome.findings),
-            str(report_path),
-            opened,
-            execution_status=outcome.execution_status,
-            policy_verdict=outcome.policy_verdict or None,
-            untested=outcome.untested,
-        )
-        document = {
-            "schema_version": "2.0",
-            "run_id": outcome.run_id,
-            "passed": outcome.passed,
-            "execution_status": outcome.execution_status,
-            "policy_verdict": outcome.policy_verdict or ("pass" if outcome.passed else "fail"),
-            "findings": [finding.as_json() for finding in outcome.findings],
-            "skips": outcome.skips,
-            "run_dir": str(outcome.run_dir),
-            "report": str(report_path),
-            "summary": scan_message(
-                policy_name,
-                outcome.passed,
-                len(outcome.findings),
-                str(report_path),
-                False,
-                execution_status=outcome.execution_status,
-                policy_verdict=outcome.policy_verdict or None,
-                untested=outcome.untested,
-            ),
-        }
-        if outcome.notes:
-            document["notes"] = list(outcome.notes)
-            text = text + "\n" + "\n".join(outcome.notes)
-        _emit(args.json, document, text)
-        return outcome.exit_code()
+        return _finish_scan(args, load_project(config), config.resolve().parent)
     if args.command == "rerun":
         return _rerun(args)
     if args.command == "report":
@@ -401,18 +351,73 @@ def _run(args: argparse.Namespace) -> int:
     raise CliError(f"unknown command {args.command}")
 
 
+def _finish_scan(args: argparse.Namespace, project: Project, root: Path) -> int:
+    terminal = _terminal(args)
+    view = ScanView(terminal)
+    outcome = execute(
+        project,
+        root,
+        policy_name=args.policy,
+        coverage=args.coverage,
+        assume_yes=args.yes,
+        progress=view,
+    )
+    terminal.line(terminal.dim(view.totals()))
+    report_path = outcome.run_dir / "report.html"
+    policy_name = args.policy if args.policy is not None else project.policy
+    opened = bool(getattr(args, "open", False)) and not args.json and _open(report_path)
+    text = scan_message(
+        policy_name,
+        outcome.passed,
+        len(outcome.findings),
+        str(report_path),
+        opened,
+        execution_status=outcome.execution_status,
+        policy_verdict=outcome.policy_verdict or None,
+        untested=outcome.untested,
+    )
+    document = {
+        "schema_version": "2.0",
+        "run_id": outcome.run_id,
+        "passed": outcome.passed,
+        "execution_status": outcome.execution_status,
+        "policy_verdict": outcome.policy_verdict or ("pass" if outcome.passed else "fail"),
+        "findings": [finding.as_json() for finding in outcome.findings],
+        "skips": outcome.skips,
+        "run_dir": str(outcome.run_dir),
+        "report": str(report_path),
+        "summary": scan_message(
+            policy_name,
+            outcome.passed,
+            len(outcome.findings),
+            str(report_path),
+            False,
+            execution_status=outcome.execution_status,
+            policy_verdict=outcome.policy_verdict or None,
+            untested=outcome.untested,
+        ),
+    }
+    if outcome.notes:
+        document["notes"] = list(outcome.notes)
+        text = text + "\n" + "\n".join(outcome.notes)
+    _emit(args.json, document, text)
+    return outcome.exit_code()
+
+
 def _rerun(args: argparse.Namespace) -> int:
     directory = _run_dir(args.run_id, args.config)
     manifest = read_manifest(directory)
     if manifest is None:
         raise CliError(f"run {directory.name} has no manifest, so it cannot be rerun")
-    project = load_project(Path(args.config))
-    digest = hashlib.sha256(project.path.read_bytes()).hexdigest()
-    recorded = manifest.get("config_digest")
-    if not isinstance(recorded, str) or not recorded:
-        raise CliError(f"run {directory.name} does not record its configuration")
-    if recorded != digest and not args.yes:
-        raise CliError("configuration changed since that run; pass --yes to scan the current file")
+    snapshot = directory / "insidia.yaml"
+    files = manifest.get("files")
+    if not isinstance(files, dict) or "insidia.yaml" not in files or not snapshot.is_file():
+        raise CliError(
+            f"run {directory.name} does not record its configuration, so it cannot be rerun"
+        )
+    # The snapshot is the config that ran. --yes confirms that recorded scope
+    # only; a non-local host added to the current file is not approved.
+    project = load_project(snapshot)
     policy = manifest.get("policy")
     if policy != "L1":
         raise CliError(f"run used policy {policy}, which is not available. Use L1.")
@@ -421,8 +426,7 @@ def _rerun(args: argparse.Namespace) -> int:
         raise CliError(f"run {directory.name} does not record its coverage")
     args.policy = "L1"
     args.coverage = coverage
-    args.command = "scan"
-    return _run(args)
+    return _finish_scan(args, project, Path(args.config).resolve().parent)
 
 
 def _run_dir(run_id: str | None, config: str) -> Path:

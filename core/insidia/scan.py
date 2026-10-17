@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -29,7 +28,7 @@ from insidia.results import (
     exit_for,
     legacy_passed,
 )
-from insidia.runstore import new_run_id, not_tested, write_run
+from insidia.runstore import config_snapshot, new_run_id, not_tested, write_run
 from insidia.scope import check_url, needs_confirmation, unauthorized_host
 from insidia.transport import bind_budget, current_budget, preflight, repo_path, reset_budget
 from insidia.ui import Event, short
@@ -82,8 +81,9 @@ def execute(
     _require_model_secrets(project)
     mode = coverage or project.coverage
     _validate_targets(project, root)
-    config_digest = hashlib.sha256(project.path.read_bytes()).hexdigest()
-    bind_secrets(_configured_secrets(project))
+    secrets = _configured_secrets(project)
+    bind_secrets(secrets)
+    snapshot = config_snapshot(project.path.read_bytes(), secrets)
     if project.attacker is not None:
         build_provider(project.attacker, project.scope)
     if project.judge is not None:
@@ -117,7 +117,7 @@ def execute(
             controls,
             skips,
             progress,
-            config_digest,
+            snapshot,
         )
     finally:
         reset_budget(token)
@@ -134,7 +134,7 @@ def _run_targets(
     controls: list[dict[str, str]],
     skips: list[str],
     progress: Callable[[Event], None] | None,
-    config_digest: str,
+    config_text: bytes,
 ) -> ScanOutcome:
     notes: list[str] = []
     try:
@@ -166,7 +166,7 @@ def _run_targets(
         controls,
         skips,
         progress,
-        config_digest,
+        config_text,
         notes,
     )
 
@@ -349,7 +349,7 @@ def _finish(
     controls: list[dict[str, str]],
     skips: list[str],
     progress: Callable[[Event], None] | None,
-    config_digest: str,
+    config_text: bytes,
     notes: list[str],
 ) -> ScanOutcome:
     execution_status, policy_verdict = aggregate(records)
@@ -367,8 +367,8 @@ def _finish(
         skips,
         execution_status=execution_status,
         policy_verdict=policy_verdict,
-        config_digest=config_digest,
         coverage=mode,
+        config_text=config_text,
     )
     return ScanOutcome(
         run_id,

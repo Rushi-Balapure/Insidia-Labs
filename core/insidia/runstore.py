@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import secrets
 import time
 from dataclasses import asdict
@@ -13,6 +14,7 @@ from pathlib import Path
 from insidia import __version__
 from insidia.errors import CliError
 from insidia.findings import Finding
+from insidia.mask import SECRET_PATTERNS
 from insidia.results import SCHEMA_VERSION, legacy_passed
 from insidia.score import Score, coverage, score_frameworks
 
@@ -118,6 +120,27 @@ Re-run repeats the same policy.</p>
 """
 
 
+_BEARER = re.compile(r"Bearer [A-Za-z0-9._\-]{8,}")
+
+
+def config_snapshot(raw: bytes, secrets: tuple[str, ...] = ()) -> bytes:
+    """Config text safe to store. Resolved secret values are never kept."""
+    text = raw.decode("utf-8")
+    cleaned = text
+    for secret in secrets:
+        if len(secret) >= 8 and secret in cleaned:
+            cleaned = cleaned.replace(secret, "REDACTED")
+    for _kind, pattern in SECRET_PATTERNS:
+        cleaned = pattern.sub("REDACTED", cleaned)
+    cleaned = _BEARER.sub("REDACTED", cleaned)
+    for secret in secrets:
+        if len(secret) >= 8 and secret in cleaned:
+            raise CliError("refusing to store a configuration that still contains a secret")
+    if cleaned == text:
+        return raw
+    return cleaned.encode("utf-8")
+
+
 def new_run_id() -> str:
     # UTC, so that sorting the ids sorts the runs whatever the local zone.
     stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
@@ -145,6 +168,7 @@ def write_run(
     policy_verdict: str | None = None,
     config_digest: str = "",
     coverage: str = "standard",
+    config_text: bytes | None = None,
 ) -> Path:
     runs = root / ".insidia" / "runs"
     staging = runs / f".{run_id}.partial"
@@ -191,6 +215,11 @@ def write_run(
         mark=_mark(),
     )
     (staging / "report.html").write_text(html)
+    names = ["findings.json", "results.sarif", "benchmark.json", "report.html"]
+    if config_text is not None:
+        (staging / "insidia.yaml").write_bytes(config_text)
+        names.append("insidia.yaml")
+        config_digest = hashlib.sha256(config_text).hexdigest()
     manifest = {
         "schema_version": SCHEMA_VERSION,
         "run_id": run_id,
@@ -202,7 +231,7 @@ def write_run(
         "coverage": coverage,
         "files": {
             name: hashlib.sha256((staging / name).read_bytes()).hexdigest()
-            for name in ("findings.json", "results.sarif", "benchmark.json", "report.html")
+            for name in names
         },
     }
     (staging / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
