@@ -45,8 +45,8 @@ def test_report_scores_frameworks_and_names_the_engine(tmp_path: Path) -> None:
     html = (directory / "report.html").read_text()
     assert "OWASP LLM" in html
     assert "OWASP Web" in html
-    assert "<tr><td>OWASP LLM Top 10</td><td>1</td><td>0</td><td>9</td></tr>" in html
-    assert "<tr><td>OWASP Web Top 10</td><td>0</td><td>1</td><td>9</td></tr>" in html
+    assert _score_line(html, "OWASP LLM Top 10") == ("1", "0", "9")
+    assert _score_line(html, "OWASP Web Top 10") == ("0", "1", "9")
     assert "<script" not in html
     assert "prefers-color-scheme: dark" in html
     assert "#101028" in html
@@ -264,8 +264,20 @@ def test_not_tested_rows_say_why_and_passes_are_counted_honestly(tmp_path: Path)
     assert any("judge model" in reason for reason in reasons)
     assert any("no TLS" in reason for reason in reasons)
     assert any("logic.race" in reason for reason in reasons)
-    assert "<tr><td>OWASP LLM Top 10</td><td>0</td><td>0</td><td>10</td></tr>" in html
-    assert "<tr><td>OWASP Web Top 10</td><td>0</td><td>1</td><td>9</td></tr>" in html
+    assert _score_line(html, "OWASP LLM Top 10") == ("0", "0", "10")
+    assert _score_line(html, "OWASP Web Top 10") == ("0", "1", "9")
+    assert "@media (max-width:700px)" in html
+    assert "@media print" in html
+    assert "nav { display: none; }" in html
+    assert "prefers-color-scheme: dark" in html
+
+
+def _score_line(html: str, title: str) -> tuple[str, str, str]:
+    row = next(line for line in html.splitlines() if title in line)
+    cells = row.split("<td")
+    values = [cell.split(">", 1)[1].split("<", 1)[0] for cell in cells[1:]]
+    assert values[0] == title
+    return values[1], values[2], values[3]
 
 
 def test_unknown_taxonomy_id_is_rejected() -> None:

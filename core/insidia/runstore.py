@@ -155,6 +155,41 @@ footer {
   pre { background: #101028; color: #F6F6FB; }
   .res-nt { background: #2E2E56; color: #F6F6FB; }
 }
+@media (max-width:700px) {
+  header, nav, main { padding-left: 1rem; padding-right: 1rem; }
+  .tiles { gap: 0.3rem; }
+  .tile { padding: 0.35rem 0.15rem; }
+  .tile b { font-size: 1.3rem; }
+  .tile span { font-size: 0.6rem; letter-spacing: 0; }
+  table thead { display: none; }
+  table tr {
+    display: block;
+    border-bottom: 2px solid var(--line);
+    padding: 0.3rem 0;
+  }
+  table td, table.scan th {
+    display: flex;
+    gap: 0.6rem;
+    border: 0;
+    padding: 0.2rem 0.4rem;
+    max-width: 100%;
+  }
+  table td[data-l]::before {
+    content: attr(data-l);
+    flex: 0 0 6.2rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .right { margin-left: 0; width: 100%; }
+  pre, code, td { overflow-wrap: anywhere; }
+  body { overflow-x: hidden; }
+}
+@media print {
+  nav { display: none; }
+  details, details.finding { break-inside: avoid; }
+  details > summary { list-style: none; }
+  details > *:not(summary) { display: block !important; }
+}
 """
 
 
@@ -389,21 +424,26 @@ def latest_run(root: Path) -> Path | None:
 def _score_rows(scores: tuple[Score, ...]) -> str:
     lines = []
     for score in scores:
-        cells = (
-            _escape(score.title),
-            str(score.failed),
-            str(score.passed),
-            str(score.not_tested),
+        lines.append(
+            "<tr>"
+            f'<td data-l="Framework">{_escape(score.title)}</td>'
+            f'<td data-l="Failed">{score.failed}</td>'
+            f'<td data-l="Passed">{score.passed}</td>'
+            f'<td data-l="Not tested">{score.not_tested}</td>'
+            "</tr>"
         )
-        lines.append("<tr>" + "".join(f"<td>{cell}</td>" for cell in cells) + "</tr>")
     return "\n".join(lines)
 
 
 def _coverage_rows(controls: list[dict[str, str]]) -> str:
     lines = []
-    for control_id, title, result in coverage(controls):
-        cells = (_escape(control_id), _escape(title), _escape(result))
-        lines.append("<tr>" + "".join(f"<td>{cell}</td>" for cell in cells) + "</tr>")
+    labels = ("Control", "Title", "Result")
+    for row in coverage(controls):
+        pairs = zip(labels, row, strict=True)
+        cells = "".join(
+            f'<td data-l="{label}">{_escape(value)}</td>' for label, value in pairs
+        )
+        lines.append(f"<tr>{cells}</tr>")
     return "\n".join(lines)
 
 
