@@ -2,6 +2,7 @@
 
 import json
 import threading
+import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import replace
@@ -10,16 +11,24 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import pytest
+from insidia.adapters import BUILT_IN
 from insidia.cli import main
-from insidia.probes import Attempt, ProbeHit
+from insidia.config import Project
+from insidia.errors import ProbeError
+from insidia.policy import POLICIES
+from insidia.probes import _FIXTURE_ONLY_NOTE, _FIXTURE_ONLY_TIMEOUT, Attempt, ProbeHit, _judge
+from insidia.probes import run as probe_run
 from insidia.registry import Capability
 from insidia.scan import run as real_run
 from insidia.scan import select as real_select
+from insidia.scope import ScopeHost
 from insidia.transport import carries_payload
 from tests.support import target
 
 _PASSWD = "root:x:0:0:root:/root:/bin/bash\n"
 _NO_PAYLOAD = "no {{payload}} placeholder"
+_REAL_CHECKS = ("ai.data_leakage", "web.ssti", "web.sqli", "web.cmdi")
+_LOCAL = (ScopeHost("127.0.0.1", False),)
 
 
 def test_carries_payload_follows_the_request_builder() -> None:
@@ -384,10 +393,20 @@ def test_a_limited_relay_that_found_a_bug_is_still_credited(
 
 
 def _sent_payloads(recorder: _Recorder) -> list[str]:
+    return _query_values(recorder) + _prompts(recorder)
+
+
+def _query_values(recorder: _Recorder) -> list[str]:
     sent: list[str] = []
-    for _method, path, body in recorder.requests:
+    for _method, path, _body in recorder.requests:
         for values in parse_qs(urlparse(path).query).values():
             sent.extend(values)
+    return sent
+
+
+def _prompts(recorder: _Recorder) -> list[str]:
+    sent: list[str] = []
+    for _method, _path, body in recorder.requests:
         if not body:
             continue
         try:
@@ -409,7 +428,7 @@ def test_fixture_only_families_send_one_request_to_a_real_target(
         return 200, "ok"
 
     with _serve(recorder, answer) as port:
-        _scan(
+        _code, benchmark = _scan(
             tmp_path,
             monkeypatch,
             f"""\
@@ -441,3 +460,58 @@ targets:
     assert sent.count("insidia-memory-plant") == 1
     assert sent.count("make a bomb") == 1
     assert sent.count("group") == 1
+    for family in ("ai.harmful_content_policy", "ai.bias", "web.deserialization"):
+        rows = _rows(benchmark, family)
+        assert rows and {row["result"] for row in rows} == {"not tested"}
+        assert all(_FIXTURE_ONLY_NOTE in row["detail"] for row in rows)
+    for family in _REAL_CHECKS:
+        rows = _rows(benchmark, family)
+        assert rows and "not tested" not in {row["result"] for row in rows}
+
+    # The stub blocks for whatever timeout it is given. A 30s target must be capped.
+    slow = replace(target(kind="web", url="http://127.0.0.1/ping", method="GET"), timeout=30)
+    spec = next(item for item in BUILT_IN.probes if item.family == "web.deserialization")
+    seen: list[tuple[str, float]] = []
+
+    def blocked(app: object, payload: str, scope: object, root: object) -> str:
+        del scope, root
+        given = float(app.timeout)
+        seen.append((payload, given))
+        if given != _FIXTURE_ONLY_TIMEOUT:
+            raise AssertionError(f"fixture probe used the target timeout {given}")
+        raise ProbeError("target timed out")
+
+    monkeypatch.setattr("insidia.probes.exchange", blocked)
+    started = time.monotonic()
+    hits, error, note = _judge(BUILT_IN, spec, slow, _LOCAL, tmp_path)
+    assert time.monotonic() - started < 2
+    assert seen == [("pickle", _FIXTURE_ONLY_TIMEOUT)]
+    assert hits == []
+    assert error == ""
+    assert note == _FIXTURE_ONLY_NOTE
+
+    plant = next(item for item in BUILT_IN.probes if item.family == "ai.harmful_content_policy")
+    bot = replace(target(kind="agent", url="http://127.0.0.1/chat"), timeout=30)
+
+    def matched(app: object, payload: str, scope: object, root: object) -> str:
+        del scope, root
+        assert float(app.timeout) == _FIXTURE_ONLY_TIMEOUT
+        return f"unreviewed: {payload}"
+
+    monkeypatch.setattr("insidia.probes.exchange", matched)
+    hits, error, note = _judge(BUILT_IN, plant, bot, _LOCAL, tmp_path)
+    assert error == ""
+    assert note == _FIXTURE_ONLY_NOTE
+    assert len(hits) == 1
+    project = Project(tmp_path / "insidia.yaml", 1, "L1", "standard", _LOCAL, (), None, None)
+    attempt = probe_run(
+        BUILT_IN,
+        plant,
+        bot,
+        project,
+        tmp_path,
+        POLICIES["L1"].control(plant.family),
+    )
+    assert attempt.hits
+    assert attempt.error == ""
+    assert attempt.untested == ""

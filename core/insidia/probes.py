@@ -14,7 +14,7 @@ import tempfile
 import threading
 from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import TypeGuard
@@ -234,6 +234,7 @@ def _judge(
         return paired(target, scope, root)
     hits, error = _corpus(adapter, spec, target, scope, root)
     if spec.family in FIXTURE_ONLY:
+        # A matching plant is still a finding. The note only explains a miss.
         return hits, error, _FIXTURE_ONLY_NOTE
     return hits, error, ""
 
@@ -247,16 +248,19 @@ def _corpus(
 ) -> tuple[list[EngineHit], str]:
     oracle = ORACLES[spec.family]
     payloads = adapter.corpus[spec]
-    # The first corpus entry is the benchmark plant's trigger. Later entries only
-    # repeat a request the oracle cannot judge on any other app.
+    # The first entry is the benchmark plant's trigger. Later entries repeat a
+    # request this oracle cannot judge on any other app. Cap that one request
+    # so a slow target cannot stall the check. A timeout or a miss is not tested.
+    timeout: float | None = None
     if spec.family in FIXTURE_ONLY and spec.family not in _ORDERED:
         payloads = payloads[:1]
+        timeout = _FIXTURE_ONLY_TIMEOUT
     hits: list[EngineHit] = []
     answered = 0
     rejected = ""
     try:
         for index, (payload, outcome) in enumerate(
-            _replies(target, payloads, spec.family, scope, root)
+            _replies(target, payloads, spec.family, scope, root, timeout)
         ):
             if isinstance(outcome, HttpStatus):
                 # An AI endpoint that refuses one prompt still answers the others.
@@ -270,6 +274,8 @@ def _corpus(
             if _fixture_follow_up_is_useless(spec.family, index, outcome):
                 break
     except ProbeError as exc:
+        if timeout is not None and str(exc) == "target timed out":
+            return [], ""
         return hits, str(exc)
     if not answered and rejected:
         return hits, f"every payload was rejected: {rejected}"
@@ -279,6 +285,8 @@ def _corpus(
 # Each payload depends on the reply to the one before it.
 _ORDERED = frozenset({"ai.memory_poisoning"})
 _MEMORY_PLANT = "insidia-memory-plant"
+# Fixture-only triggers do not inherit a slow target's timeout.
+_FIXTURE_ONLY_TIMEOUT = 1.0
 
 
 def _fixture_follow_up_is_useless(family: str, index: int, outcome: str | HttpStatus) -> bool:
@@ -294,12 +302,13 @@ def _replies(
     family: str,
     scope: tuple[ScopeHost, ...],
     root: Path,
+    timeout: float | None = None,
 ) -> Iterator[tuple[str, str | HttpStatus]]:
     """Each payload with its reply, in order. Sent in parallel up to the target's concurrency."""
 
     def one(payload: str) -> str | HttpStatus:
         try:
-            return _send(target, payload, scope, root)
+            return _send(target, payload, scope, root, timeout)
         except HttpStatus as exc:
             return exc
 
@@ -318,8 +327,16 @@ def _replies(
                 future.cancel()
 
 
-def _send(target: Target, payload: str, scope: tuple[ScopeHost, ...], root: Path) -> str:
+def _send(
+    target: Target,
+    payload: str,
+    scope: tuple[ScopeHost, ...],
+    root: Path,
+    timeout: float | None = None,
+) -> str:
     """A web app's error page is its answer to the attack, so it is judged too."""
+    if timeout is not None:
+        target = replace(target, timeout=timeout)
     try:
         return exchange(target, payload, scope, root)
     except HttpStatus as exc:
