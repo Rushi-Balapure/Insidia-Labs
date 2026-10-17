@@ -54,6 +54,10 @@ def dispatch(message: dict[str, object]) -> dict[str, object] | None:
         if method == "tools/call":
             return _result(message.get("id"), _tool_error(str(exc)))
         return _error(message.get("id"), -32000, str(exc))
+    except Exception:
+        # A corrupt run file or any other unexpected failure must not kill the
+        # server, and the message must not echo file contents or secrets.
+        return _error(message.get("id"), -32603, "internal error")
     return _result(message.get("id"), result)
 
 

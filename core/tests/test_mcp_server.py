@@ -121,6 +121,36 @@ def test_bad_json_line_gets_a_parse_error_and_the_server_keeps_going() -> None:
     assert second["id"] == 7
 
 
+def test_corrupt_findings_is_an_error_and_the_next_call_is_answered(
+    tmp_path: Path, monkeypatch: object, capsys: object
+) -> None:
+    """The crash input from the security sweep: bad findings.json, then ping."""
+    monkeypatch.chdir(tmp_path)  # type: ignore[attr-defined]
+    run = tmp_path / ".insidia" / "runs" / "r1"
+    run.mkdir(parents=True)
+    (run / "findings.json").write_text("{bad")
+    crash = (
+        '{"jsonrpc":"2.0","id":1,"method":"tools/call",'
+        '"params":{"name":"findings","arguments":{"run_id":"r1"}}}\n'
+        '{"jsonrpc":"2.0","id":2,"method":"ping"}\n'
+    )
+    stdin = BytesIO(crash.encode())
+    stdout = BytesIO()
+    assert serve(stdin, stdout) == 0
+    captured = capsys.readouterr()  # type: ignore[attr-defined]
+    assert "Traceback" not in captured.err
+    assert "Traceback" not in captured.out
+    written = stdout.getvalue()
+    assert b"Traceback" not in written
+    assert b"{bad" not in written
+    first, second = (json.loads(line) for line in written.splitlines())
+    assert first["id"] == 1
+    assert first["error"]["code"] == -32603
+    assert first["error"]["message"] == "internal error"
+    assert second["id"] == 2
+    assert second["result"] == {}
+
+
 def test_stdio_round_trip() -> None:
     raw = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "ping"}).encode()
     stdin = BytesIO(f"Content-Length: {len(raw)}\r\n\r\n".encode() + raw)
