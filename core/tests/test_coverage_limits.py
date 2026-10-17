@@ -368,8 +368,14 @@ def test_a_limited_relay_is_not_credited_for_a_pass(
     findings = json.loads((latest / "findings.json").read_text())
     benchmark = json.loads((latest / "benchmark.json").read_text())
     rows = _rows(benchmark, "ai.data_leakage")
+    assert rows and all(row["result"] == "pass" for row in rows)
+    assert rows and all(row["assurance"] == "low" for row in rows)
+    assert rows and all(
+        "garak sent only 1 prompt" in row["assurance_reason"] for row in rows
+    )
     assert rows and all("garak sent only 1 prompt" in row["detail"] for row in rows)
     assert "garak sent only 1 prompt" in report
+    assert "1 low assurance" in report
     assert all("garak" not in item["engines"] for item in findings)
     assert code == 0
 
@@ -400,7 +406,10 @@ def test_a_one_prompt_hit_does_not_credit_garak(
     benchmark = json.loads((latest / "benchmark.json").read_text())
     rows = _rows(benchmark, "ai.data_leakage")
     assert any(
-        row["result"] == "fail" and "garak sent only 1 prompt" in row["detail"] for row in rows
+        row["result"] == "fail"
+        and "garak sent only 1 prompt" in row["detail"]
+        and row.get("assurance") != "low"
+        for row in rows
     )
     assert "garak sent only 1 prompt" in report
     assert all("garak" not in item["engines"] for item in findings)

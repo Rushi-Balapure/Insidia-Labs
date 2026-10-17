@@ -41,6 +41,7 @@ class Score:
     failed: int
     passed: int
     not_tested: int
+    low_assurance: int = 0
 
 
 def score_frameworks(controls: list[dict[str, str]]) -> tuple[Score, ...]:
@@ -50,16 +51,18 @@ def score_frameworks(controls: list[dict[str, str]]) -> tuple[Score, ...]:
 
 
 def coverage(controls: list[dict[str, str]]) -> tuple[tuple[str, str, str], ...]:
-    """One row per framework item: id, title, and fail, pass, or not tested."""
+    """One row per framework item: id, title, and fail, pass, low assurance, or not tested."""
     frameworks = _frameworks()
     _reject_unknown(controls, frameworks)
     rows: list[tuple[str, str, str]] = []
     for framework in frameworks:
         ids = {item_id for item_id, _title in framework.items}
-        failed, passed = _split(framework, controls, ids)
+        failed, passed, weak = _split(framework, controls, ids)
         for item_id, title in framework.items:
             if item_id in failed:
                 result = "fail"
+            elif item_id in weak:
+                result = "pass (low assurance)"
             elif item_id in passed:
                 result = "pass"
             else:
@@ -95,29 +98,43 @@ def _load(filename: str) -> Framework:
 
 def _score(framework: Framework, controls: list[dict[str, str]]) -> Score:
     ids = {item_id for item_id, _title in framework.items}
-    failed, passed = _split(framework, controls, ids)
+    failed, passed, weak = _split(framework, controls, ids)
     not_tested = len(ids - failed - passed)
-    return Score(framework.name, framework.title, len(failed), len(passed), not_tested)
+    return Score(
+        framework.name,
+        framework.title,
+        len(failed),
+        len(passed),
+        not_tested,
+        len(weak),
+    )
 
 
 def _split(
     framework: Framework, controls: list[dict[str, str]], ids: set[str]
-) -> tuple[set[str], set[str]]:
+) -> tuple[set[str], set[str], set[str]]:
     failed: set[str] = set()
-    passed: set[str] = set()
+    strong: set[str] = set()
+    weak: set[str] = set()
     prefix = f"{framework.name}:"
     for control in controls:
         result = control.get("result", "")
+        low = control.get("assurance") == "low"
         for tag in control.get("taxonomy", "").split(","):
             item_id = _item_id(tag, prefix, ids)
             if item_id is None:
                 continue
             if result == "fail":
                 failed.add(item_id)
+            elif result == "pass" and low:
+                weak.add(item_id)
             elif result == "pass":
-                passed.add(item_id)
-    passed -= failed
-    return failed, passed
+                strong.add(item_id)
+    # A fail wins. A full pass keeps the row a plain pass.
+    passed = (strong | weak) - failed
+    weak -= failed
+    weak -= strong
+    return failed, passed, weak
 
 
 def _reject_unknown(controls: list[dict[str, str]], frameworks: tuple[Framework, ...]) -> None:

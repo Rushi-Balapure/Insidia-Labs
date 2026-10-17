@@ -7,7 +7,7 @@ from insidia.findings import Finding, Observation
 from insidia.mask import mask
 from insidia.policy import MARKDOWN_BEACON, get_policy
 from insidia.runstore import _PLUGIN_OUTPUT_CAP, _format_epoch, local_time, write_run
-from insidia.score import score_frameworks
+from insidia.score import coverage, score_frameworks
 
 _SECRET = "AKIAIOSFODNN7EXAMPLE"
 
@@ -46,8 +46,8 @@ def test_report_scores_frameworks_and_names_the_engine(tmp_path: Path) -> None:
     html = (directory / "report.html").read_text()
     assert "OWASP LLM" in html
     assert "OWASP Web" in html
-    assert _score_line(html, "OWASP LLM Top 10") == ("1", "0", "9")
-    assert _score_line(html, "OWASP Web Top 10") == ("0", "1", "9")
+    assert _score_line(html, "OWASP LLM Top 10") == ("1", "0 passed (0 low assurance)", "9")
+    assert _score_line(html, "OWASP Web Top 10") == ("0", "1 passed (0 low assurance)", "9")
     assert "<script" not in html
     assert "prefers-color-scheme: dark" in html
     assert "#101028" in html
@@ -70,6 +70,7 @@ def test_report_scores_frameworks_and_names_the_engine(tmp_path: Path) -> None:
             "failed": 1,
             "passed": 0,
             "not_tested": 9,
+            "low_assurance": 0,
         },
         {
             "framework": "owasp-asi",
@@ -77,6 +78,7 @@ def test_report_scores_frameworks_and_names_the_engine(tmp_path: Path) -> None:
             "failed": 0,
             "passed": 0,
             "not_tested": 10,
+            "low_assurance": 0,
         },
         {
             "framework": "owasp-web",
@@ -84,6 +86,7 @@ def test_report_scores_frameworks_and_names_the_engine(tmp_path: Path) -> None:
             "failed": 0,
             "passed": 1,
             "not_tested": 9,
+            "low_assurance": 0,
         },
         {
             "framework": "owasp-api",
@@ -91,6 +94,7 @@ def test_report_scores_frameworks_and_names_the_engine(tmp_path: Path) -> None:
             "failed": 0,
             "passed": 0,
             "not_tested": 10,
+            "low_assurance": 0,
         },
     ]
     sarif = json.loads((directory / "results.sarif").read_text())
@@ -408,8 +412,8 @@ def test_not_tested_rows_say_why_and_passes_are_counted_honestly(tmp_path: Path)
     assert any("judge model" in reason for reason in reasons)
     assert any("no TLS" in reason for reason in reasons)
     assert any("logic.race" in reason for reason in reasons)
-    assert _score_line(html, "OWASP LLM Top 10") == ("0", "0", "10")
-    assert _score_line(html, "OWASP Web Top 10") == ("0", "1", "9")
+    assert _score_line(html, "OWASP LLM Top 10") == ("0", "0 passed (0 low assurance)", "10")
+    assert _score_line(html, "OWASP Web Top 10") == ("0", "1 passed (0 low assurance)", "9")
     assert "@media (max-width:700px)" in html
     assert "@media print" in html
     assert "nav { display: none; }" in html
@@ -547,6 +551,84 @@ def test_incomplete_summary_follows_the_same_shape(tmp_path: Path) -> None:
         "This report is test evidence, not a certification."
     )
     assert text.endswith(_NOT_A_CERTIFICATION)
+
+
+def test_low_assurance_passes_are_counted_from_the_field(tmp_path: Path) -> None:
+    note = "garak sent only 1 prompt(s)"
+    controls = [
+        {
+            "id": "web.ssti",
+            "target": "shop",
+            "result": "pass",
+            "taxonomy": "owasp-web:A03",
+            "assurance": "low",
+            "assurance_reason": note,
+        },
+        {
+            "id": "web.headers",
+            "target": "shop",
+            "result": "pass",
+            "taxonomy": "owasp-web:A05",
+        },
+    ]
+    directory = write_run(tmp_path, "run-weak", "L1", True, [], controls, [])
+    html = (directory / "report.html").read_text()
+    text = _summary_paragraph(html)
+    assert "1 passed check has low assurance and 0 checks were not tested." in text
+    assert "0 passed checks have low assurance" not in text
+    assert "2 passed (1 low assurance)" in html
+    assert _score_line(html, "OWASP Web Top 10") == ("0", "2 passed (1 low assurance)", "8")
+    assert _owasp_result(html, "owasp-web:A03") == "pass (low assurance)"
+    assert _owasp_result(html, "owasp-web:A05") == "pass"
+    assert note in html
+    benchmark = json.loads((directory / "benchmark.json").read_text())
+    weak = next(row for row in benchmark["controls"] if row["id"] == "web.ssti")
+    assert weak["assurance"] == "low"
+    assert weak["assurance_reason"] == note
+    web = next(item for item in benchmark["scores"] if item["framework"] == "owasp-web")
+    assert web["passed"] == 2
+    assert web["low_assurance"] == 1
+
+
+def test_an_owasp_row_with_a_strong_pass_stays_plain() -> None:
+    controls = [
+        {
+            "id": "web.ssti",
+            "target": "shop",
+            "result": "pass",
+            "taxonomy": "owasp-web:A03",
+            "assurance": "low",
+            "assurance_reason": "garak sent only 1 prompt(s)",
+        },
+        {
+            "id": "web.cmdi",
+            "target": "shop",
+            "result": "pass",
+            "taxonomy": "owasp-web:A03",
+        },
+    ]
+    web = next(score for score in score_frameworks(controls) if score.framework == "owasp-web")
+    assert web.passed == 1
+    assert web.low_assurance == 0
+    rows = {item_id: result for item_id, _title, result in coverage(controls)}
+    assert rows["owasp-web:A03"] == "pass"
+    failed = [
+        {
+            "id": "web.ssti",
+            "target": "shop",
+            "result": "fail",
+            "taxonomy": "owasp-web:A03",
+        },
+        controls[0],
+    ]
+    failed_rows = {item_id: result for item_id, _title, result in coverage(failed)}
+    assert failed_rows["owasp-web:A03"] == "fail"
+
+
+def _owasp_result(html: str, control_id: str) -> str:
+    row = next(line for line in html.splitlines() if f">{control_id}<" in line)
+    cells = row.split("<td")
+    return cells[-1].split(">", 1)[1].split("<", 1)[0]
 
 
 def _score_line(html: str, title: str) -> tuple[str, str, str]:

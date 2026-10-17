@@ -14,7 +14,7 @@ from insidia.errors import CliError, EngineFailed, ProbeError, ScopeError
 from insidia.findings import Finding, normalize
 from insidia.mask import bind_secrets, mask
 from insidia.policy import Policy, get_policy
-from insidia.probes import ProbeHit, run
+from insidia.probes import ProbeHit, _is_relay_shallow_note, run
 from insidia.registry import select, unlock_hint
 from insidia.results import (
     CANCELLED,
@@ -327,7 +327,20 @@ def _scan_targets(
             records.extend(family_records)
             result = _family_result(family_records)
             detail = _detail(result, reasons, family_records)
-            controls.append(_recorded(policy, family, target.name, result, detail))
+            recorded = _recorded(policy, family, target.name, result, detail)
+            # A one-prompt relay that missed is a pass with low assurance.
+            if result == "pass":
+                notes = list(
+                    dict.fromkeys(
+                        record.reason
+                        for record in family_records
+                        if record.state == LIMITED and _is_relay_shallow_note(record.reason)
+                    )
+                )
+                if notes:
+                    recorded["assurance"] = "low"
+                    recorded["assurance_reason"] = "; ".join(notes)
+            controls.append(recorded)
             # A limited run is too shallow to credit, even when one prompt hit.
             finished = tuple(
                 record.engine

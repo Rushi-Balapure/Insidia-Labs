@@ -455,6 +455,11 @@ def latest_run(root: Path) -> Path | None:
     return runs / names[-1]
 
 
+def _passed_text(passed: int, low: int) -> str:
+    """How many passes, and how many of those have assurance low."""
+    return f"{passed} passed ({low} low assurance)"
+
+
 def _score_rows(scores: tuple[Score, ...]) -> str:
     lines = []
     for score in scores:
@@ -462,7 +467,7 @@ def _score_rows(scores: tuple[Score, ...]) -> str:
             "<tr>"
             f'<td data-l="Framework">{_escape(score.title)}</td>'
             f'<td data-l="Failed">{score.failed}</td>'
-            f'<td data-l="Passed">{score.passed}</td>'
+            f'<td data-l="Passed">{_escape(_passed_text(score.passed, score.low_assurance))}</td>'
             f'<td data-l="Not tested">{score.not_tested}</td>'
             "</tr>"
         )
@@ -753,17 +758,21 @@ def _targets_table(
             if finding.target == name:
                 counts[_bucket(finding.severity)] += 1
         tallies = {"fail": 0, "pass": 0, "not tested": 0}
+        low = 0
         for control in controls:
-            if control.get("target") == name:
-                result = control.get("result", "")
-                if result in tallies:
-                    tallies[result] += 1
+            if control.get("target") != name:
+                continue
+            result = control.get("result", "")
+            if result in tallies:
+                tallies[result] += 1
+            if result == "pass" and control.get("assurance") == "low":
+                low += 1
         chips = "".join(
             f'<td data-l="{_BUCKET_LABEL[bucket]}">{counts[bucket]}</td>' for bucket in _BUCKETS
         )
         summary = (
-            f'{tallies["fail"]} fail · {tallies["pass"]} pass · '
-            f'0 weak · {tallies["not tested"]} not tested'
+            f'{tallies["fail"]} fail · {_passed_text(tallies["pass"], low)} · '
+            f'{tallies["not tested"]} not tested'
         )
         rows.append(
             "<tr>"
@@ -955,6 +964,12 @@ def _coverage_by_target(controls: list[dict[str, str]], skips: list[str]) -> str
         by_target.setdefault(str(control.get("target", "")), []).append(control)
     blocks = []
     for name, rows in by_target.items():
+        passed = sum(1 for control in rows if control.get("result") == "pass")
+        low = sum(
+            1
+            for control in rows
+            if control.get("result") == "pass" and control.get("assurance") == "low"
+        )
         body = []
         for control in rows:
             result = control.get("result", "")
@@ -973,6 +988,7 @@ def _coverage_by_target(controls: list[dict[str, str]], skips: list[str]) -> str
             )
         blocks.append(
             f"<h3>{_escape(name)}</h3>"
+            f'<p class="note">{_escape(_passed_text(passed, low))}</p>'
             '<table class="coverage"><thead><tr>'
             "<th>Check</th><th>Result</th><th>Why</th></tr></thead>"
             f"<tbody>{''.join(body)}</tbody></table>"
@@ -989,6 +1005,10 @@ _JUDGE_WHY = {
 
 
 def _coverage_why(control: dict[str, str], skips: list[str]) -> str:
+    if control.get("assurance") == "low":
+        reason = control.get("assurance_reason", "").strip()
+        if reason:
+            return reason
     detail = control.get("detail", "").strip()
     if detail:
         return detail
