@@ -42,6 +42,7 @@ def test_init_doctor_and_policy(tmp_path: Path, monkeypatch: object) -> None:
     assert project.policy == "L1"
     assert project.scope[0].host == "localhost"
     assert main(["init"]) == 2
+    monkeypatch.setattr("insidia.doctor.read_url", lambda *_args, **_kwargs: "ok")  # type: ignore[attr-defined]
     assert main(["doctor"]) == 0
     assert main(["policy", "list"]) == 0
     assert main(["policy", "validate"]) == 0
