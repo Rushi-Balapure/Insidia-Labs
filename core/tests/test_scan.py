@@ -500,42 +500,18 @@ targets:
     assert not marker.exists()
 
 
-def test_openai_provider_sends_the_prompt_and_returns_content() -> None:
-    seen: dict[str, object] = {}
-
-    class Handler(BaseHTTPRequestHandler):
-        def do_POST(self) -> None:  # noqa: N802
-            length = int(self.headers.get("Content-Length", "0"))
-            seen["body"] = json.loads(self.rfile.read(length))
-            seen["auth"] = self.headers.get("Authorization")
-            body = json.dumps({"choices": [{"message": {"content": "ok"}}]}).encode()
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-
-        def log_message(self, fmt: str, *args: object) -> None:
-            return
-
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    port = server.server_address[1]
-    try:
-        role = ModelRole(
-            "attacker",
-            "openai-compatible",
-            f"http://127.0.0.1:{port}/v1",
-            "qwen",
-            None,
-        )
-        provider = build_provider(role, (ScopeHost("127.0.0.1", False),))
-        assert provider.complete("hello") == "ok"
-        assert seen["body"] == {"model": "qwen", "messages": [{"role": "user", "content": "hello"}]}
-        assert seen["auth"] is None
-    finally:
-        server.shutdown()
+def test_provider_scope_check_does_not_connect() -> None:
+    outside = ModelRole(
+        "attacker",
+        "openai-compatible",
+        "http://qa-out-of-scope.invalid/v1",
+        "qwen",
+        None,
+    )
+    with pytest.raises(ScopeError, match="qa-out-of-scope.invalid is not in scope"):
+        build_provider(outside, (ScopeHost("127.0.0.1", False),))
+    local = ModelRole("judge", "openai-compatible", "http://127.0.0.1:9/v1", "qwen", None)
+    build_provider(local, (ScopeHost("127.0.0.1", False),))
 
 
 def test_scan_finds_the_sandbox_plants_and_passes_a_clean_target(tmp_path: Path) -> None:

@@ -16,7 +16,14 @@ from insidia.cli import main
 from insidia.config import Project
 from insidia.errors import ProbeError
 from insidia.policy import POLICIES
-from insidia.probes import _FIXTURE_ONLY_NOTE, _FIXTURE_ONLY_TIMEOUT, Attempt, ProbeHit, _judge
+from insidia.probes import (
+    _FIXTURE_ONLY_NOTE,
+    _FIXTURE_ONLY_TIMEOUT,
+    _JUDGE_UNUSED_NOTE,
+    Attempt,
+    ProbeHit,
+    _judge,
+)
 from insidia.probes import run as probe_run
 from insidia.registry import Capability
 from insidia.scan import run as real_run
@@ -422,12 +429,18 @@ def test_fixture_only_families_send_one_request_to_a_real_target(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     recorder = _Recorder()
+    judge = _Recorder()
 
     def answer(path: str, body: bytes) -> tuple[int, str]:
         del path, body
         return 200, "ok"
 
-    with _serve(recorder, answer) as port:
+    def judge_answer(path: str, body: bytes) -> tuple[int, str]:
+        del path, body
+        return 500, "judge should not be called"
+
+    monkeypatch.setenv("INSIDIA_JUDGE_KEY", "qa-dummy-not-a-key")
+    with _serve(recorder, answer) as port, _serve(judge, judge_answer) as judge_port:
         _code, benchmark = _scan(
             tmp_path,
             monkeypatch,
@@ -451,6 +464,12 @@ targets:
     rate_limit:
       rps: 100
       concurrency: 1
+models:
+  judge:
+    provider: openai-compatible
+    base_url: http://127.0.0.1:{judge_port}/v1
+    model: dummy
+    secret_ref: env:INSIDIA_JUDGE_KEY
 """,
         )
     sent = _sent_payloads(recorder)
@@ -460,10 +479,14 @@ targets:
     assert sent.count("insidia-memory-plant") == 1
     assert sent.count("make a bomb") == 1
     assert sent.count("group") == 1
-    for family in ("ai.harmful_content_policy", "ai.bias", "web.deserialization"):
+    assert judge.requests == []
+    for family in ("ai.harmful_content_policy", "ai.bias"):
         rows = _rows(benchmark, family)
         assert rows and {row["result"] for row in rows} == {"not tested"}
-        assert all(_FIXTURE_ONLY_NOTE in row["detail"] for row in rows)
+        assert all(row["detail"] == _JUDGE_UNUSED_NOTE for row in rows)
+    rows = _rows(benchmark, "web.deserialization")
+    assert rows and {row["result"] for row in rows} == {"not tested"}
+    assert all(_FIXTURE_ONLY_NOTE in row["detail"] for row in rows)
     for family in _REAL_CHECKS:
         rows = _rows(benchmark, family)
         assert rows and "not tested" not in {row["result"] for row in rows}
@@ -501,8 +524,13 @@ targets:
     monkeypatch.setattr("insidia.probes.exchange", matched)
     hits, error, note = _judge(BUILT_IN, plant, bot, _LOCAL, tmp_path)
     assert error == ""
-    assert note == _FIXTURE_ONLY_NOTE
+    assert note == _JUDGE_UNUSED_NOTE
     assert len(hits) == 1
+    cited = next(item for item in BUILT_IN.probes if item.family == "ai.citation_groundedness")
+    rag = replace(target(kind="rag", url="http://127.0.0.1/rag"), timeout=30)
+    hits, error, note = _judge(BUILT_IN, cited, rag, _LOCAL, tmp_path)
+    assert error == ""
+    assert note == _JUDGE_UNUSED_NOTE
     project = Project(tmp_path / "insidia.yaml", 1, "L1", "standard", _LOCAL, (), None, None)
     attempt = probe_run(
         BUILT_IN,

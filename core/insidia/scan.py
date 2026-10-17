@@ -15,7 +15,6 @@ from insidia.findings import Finding, normalize
 from insidia.mask import bind_secrets, mask
 from insidia.policy import Policy, get_policy
 from insidia.probes import ProbeHit, run
-from insidia.providers import build_provider
 from insidia.registry import select, unlock_hint
 from insidia.results import (
     CANCELLED,
@@ -89,10 +88,10 @@ def execute(
     secrets = _configured_secrets(project)
     bind_secrets(secrets)
     snapshot = config_snapshot(project.path.read_bytes(), secrets)
-    if project.attacker is not None:
-        build_provider(project.attacker, project.scope)
-    if project.judge is not None:
-        build_provider(project.judge, project.scope)
+    # Scope only. L1 does not connect to a configured attacker or judge.
+    for role in (project.attacker, project.judge):
+        if role is not None and role.base_url is not None:
+            check_url(role.base_url, project.scope)
     model_available = project.attacker is not None
     hits: list[ProbeHit] = []
     records: list[CheckRecord] = []

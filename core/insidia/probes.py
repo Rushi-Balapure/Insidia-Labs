@@ -195,6 +195,15 @@ def run(
 
 
 _FIXTURE_ONLY_NOTE = "this check only recognises Insidia's benchmark app"
+# A judge is the only oracle that could score these on a real app. L1 does not call one.
+_JUDGE_ONLY = frozenset(
+    {
+        "ai.harmful_content_policy",
+        "ai.bias",
+        "ai.citation_groundedness",
+    }
+)
+_JUDGE_UNUSED_NOTE = "this coverage does not call the judge"
 # Fewer prompts than this is a smoke test, not coverage of the family.
 _RELAY_MIN_PROMPTS = 3
 _NO_PAYLOAD = (
@@ -218,6 +227,13 @@ def _payload_cannot_land(target: Target, family: str) -> bool:
     return not carries_payload(target)
 
 
+def _untested_note(family: str) -> str:
+    """Why a fixture-only miss is not a pass. Judge-only families name the unused judge."""
+    if family in _JUDGE_ONLY:
+        return _JUDGE_UNUSED_NOTE
+    return _FIXTURE_ONLY_NOTE
+
+
 def _judge(
     adapter: BuiltIn,
     spec: ProbeSpec,
@@ -235,7 +251,7 @@ def _judge(
     hits, error = _corpus(adapter, spec, target, scope, root)
     if spec.family in FIXTURE_ONLY:
         # A matching plant is still a finding. The note only explains a miss.
-        return hits, error, _FIXTURE_ONLY_NOTE
+        return hits, error, _untested_note(spec.family)
     return hits, error, ""
 
 
@@ -828,7 +844,7 @@ def _relay(
             if not pairs:
                 return [], "engine finished without contacting the target", ""
             if spec.family in FIXTURE_ONLY:
-                return hits, "", _FIXTURE_ONLY_NOTE
+                return hits, "", _untested_note(spec.family)
             if len(pairs) < _RELAY_MIN_PROMPTS:
                 return hits, "", f"{adapter.engine} sent only {len(pairs)} prompt(s)"
             return hits, "", ""
