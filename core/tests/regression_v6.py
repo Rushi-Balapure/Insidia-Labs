@@ -29,7 +29,12 @@ _ROW = re.compile(
 )
 _TIME = re.compile(r"\s+\d+(?:\.\d+)?s$")
 _TARGET = re.compile(r"^[A-Za-z0-9_-]+$")
-_HTML_COVERAGE = re.compile(r"<tr><td>(owasp-[^<]+)</td><td>[^<]*</td><td>([^<]+)</td></tr>")
+# Coverage cells are bare <td> on 64e3a8f and data-l labeled on 708d7f0.
+_HTML_COVERAGE = re.compile(
+    r"<td(?: data-l=\"Control\")?>\s*(owasp-[^<]+)\s*</td>\s*"
+    r"<td(?: data-l=\"Title\")?>[^<]*</td>\s*"
+    r"<td(?: data-l=\"Result\")?>\s*([^<]+?)\s*</td>"
+)
 
 N2_FAMILIES = ("web.ssti", "web.cmdi", "web.path_lfi", "api.bola_idor")
 N2_OWASP = ("owasp-api:API1", "owasp-web:A01", "owasp-web:A03")

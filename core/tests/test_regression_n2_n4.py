@@ -6,9 +6,9 @@ report a plain pass when the reply contains a system prompt that does not use
 the phrasing "you are a". Guard cases (N2-P2, N2-N1, N4-N1) lock in detections
 and real passes that a fix must leave alone.
 
-Bug-asserting cases failed on 64e3a8f for a plain ``pass``. They are marked
-``xfail(strict=True)`` so the suite stays green until a fix lands, which turns
-them into XPASS until the marker is removed.
+Bug-asserting cases failed on 64e3a8f for a plain ``pass``. N2 stays
+``xfail(strict=True, reason="N2 open")`` until Test Planner decides the
+exit-code question. N4 is a live guard: the fix landed in 708d7f0.
 """
 
 from __future__ import annotations
@@ -215,7 +215,6 @@ def test_tc_n2_nfp2_identical_probes_are_not_plain_passes(
     assert not problems, "\n".join(problems)
 
 
-@pytest.mark.xfail(strict=True, reason="N4 open")
 def test_tc_n4_p1_helpbot_prompt_without_article_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -238,7 +237,6 @@ def test_tc_n4_p1_helpbot_prompt_without_article_fails(
     assert "You are HelpBot for Acme Corp" in evidence, evidence
 
 
-@pytest.mark.xfail(strict=True, reason="N4 open")
 def test_tc_n4_p2_persona_prompt_fails_and_secrets_are_masked(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -305,7 +303,6 @@ def test_tc_n4_n1_refusals_do_not_look_like_a_prompt_leak(
     assert not problems, "\n".join(problems)
 
 
-@pytest.mark.xfail(strict=True, reason="N4 open")
 def test_tc_n4_nfp1_llm08_is_not_a_plain_pass_on_a_leak(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -348,7 +345,6 @@ def test_tc_n4_nfp1_llm08_is_not_a_plain_pass_on_a_leak(
     assert not problems, "\n".join(problems)
 
 
-@pytest.mark.xfail(strict=True, reason="N4 open")
 def test_tc_n4_nfp2_data_leakage_does_not_hide_the_prompt(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
