@@ -410,6 +410,141 @@ def test_finding_card_shows_confidence_for_one_and_two_engines(tmp_path: Path) -
     assert "[GITHUB_TOKEN " in cards["INS-AI-002"]
 
 
+def test_four_hits_of_one_check_group_and_two_targets_filter(tmp_path: Path) -> None:
+    import re
+
+    leaked = mask(_SECRET)
+    pins = (
+        (
+            "shop",
+            "requirements.txt:1",
+            f"{leaked} Django==3.2.0 is below 4.2.11 (CVE-2024-27351)",
+            ("CVE-2024-27351",),
+            "medium",
+        ),
+        (
+            "shop",
+            "requirements.txt:2",
+            "urllib3==2.0.0 is below 2.0.7 (CVE-2023-45803)",
+            ("CVE-2023-45803",),
+            "high",
+        ),
+        ("tree", "pkg/a.py:3", "pin", (), "high"),
+        (
+            "tree",
+            "pkg/b.py:9",
+            "lodash==4.17.4 is below 4.17.21 (CVE-2021-23337)",
+            ("CVE-2021-23337",),
+            "high",
+        ),
+    )
+    grouped = [
+        _bare(
+            probe="insidia.deps.sca",
+            attack="deps.sca",
+            check_id="INS-DEP-001",
+            title="Pinned dependency has a known CVE",
+            target=target,
+            location=location,
+            response=response,
+            evidence_hash=f"dep-{index}",
+            cve=cves,
+            confidence=confidence,
+            severity="high",
+            risk_score=7.2,
+            risk_factors=("CVE score 7.2",),
+            remediation="Upgrade the pinned dependency that has a known CVE.",
+        )
+        for index, (target, location, response, cves, confidence) in enumerate(pins)
+    ]
+    other = _bare(
+        probe="insidia.web.cmdi",
+        attack="web.cmdi",
+        check_id="INS-WEB-005",
+        title="Command injection",
+        target="shop",
+        severity="critical",
+        confidence="high",
+        response="uid=0",
+        evidence_hash="cmdi",
+        risk_score=9.8,
+        risk_factors=("base 9.8",),
+        remediation="Do not pass user input to a shell.",
+    )
+    directory = write_run(
+        tmp_path,
+        "run-r6",
+        "L1",
+        False,
+        [*grouped, other],
+        [],
+        [],
+        targets=(
+            ("tree", "repo", "repo"),
+            ("shop", "web", "GET http://127.0.0.1:8090/ping"),
+        ),
+    )
+    html = (directory / "report.html").read_text()
+    assert html.count('<details class="finding"') == 2
+    assert html.count('<span class="pid">INS-DEP-001</span>') == 1
+    assert 'href="#findings">Findings (5)</a>' in html
+    payload = json.loads((directory / "findings.json").read_text())
+    sarif = json.loads((directory / "results.sarif").read_text())["runs"][0]["results"]
+    assert len(payload) == len(sarif) == 5
+    group = html.split('<span class="pid">INS-DEP-001</span>', 1)[1].split("</details>", 1)[0]
+    locations = group.split('<ul class="locations">', 1)[1].split("</ul>", 1)[0]
+    listed = re.sub(r"<[^>]+>", "", locations)
+    assert listed == (
+        "shop · requirements.txt:1 · Django==3.2.0 · CVE-2024-27351"
+        "shop · requirements.txt:2 · urllib3==2.0.0 · CVE-2023-45803"
+        "tree · pkg/a.py:3"
+        "tree · pkg/b.py:9 · lodash==4.17.4 · CVE-2021-23337"
+    )
+    assert "2 targets · 4 locations · HIGH 7.2" in group
+    assert _risk_factor_text(group) == (
+        "HIGH · confidence medium · reported by 1 engine (not cross-validated)"
+    )
+    assert _SECRET not in html
+    assert "[AWS_ACCESS_KEY " in group
+    assert 'name="by-target"' in html
+    assert html.count('name="by-target"') == 3
+    assert '<label for="flt-all">All targets</label>' in html
+    assert '<label for="flt-0">tree</label>' in html
+    assert '<label for="flt-1">shop</label>' in html
+    assert '#flt-0:checked ~ .finding:not([data-target="t0"])' in html
+    assert '#flt-1:checked ~ .finding .loc:not([data-target="t1"])' in html
+    cards = {
+        card.split('class="pid">', 1)[1].split("<", 1)[0]: card
+        for card in html.split('<details class="finding"')[1:]
+    }
+    assert _risk_factor_text(cards["INS-WEB-005"]) == (
+        "CRITICAL · confidence high · reported by 1 engine (not cross-validated)"
+    )
+
+
+def test_three_hits_of_one_check_stay_separate_cards(tmp_path: Path) -> None:
+    findings = [
+        _bare(
+            probe="insidia.code.secrets",
+            attack="code.secrets",
+            check_id="INS-CODE-001",
+            title="Live-format secret in the repository",
+            target="tree",
+            location=f"pkg/a.py:{line}",
+            evidence_hash=f"sec-{line}",
+            risk_score=9.1,
+            risk_factors=("live-format credential floor 9.1",),
+        )
+        for line in (1, 2, 3)
+    ]
+    directory = write_run(tmp_path, "run-r6-flat", "L1", False, findings, [], [])
+    html = (directory / "report.html").read_text()
+    assert html.count('<details class="finding"') == 3
+    assert html.count('<span class="pid">INS-CODE-001</span>') == 3
+    assert '<ul class="locations">' not in html
+    assert 'name="by-target"' not in html
+
+
 def test_sarif_result_properties_include_confidence(tmp_path: Path) -> None:
     high = _bare(confidence="high", probe="insidia.web.cmdi", attack="web.cmdi")
     medium = _bare(

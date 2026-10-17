@@ -131,6 +131,38 @@ summary.bar {
 }
 .pid { font-family: ui-monospace, monospace; }
 .right { margin-left: auto; font-size: 0.85rem; }
+.by-target { position: relative; margin: 0.2rem 0 0.8rem; }
+.by-target input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.by-target label {
+  display: inline-block;
+  margin: 0 0.4rem 0.4rem 0;
+  padding: 0.15rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  cursor: pointer;
+  font-weight: 600;
+}
+.by-target input:checked + label {
+  background: #101028;
+  color: #fff;
+  border-color: #101028;
+}
+.by-target input:focus-visible + label {
+  outline: 2px solid var(--info);
+  outline-offset: 2px;
+}
+ul.locations { margin: 0.7rem 1rem 0.2rem; padding-left: 1.2rem; }
+ul.locations li { margin: 0.2rem 0; }
 .body { padding: 0.2rem 1rem 1rem; }
 pre {
   white-space: pre-wrap;
@@ -147,7 +179,13 @@ footer {
 }
 @media (prefers-color-scheme: dark) {
   body { color: #F6F6FB; background: #101028; }
-  nav, .status, table, details.finding { background: #181839; color: #F6F6FB; }
+  nav, .status, table, details.finding, .by-target label { background: #181839; color: #F6F6FB; }
+  .by-target label { border-color: #2E2E56; }
+  .by-target input:checked + label {
+    background: var(--info);
+    color: #fff;
+    border-color: var(--info);
+  }
   nav a, h2 { color: #F6F6FB; }
   h2, header { border-color: #2E2E56; }
   .note, .muted, th, footer { color: #B2B2D1; }
@@ -203,6 +241,9 @@ footer {
 }
 @media print {
   nav { display: none; }
+  .by-target input, .by-target label { display: none; }
+  .by-target .finding { display: block !important; }
+  .by-target .loc { display: list-item !important; }
   details, details.finding { break-inside: avoid; }
   details > summary { list-style: none; }
   details > *:not(summary) { display: block !important; }
@@ -604,7 +645,7 @@ def _render(
         '<h2 id="targets">Targets</h2>',
         _targets_table(findings, controls, targets),
         '<h2 id="findings">Findings by severity</h2>',
-        _finding_cards(findings, run_id),
+        _finding_cards(findings, run_id, names),
         '<h2 id="remediation">Remediation summary</h2>',
         _remediation_table(findings),
         '<h2 id="coverage">Coverage by target</h2>',
@@ -816,21 +857,120 @@ def _targets_table(
     return f"<table class=\"targets\"><thead>{head}</thead><tbody>{''.join(rows)}</tbody></table>"
 
 
-def _finding_cards(findings: list[Finding], run_id: str) -> str:
+# A check with three or fewer hits stays a flat card. More than three share one header.
+_GROUP_AFTER = 3
+_PACKAGE_PIN = re.compile(
+    r"(?<![A-Za-z0-9_])(@?[A-Za-z0-9_][\w.-]{0,60}==[A-Za-z0-9][\w.+-]{0,40})"
+)
+_CVE_ID = re.compile(r"CVE-\d{4}-\d{4,7}")
+
+
+def _finding_cards(findings: list[Finding], run_id: str, target_names: list[str]) -> str:
+    """Cards for each hit. A busy check collapses, and two targets can be filtered."""
     if not findings:
         return '<p class="note">No findings.</p>'
-    return "\n".join(
-        _finding_card(finding, index, run_id) for index, finding in enumerate(findings)
-    )
+    names = list(target_names)
+    for finding in findings:
+        if finding.target and finding.target not in names:
+            names.append(finding.target)
+    tokens = {name: f"t{index}" for index, name in enumerate(names)} if len(names) >= 2 else {}
+    cards = _render_finding_cards(findings, run_id, tokens)
+    if not tokens:
+        return "\n".join(cards)
+    return _by_target_filter(cards, names)
 
 
-def _finding_card(finding: Finding, index: int, run_id: str) -> str:
+def _render_finding_cards(
+    findings: list[Finding], run_id: str, tokens: dict[str, str]
+) -> list[str]:
+    buckets: dict[str, list[Finding]] = {}
+    order: list[str] = []
+    for finding in findings:
+        key = _check_key(finding)
+        if key not in buckets:
+            order.append(key)
+            buckets[key] = []
+        buckets[key].append(finding)
+    cards: list[str] = []
+    index = 0
+    for key in order:
+        items = buckets[key]
+        if len(items) > _GROUP_AFTER:
+            cards.append(_grouped_finding_card(items, index, run_id, tokens))
+            index += 1
+            continue
+        for finding in items:
+            cards.append(_finding_card(finding, index, run_id, tokens.get(finding.target, "")))
+            index += 1
+    return cards
+
+
+def _check_key(finding: Finding) -> str:
+    return finding.check_id or finding.probe or finding.attack
+
+
+def _finding_card(finding: Finding, index: int, run_id: str, token: str = "") -> str:
     bucket = _bucket(finding.severity)
     css = _BUCKET_CLASS[bucket]
     label = _BUCKET_LABEL[bucket].upper()
     opened = " open" if index < 2 else ""
     title = finding.title or finding.attack
-    check = finding.check_id or finding.probe
+    check = _check_key(finding)
+    target_attr = f' data-target="{token}"' if token else ""
+    right = f"{finding.target} · {label} {finding.risk_score:.1f}"
+    return (
+        f'<details class="finding"{target_attr}{opened}>'
+        f"{_finding_summary(css, check, title, right)}"
+        f"<dl>{_finding_body(finding, run_id)}</dl></details>"
+    )
+
+
+def _grouped_finding_card(
+    items: list[Finding], index: int, run_id: str, tokens: dict[str, str]
+) -> str:
+    """One header for a check, then every hit's file, package, and CVE."""
+    worst = items[0]
+    bucket = _bucket(worst.severity)
+    css = _BUCKET_CLASS[bucket]
+    label = _BUCKET_LABEL[bucket].upper()
+    opened = " open" if index < 2 else ""
+    title = worst.title or worst.attack
+    check = _check_key(worst)
+    targets = list(dict.fromkeys(item.target for item in items if item.target))
+    if len(targets) == 1:
+        where = targets[0]
+        token = tokens.get(where, "")
+        target_attr = f' data-target="{token}"' if token else ""
+    else:
+        where = f"{len(targets)} targets" if targets else (worst.target or "unspecified")
+        target_attr = ""
+    noun = "location" if len(items) == 1 else "locations"
+    right = f"{where} · {len(items)} {noun} · {label} {worst.risk_score:.1f}"
+    show_target = bool(tokens)
+    rows = "".join(
+        _location_row(item, tokens.get(item.target, ""), show_target=show_target) for item in items
+    )
+    return (
+        f'<details class="finding"{target_attr}{opened}>'
+        f"{_finding_summary(css, check, title, right)}"
+        f'<ul class="locations">{rows}</ul>'
+        f"<dl>{_finding_body(worst, run_id)}</dl></details>"
+    )
+
+
+def _finding_summary(css: str, check: str, title: str, right: str) -> str:
+    return (
+        f'<summary class="bar bar-{css}">'
+        f'<span class="pid">{_escape(check)}</span> {_escape(title)}'
+        f'<span class="right">{_escape(right)}</span>'
+        f"</summary>"
+    )
+
+
+def _finding_body(finding: Finding, run_id: str) -> str:
+    bucket = _bucket(finding.severity)
+    css = _BUCKET_CLASS[bucket]
+    label = _BUCKET_LABEL[bucket].upper()
     factors = "; ".join(finding.risk_factors) or "base score"
     reported = len(finding.engines) or 1
     engine_word = "engine" if reported == 1 else "engines"
@@ -854,14 +994,89 @@ def _finding_card(finding: Finding, index: int, run_id: str) -> str:
         ("Plugin output", _plugin_output(finding)),
         ("Re-run", f"<code>insidia rerun {_escape(run_id)}</code>"),
     )
-    body = "".join(f"<dt>{name}</dt><dd>{value}</dd>" for name, value in fields)
-    return (
-        f'<details class="finding"{opened}>'
-        f'<summary class="bar bar-{css}">'
-        f'<span class="pid">{_escape(check)}</span> {_escape(title)}'
-        f'<span class="right">{_escape(finding.target)} · {label} {finding.risk_score:.1f}</span>'
-        f"</summary><dl>{body}</dl></details>"
-    )
+    return "".join(f"<dt>{name}</dt><dd>{value}</dd>" for name, value in fields)
+
+
+def _location_row(finding: Finding, token: str, *, show_target: bool) -> str:
+    attr = f' data-target="{token}"' if token else ""
+    return f'<li class="loc"{attr}>{_location_html(finding, show_target=show_target)}</li>'
+
+
+def _location_html(finding: Finding, *, show_target: bool) -> str:
+    file_line = _file_line_text(finding.location)
+    pins = _package_pins(finding)
+    cves = _cve_ids(finding)
+    chunks: list[str] = []
+    if show_target and finding.target:
+        chunks.append(_escape(finding.target))
+    if file_line:
+        chunks.append(f"<code>{_escape(file_line)}</code>")
+    chunks.extend(f"<code>{_escape(pin)}</code>" for pin in pins)
+    chunks.extend(_escape(cve) for cve in cves)
+    if not file_line and not pins and not cves:
+        fallback = finding.endpoint or finding.location
+        if fallback:
+            chunks.append(f"<code>{_escape(fallback)}</code>")
+        elif not chunks:
+            chunks.append(_escape(finding.target or "unspecified"))
+    return " · ".join(chunks)
+
+
+def _file_line_text(location: str) -> str:
+    if not location or "://" in location or "==" in location:
+        return ""
+    path, separator, line = location.rpartition(":")
+    if separator and line.isdigit() and path:
+        return f"{path}:{line}"
+    return ""
+
+
+def _package_pins(finding: Finding) -> list[str]:
+    found: list[str] = []
+    for pin in _PACKAGE_PIN.findall(_location_source(finding)):
+        if pin not in found:
+            found.append(pin)
+    return found
+
+
+def _cve_ids(finding: Finding) -> list[str]:
+    if finding.cve:
+        return list(dict.fromkeys(finding.cve))
+    found: list[str] = []
+    for cve in _CVE_ID.findall(_location_source(finding)):
+        if cve not in found:
+            found.append(cve)
+    return found
+
+
+def _location_source(finding: Finding) -> str:
+    parts = [finding.location, finding.response]
+    parts.extend(item.evidence for item in finding.observations)
+    return "\n".join(parts)
+
+
+def _by_target_filter(cards: list[str], names: list[str]) -> str:
+    """All targets stays selected. Choosing a target hides the other findings."""
+    controls = [
+        '<input type="radio" name="by-target" id="flt-all" checked>',
+        '<label for="flt-all">All targets</label>',
+    ]
+    rules: list[str] = []
+    for index, name in enumerate(names):
+        token = f"t{index}"
+        controls.append(f'<input type="radio" name="by-target" id="flt-{index}">')
+        controls.append(f'<label for="flt-{index}">{_escape(name)}</label>')
+        rules.append(
+            f"#flt-{index}:checked ~ .finding"
+            f':not([data-target="{token}"]):not(:has([data-target="{token}"]))'
+            "{display:none}"
+        )
+        rules.append(
+            f'#flt-{index}:checked ~ .finding .loc:not([data-target="{token}"])'
+            "{display:none}"
+        )
+    style = "<style>" + " ".join(rules) + "</style>"
+    return '<div class="by-target">' + "".join(controls) + style + "\n".join(cards) + "</div>"
 
 
 def _reference_text(taxonomy: tuple[str, ...]) -> str:
