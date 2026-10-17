@@ -32,6 +32,8 @@ insidia engines list
 insidia engines install garak zap
 ```
 
+A downloaded binary is checked against a pinned SHA-256 for that engine, version, and platform before it is unpacked or run. A mismatch stops the install. A platform with no pin is refused unless you pass `--allow-unverified`.
+
 Promptfoo remote generation stays off unless you turn it on. A local scan should not send your prompts to an engine vendor.
 
 Notices for shipped dependencies are in `THIRD_PARTY_NOTICES.md` in the repository.

@@ -172,11 +172,24 @@ def test_mcp_allow_remote_is_a_launch_flag(monkeypatch: object) -> None:
     assert seen["allow_remote"] is True
 
 
+def test_allow_unverified_is_passed_to_install(monkeypatch: object) -> None:
+    seen: dict[str, object] = {}
+
+    def fake_install(*_args: object, **kwargs: object) -> str:
+        seen.update(kwargs)
+        return "ok"
+
+    monkeypatch.setattr("insidia.cli.install", fake_install)  # type: ignore[attr-defined]
+    assert main(["engines", "install", "nuclei", "--allow-unverified"]) == 0
+    assert seen["allow_unverified"] is True
+
+
 def test_engine_install_names_each_engine(monkeypatch: object) -> None:
-    monkeypatch.setattr(  # type: ignore[attr-defined]
-        "insidia.engines._install_one",
-        lambda name: f"{name} is already installed",
-    )
+    def already(name: str, allow_unverified: bool = False) -> str:
+        del allow_unverified
+        return f"{name} is already installed"
+
+    monkeypatch.setattr("insidia.engines._install_one", already)  # type: ignore[attr-defined]
     notes: list[str] = []
     message = install(("bandit",), progress=notes.append)
     assert notes[0].startswith("Installing bandit ")

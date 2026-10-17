@@ -1,3 +1,5 @@
+import hashlib
+import io
 import json
 import platform
 import socket
@@ -5,6 +7,7 @@ import sys
 import time
 import types
 import urllib.request
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -20,7 +23,7 @@ from insidia.adapters import (
 from insidia.catalog import SPECS
 from insidia.config import Project, load_project
 from insidia.engines import _github, _publish, install
-from insidia.errors import EngineFailed
+from insidia.errors import CliError, EngineFailed
 from insidia.policy import get_policy
 from insidia.probes import run
 from insidia.process import _argv_for, child_env, launch_installed
@@ -742,6 +745,91 @@ def test_thorough_without_tools_still_runs_the_builtin(
     assert {item.attack for item in outcome.findings} == {"ai.data_leakage", "web.ssti"}
 
 
+def _nuclei_zip() -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as bundle:
+        bundle.writestr("nuclei", b"#!/bin/sh\n")
+    return buffer.getvalue()
+
+
+def _pin_fake_nuclei(monkeypatch: pytest.MonkeyPatch, payload: bytes) -> str:
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(platform, "machine", lambda: "x86_64")
+    spec = next(item for item in SPECS if item.name == "nuclei")
+    url = _github(spec)
+
+    def fake_download(download_url: str, destination: Path) -> None:
+        assert download_url == url
+        destination.write_bytes(payload)
+
+    monkeypatch.setattr("insidia.engines._download", fake_download)
+    return url
+
+
+def test_a_pinned_digest_is_checked_before_extract(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("INSIDIA_TOOLCHAIN", str(tmp_path))
+    payload = _nuclei_zip()
+    url = _pin_fake_nuclei(monkeypatch, payload)
+    digest = hashlib.sha256(payload).hexdigest()
+    monkeypatch.setattr("insidia.engines.PINNED_SHA256", {url: digest})
+    assert install(("nuclei",)).startswith("installed nuclei")
+    program = tmp_path / "nuclei" / "bin" / "nuclei"
+    assert program.is_file()
+    assert program.stat().st_mode & 0o111
+
+
+def test_a_digest_mismatch_is_not_installed(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("INSIDIA_TOOLCHAIN", str(tmp_path))
+    url = _pin_fake_nuclei(monkeypatch, _nuclei_zip())
+    monkeypatch.setattr("insidia.engines.PINNED_SHA256", {url: "0" * 64})
+    with pytest.raises(CliError, match="failed SHA-256 verification"):
+        install(("nuclei",), allow_unverified=True)
+    assert not (tmp_path / "nuclei").exists()
+    assert not (tmp_path / ".nuclei.staging").exists()
+
+
+def test_a_missing_pin_needs_allow_unverified(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("INSIDIA_TOOLCHAIN", str(tmp_path))
+    _pin_fake_nuclei(monkeypatch, _nuclei_zip())
+    monkeypatch.setattr("insidia.engines.PINNED_SHA256", {})
+    with pytest.raises(CliError, match="--allow-unverified"):
+        install(("nuclei",))
+    assert not (tmp_path / "nuclei").exists()
+    assert install(("nuclei",), allow_unverified=True).startswith("installed nuclei")
+
+
+@pytest.mark.parametrize("machine", ["x86_64", "aarch64"])
+def test_every_linux_download_has_a_pin(monkeypatch: pytest.MonkeyPatch, machine: str) -> None:
+    from insidia.engines import PINNED_SHA256
+
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(platform, "machine", lambda: machine)
+    archived = [
+        spec
+        for spec in SPECS
+        if spec.name
+        in {
+            "nuclei",
+            "dalfox",
+            "katana",
+            "httpx",
+            "trivy",
+            "osv-scanner",
+            "gitleaks",
+            "gosec",
+            "zap",
+        }
+    ]
+    missing = [spec.name for spec in archived if _github(spec) not in PINNED_SHA256]
+    assert missing == []
+
+
 def test_nuclei_archive_follows_the_host(monkeypatch: pytest.MonkeyPatch) -> None:
     spec = next(item for item in SPECS if item.name == "nuclei")
     monkeypatch.setattr(sys, "platform", "linux")
@@ -756,7 +844,7 @@ def test_nuclei_archive_follows_the_host(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 def test_thorough_scan_cross_validates_without_a_model(tmp_path: Path) -> None:
-    install(("garak", "promptfoo", "nuclei"))
+    install(("garak", "promptfoo", "nuclei"), allow_unverified=True)
     port = _free_port()
     process = start_fixture(port)
     try:

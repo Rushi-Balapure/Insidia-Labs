@@ -134,6 +134,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="check that Docker is installed; engine images are not in this release",
     )
+    install_parser.add_argument(
+        "--allow-unverified",
+        action="store_true",
+        help="install a downloaded binary that has no pinned SHA-256 for this platform",
+    )
 
     policy = subcommands.add_parser(
         "policy",
@@ -235,7 +240,12 @@ def _run(args: argparse.Namespace) -> int:
         return 0
     if args.command == "engines" and args.engine_command == "install":
         terminal = _terminal(args)
-        message = install(tuple(args.names), docker=args.docker, progress=InstallView(terminal))
+        message = install(
+            tuple(args.names),
+            docker=args.docker,
+            progress=InstallView(terminal),
+            allow_unverified=args.allow_unverified,
+        )
         _emit(args.json, {"message": message}, message)
         return 0
     if args.command == "policy" and args.policy_command == "list":

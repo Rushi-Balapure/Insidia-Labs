@@ -34,6 +34,8 @@ insidia engines install --docker
 
 `list`, or `insidia engines` alone, prints each known engine, its license, and whether it is installed. An engine that was downloaded but needs a runtime this machine lacks says what it needs. A check whose only engines are not installed is reported as not tested, with the engine to install. To install toolchains, name the engines, for example `insidia engines install garak zap`. With no names, `install` reports that built-in probes are available. `--docker` checks for Docker; named engine images are not available through this command yet.
 
+A downloaded engine binary is checked against a pinned SHA-256 for that engine, version, and platform before it is unpacked. If the bytes do not match, the install stops. If this platform has no pin, the install stops unless you pass `--allow-unverified`.
+
 ## policy
 
 ```bash
