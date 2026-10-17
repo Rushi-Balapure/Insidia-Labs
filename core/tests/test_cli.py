@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -107,6 +108,36 @@ def test_global_options_work_before_the_command(
     assert capsys.readouterr().out == '{"error": "missing missing.yaml"}\n'
     assert main(["engines", "--json"]) == 0
     assert capsys.readouterr().out.startswith('{"engines": ')
+
+
+def test_global_options_work_after_nested_commands(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    assert main(["policy", "list", "--json"]) == 0
+    listed = capsys.readouterr().out
+    assert listed.startswith('{"policies": ')
+    json.loads(listed)
+    assert main(["policy", "show", "L3", "--json"]) == 0
+    shown = capsys.readouterr().out
+    assert "Not available yet" in shown
+    json.loads(shown)
+    assert main(["policy", "validate", "--json"]) == 0
+    json.loads(capsys.readouterr().out)
+    assert main(["policy", "show", "L2", "-q"]) == 0
+    capsys.readouterr()
+    assert main(["engines", "list", "--json"]) == 0
+    assert capsys.readouterr().out.startswith('{"engines": ')
+    assert main(["engines", "install", "--json"]) == 0
+    json.loads(capsys.readouterr().out)
+    assert main(["--json", "policy", "list"]) == 0
+    json.loads(capsys.readouterr().out)
+    with pytest.raises(SystemExit) as caught:
+        main(["policy", "list", "--bogus"])
+    assert caught.value.code == 2
+    assert "unrecognized arguments: --bogus" in capsys.readouterr().err
 
 
 def test_version_names_the_build(capsys: pytest.CaptureFixture[str]) -> None:

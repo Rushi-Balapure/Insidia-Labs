@@ -129,10 +129,12 @@ def main(argv: list[str] | None = None) -> int:
     engine_commands = engines.add_subparsers(dest="engine_command", title="commands")
     engine_commands.add_parser(
         "list",
+        parents=[shared],
         help="show each engine, its license, and whether it is installed",
     )
     install_parser = engine_commands.add_parser(
         "install",
+        parents=[shared],
         help="install the named engines",
         description="Install the named engines. With no names, built-in probes stay as they are.",
     )
@@ -155,10 +157,22 @@ def main(argv: list[str] | None = None) -> int:
         description="List, show, or validate a scan policy. L1 is the policy a scan can run.",
     )
     policy_commands = policy.add_subparsers(dest="policy_command", required=True, title="commands")
-    policy_commands.add_parser("list", help="show which policy names exist and which can run")
-    show = policy_commands.add_parser("show", help="print one policy and the checks it names")
+    policy_commands.add_parser(
+        "list",
+        parents=[shared],
+        help="show which policy names exist and which can run",
+    )
+    show = policy_commands.add_parser(
+        "show",
+        parents=[shared],
+        help="print one policy and the checks it names",
+    )
     show.add_argument("name", help="policy name, such as L1")
-    policy_commands.add_parser("validate", help="check the policy named in the config file")
+    policy_commands.add_parser(
+        "validate",
+        parents=[shared],
+        help="check the policy named in the config file",
+    )
 
     scan = subcommands.add_parser(
         "scan",
