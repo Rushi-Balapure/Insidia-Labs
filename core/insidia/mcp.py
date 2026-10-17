@@ -19,6 +19,9 @@ from insidia.scope import needs_confirmation
 # Newest first. A client that asks for one of these gets it back. Any other
 # request gets the newest, and the client decides whether to continue.
 PROTOCOLS = ("2025-06-18", "2025-03-26", "2024-11-05")
+# One NDJSON line or one Content-Length body. Larger input is rejected.
+_MAX_MESSAGE = 1024 * 1024
+_TOO_LARGE = "message exceeds 1 MB"
 # Set only by `insidia mcp --allow-remote`. The model cannot set this.
 _allow_remote = False
 _REMOTE_REFUSAL = (
@@ -207,11 +210,11 @@ def _error(message_id: object, code: int, message: str) -> dict[str, object]:
 
 def _read(stdin: BinaryIO) -> tuple[dict[str, object], bool] | None:
     """One message and whether it came Content-Length framed."""
-    line = stdin.readline()
-    while line.strip() == b"":
-        if line == b"":
-            return None
-        line = stdin.readline()
+    line = _read_line(stdin)
+    while line is not None and line.strip() == b"":
+        line = _read_line(stdin)
+    if line is None:
+        return None
     if line.lstrip().startswith(b"{"):
         return _decode(line), False
     headers: dict[str, str] = {}
@@ -221,8 +224,8 @@ def _read(stdin: BinaryIO) -> tuple[dict[str, object], bool] | None:
             raise CliError("message is neither JSON nor an MCP header")
         key, value = decoded.split(":", 1)
         headers[key.strip().lower()] = value.strip()
-        line = stdin.readline()
-        if line == b"":
+        line = _read_line(stdin)
+        if line is None:
             return None
     try:
         length = int(headers.get("content-length", "0"))
@@ -230,7 +233,38 @@ def _read(stdin: BinaryIO) -> tuple[dict[str, object], bool] | None:
         raise CliError("Content-Length is not a number") from exc
     if length <= 0:
         raise CliError("missing Content-Length")
+    if length > _MAX_MESSAGE:
+        _discard(stdin, length)
+        raise CliError(_TOO_LARGE)
     return _decode(stdin.read(length)), True
+
+
+def _read_line(stdin: BinaryIO) -> bytes | None:
+    """One line, or None at EOF before any byte. Lines over 1 MB are refused."""
+    line = stdin.readline(_MAX_MESSAGE + 1)
+    if line == b"":
+        return None
+    if len(line) <= _MAX_MESSAGE:
+        return line
+    if not line.endswith(b"\n"):
+        _discard_line(stdin)
+    raise CliError(_TOO_LARGE)
+
+
+def _discard_line(stdin: BinaryIO) -> None:
+    while True:
+        chunk = stdin.readline(65536)
+        if chunk == b"" or chunk.endswith(b"\n"):
+            return
+
+
+def _discard(stdin: BinaryIO, length: int) -> None:
+    remaining = length
+    while remaining > 0:
+        chunk = stdin.read(min(65536, remaining))
+        if not chunk:
+            return
+        remaining -= len(chunk)
 
 
 def _decode(raw: bytes) -> dict[str, object]:

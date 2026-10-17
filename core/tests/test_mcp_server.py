@@ -2,7 +2,7 @@ import json
 from io import BytesIO
 from pathlib import Path
 
-from insidia.mcp import PROTOCOLS, dispatch, serve
+from insidia.mcp import _MAX_MESSAGE, PROTOCOLS, dispatch, serve
 from insidia.scan import ScanOutcome
 from insidia.scope import ScopeHost
 
@@ -212,6 +212,34 @@ def test_corrupt_findings_is_an_error_and_the_next_call_is_answered(
     assert first["error"]["message"] == "internal error"
     assert second["id"] == 2
     assert second["result"] == {}
+
+
+def test_an_oversized_line_is_rejected_and_the_next_call_is_answered() -> None:
+    ping = json.dumps({"jsonrpc": "2.0", "id": 2, "method": "ping"}).encode() + b"\n"
+    huge = b"{" + (b"a" * _MAX_MESSAGE) + b"\n"
+    stdout = BytesIO()
+    assert serve(BytesIO(huge + ping), stdout) == 0
+    first, second = (json.loads(line) for line in stdout.getvalue().splitlines())
+    assert first["error"]["code"] == -32700
+    assert first["error"]["message"] == "message exceeds 1 MB"
+    assert second["id"] == 2
+    assert second["result"] == {}
+
+
+def test_an_oversized_content_length_is_skipped() -> None:
+    body = b"x" * (_MAX_MESSAGE + 8)
+    framed = f"Content-Length: {len(body)}\r\n\r\n".encode() + body
+    ping = json.dumps({"jsonrpc": "2.0", "id": 9, "method": "ping"}).encode()
+    follow = f"Content-Length: {len(ping)}\r\n\r\n".encode() + ping
+    stdout = BytesIO()
+    assert serve(BytesIO(framed + follow), stdout) == 0
+    error_line, rest = stdout.getvalue().split(b"\n", 1)
+    error = json.loads(error_line)
+    assert error["error"]["code"] == -32700
+    assert error["error"]["message"] == "message exceeds 1 MB"
+    header, payload = rest.split(b"\r\n\r\n", 1)
+    assert header.startswith(b"Content-Length:")
+    assert json.loads(payload)["id"] == 9
 
 
 def test_stdio_round_trip() -> None:
