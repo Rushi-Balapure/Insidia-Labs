@@ -3,6 +3,7 @@ import io
 import json
 import platform
 import socket
+import subprocess
 import sys
 import time
 import types
@@ -26,7 +27,7 @@ from insidia.engines import _github, _publish, install
 from insidia.errors import CliError, EngineFailed
 from insidia.policy import get_policy
 from insidia.probes import run
-from insidia.process import _argv_for, child_env, launch_installed
+from insidia.process import _argv_for, child_env, launch_installed, run_command
 from insidia.registry import capabilities, select
 from insidia.scope import ScopeHost
 from tests.support import start_fixture, stop_fixture, target
@@ -640,6 +641,29 @@ def test_named_install_with_a_receipt_does_not_restage(
     )
     assert install(("nuclei",)) == "nuclei 3.11.1 is already installed"
     assert not (tmp_path / ".nuclei.staging").exists()
+
+
+def test_run_command_starts_the_engine_with_stdin_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: dict[str, object] = {}
+
+    class _Process:
+        returncode = 0
+
+        def communicate(self, timeout: float | None = None) -> tuple[bytes, bytes]:
+            return b"", b""
+
+    def _popen(argv: list[str], **kwargs: object) -> _Process:
+        seen.update(kwargs)
+        seen["argv"] = argv
+        return _Process()
+
+    monkeypatch.setattr("insidia.process.subprocess.Popen", _popen)
+    code, detail = run_command(["katana", "-u", "http://127.0.0.1"], None, {}, 30, name="katana")
+    assert code == 0
+    assert detail == ""
+    assert seen["stdin"] is subprocess.DEVNULL
 
 
 def test_child_process_drops_proxies_and_secrets(
