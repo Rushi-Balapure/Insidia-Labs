@@ -425,10 +425,42 @@ def test_sarif_result_properties_include_confidence(tmp_path: Path) -> None:
     assert by_rule["insidia.web.cmdi"]["confidence"] == "high"
     assert by_rule["insidia.ai.data_leakage"]["confidence"] == "medium"
     assert "shortDescription" not in by_rule["insidia.web.cmdi"]
-    rules = json.loads((directory / "results.sarif").read_text())["runs"][0]["tool"]["driver"][
-        "rules"
-    ]
-    assert all("help" not in rule and "helpUri" not in rule for rule in rules)
+
+
+def test_sarif_rules_describe_the_finding_and_mask_the_message(tmp_path: Path) -> None:
+    token = "ghp_" + ("b" * 36)
+    reference = "https://genai.owasp.org/llmrisk/llm022025-sensitive-information-disclosure/"
+    finding = _bare(
+        track="ai",
+        probe="insidia.ai.data_leakage",
+        attack="ai.data_leakage",
+        confidence="high",
+        response=token,
+        taxonomy=("owasp-llm:LLM02", "cwe:CWE-200"),
+        remediation="Stop returning secrets.",
+        target="nova",
+    )
+    directory = write_run(tmp_path, "run-sarif", "L1", False, [finding], [], [])
+    sarif_text = (directory / "results.sarif").read_text()
+    sarif = json.loads(sarif_text)
+    assert sarif["version"] == "2.1.0"
+    run = sarif["runs"][0]
+    rule = run["tool"]["driver"]["rules"][0]
+    assert rule["shortDescription"]["text"] == "Secret returned in chatbot reply"
+    assert rule["fullDescription"]["text"] == (
+        "The chatbot returned a credential-shaped secret in its reply."
+    )
+    assert rule["help"]["text"] == rule["help"]["markdown"]
+    assert rule["help"]["text"] == f"Stop returning secrets.\n\n{reference}"
+    assert rule["helpUri"] == reference
+    assert rule["properties"]["tags"] == ["security", "owasp-llm:LLM02", "CWE-200"]
+    assert "security-severity" in rule["properties"]
+    result = run["results"][0]
+    masked = mask(token)
+    assert result["message"]["text"] == f"Secret returned in chatbot reply (nova): {masked}"
+    assert result["properties"]["confidence"] == "high"
+    assert token not in sarif_text
+    assert "ghp_" not in sarif_text
 
 
 def test_plugin_output_caps_a_long_passwd_body(tmp_path: Path) -> None:

@@ -15,7 +15,7 @@ from urllib.parse import urlparse
 from insidia import __version__, version_text
 from insidia.errors import CliError
 from insidia.findings import Finding, prepare_findings
-from insidia.mask import SECRET_PATTERNS
+from insidia.mask import SECRET_PATTERNS, mask
 from insidia.results import SCHEMA_VERSION, legacy_passed
 from insidia.score import Score, coverage, score_frameworks, severity_rank
 
@@ -1240,6 +1240,54 @@ def _escape(value: str) -> str:
     return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def _sarif_tags(taxonomy: tuple[str, ...]) -> list[str]:
+    """security, then each taxonomy id. cwe:CWE-200 is emitted as CWE-200."""
+    tags = ["security"]
+    for item in taxonomy:
+        prefix, separator, rest = item.partition(":")
+        tag = rest if separator and prefix == "cwe" and rest else item
+        if tag and tag not in tags:
+            tags.append(tag)
+    return tags
+
+
+def _sarif_help(finding: Finding) -> str:
+    """Remediation, then each reference on its own line."""
+    refs = [item for item in finding.references if item]
+    if not finding.remediation:
+        return "\n".join(refs)
+    if not refs:
+        return finding.remediation
+    return f"{finding.remediation}\n\n" + "\n".join(refs)
+
+
+def _sarif_rule(finding: Finding) -> dict[str, object]:
+    help_text = _sarif_help(finding)
+    rule: dict[str, object] = {
+        "id": finding.probe,
+        "name": finding.attack,
+        "shortDescription": {"text": finding.title or finding.attack},
+        "fullDescription": {"text": finding.synopsis or finding.description or finding.remediation},
+        "help": {"text": help_text, "markdown": help_text},
+        "properties": {
+            "security-severity": f"{finding.risk_score:.1f}",
+            "tags": _sarif_tags(finding.taxonomy),
+        },
+    }
+    if finding.references:
+        rule["helpUri"] = finding.references[0]
+    return rule
+
+
+def _sarif_message(finding: Finding) -> str:
+    """Name the finding and show masked evidence. A raw secret never reaches SARIF."""
+    title = finding.title or finding.attack
+    evidence = mask(finding.response).strip()
+    if evidence:
+        return f"{title} ({finding.target}): {evidence}"
+    return f"{title} ({finding.target})"
+
+
 def _sarif(findings: list[Finding]) -> dict[str, object]:
     rules = []
     seen: set[str] = set()
@@ -1247,17 +1295,11 @@ def _sarif(findings: list[Finding]) -> dict[str, object]:
     for finding in findings:
         if finding.probe not in seen:
             seen.add(finding.probe)
-            rules.append(
-                {
-                    "id": finding.probe,
-                    "name": finding.attack,
-                    "properties": {"security-severity": f"{finding.risk_score:.1f}"},
-                }
-            )
+            rules.append(_sarif_rule(finding))
         result: dict[str, object] = {
             "ruleId": finding.probe,
             "level": _sarif_level(finding.severity),
-            "message": {"text": f"{finding.engine}: {finding.attack} on {finding.target}"},
+            "message": {"text": _sarif_message(finding)},
             "properties": {
                 "engine": finding.engine,
                 "severity": finding.severity,
