@@ -605,6 +605,21 @@ def test_availability_follows_a_receipt_written_in_this_process(
     assert [item.engine for item in chosen] == ["insidia", "nuclei"]
 
 
+def test_zap_install_warns_when_java_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    def already(name: str, allow_unverified: bool = False) -> str:
+        del allow_unverified
+        return f"installed {name} 2.17.0"
+
+    monkeypatch.setattr("insidia.engines._install_one", already)
+    monkeypatch.setattr("insidia.engines.shutil.which", lambda _name: None)
+    message = install(("zap",))
+    assert message.startswith("installed zap 2.17.0")
+    assert "warning: needs Java 17 or later on PATH" in message
+
+    monkeypatch.setattr("insidia.engines.shutil.which", lambda name: f"/usr/bin/{name}")
+    assert "Java" not in install(("zap",))
+
+
 def test_bare_install_does_not_download(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("INSIDIA_TOOLCHAIN", str(tmp_path / "tools"))
     assert install() == "built-in probes are already available; name an engine to install it"

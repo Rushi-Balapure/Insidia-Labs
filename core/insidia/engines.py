@@ -234,6 +234,9 @@ def install(
         if progress is not None:
             progress(f"Installing {name} {spec.version}.")
         line = _install_one(name, allow_unverified=allow_unverified)
+        needed = missing_runtime(name)
+        if needed:
+            line = f"{line}; warning: needs {needed} before it can run"
         lines.append(line)
         if progress is not None:
             progress(line)
