@@ -119,25 +119,39 @@ def preflight(target: Target, scope: tuple[ScopeHost, ...], root: Path) -> str:
 
     A web app may answer one odd input with 400 or 500, and that answer is
     evidence. A missing route, a wrong method, or an AI endpoint that rejects
-    a plain prompt means every check would fail the same way.
+    a plain prompt means every check would fail the same way. A 3xx is also
+    an answer: the route exists, even when the page it points at does not.
     """
     if target.kind == "repo":
         return ""
+    scheme = urlparse(target.url).scheme if target.url else ""
+    if scheme in {"http", "https"} and target.api != "grpc":
+        try:
+            status, _headers, body = fetch_target(target, "hello", scope, follow=False)
+        except ProbeError as exc:
+            return f"{target.url}: {exc}"
+        if status in _REDIRECTS or status < 400:
+            return ""
+        return _status_reason(target, HttpStatus(status, body), scope)
     try:
         exchange(target, "hello", scope, root)
     except HttpStatus as exc:
-        hint = _NO_ROUTE.get(exc.status)
-        if exc.status == 404 and target.kind not in AI_KINDS and _app_answer(target, exc, scope):
-            hint = None
-        if hint is None and target.kind not in AI_KINDS:
-            return ""
-        where = f"{target.method} {target.url}"
-        if hint == "check method":
-            hint = f"method is {target.method}; set method: GET if the app reads a query"
-        return f"{where} returned HTTP {exc.status}" + (f" ({hint})" if hint else "")
+        return _status_reason(target, exc, scope)
     except ProbeError as exc:
         return f"{target.url}: {exc}"
     return ""
+
+
+def _status_reason(target: Target, exc: HttpStatus, scope: tuple[ScopeHost, ...]) -> str:
+    hint = _NO_ROUTE.get(exc.status)
+    if exc.status == 404 and target.kind not in AI_KINDS and _app_answer(target, exc, scope):
+        hint = None
+    if hint is None and target.kind not in AI_KINDS:
+        return ""
+    where = f"{target.method} {target.url}"
+    if hint == "check method":
+        hint = f"method is {target.method}; set method: GET if the app reads a query"
+    return f"{where} returned HTTP {exc.status}" + (f" ({hint})" if hint else "")
 
 
 def _app_answer(target: Target, missing: HttpStatus, scope: tuple[ScopeHost, ...]) -> bool:
@@ -159,26 +173,39 @@ def _app_answer(target: Target, missing: HttpStatus, scope: tuple[ScopeHost, ...
 
 
 def _http(target: Target, payload: str, scope: tuple[ScopeHost, ...]) -> str:
+    status, _headers, text = fetch_target(target, payload, scope)
+    if status >= 400:
+        raise HttpStatus(status, text)
+    if target.kind in AI_KINDS and _login_page(text):
+        raise ProbeError(f"{target.name} returned an HTML login page")
+    return _select(text, target.response_selector)
+
+
+def fetch_target(
+    target: Target,
+    payload: str,
+    scope: tuple[ScopeHost, ...],
+    *,
+    follow: bool = True,
+) -> tuple[int, dict[str, str], str]:
+    """Status, headers, and body for one payload. Redirects are optional."""
     if target.url is None:
         raise ConfigError(f"{target.name} needs a url")
     limiter, gate = _slot(target)
     url = _with_query(_in_path(target.url, payload), target.query, payload)
-    method = target.method
     body = _body(target, payload)
     headers = _headers(target, body is not None)
     with gate:
-        observed = read_url(
+        return fetch(
             url,
             scope,
-            method=method,
-            body=body,
-            headers=headers,
-            limiter=limiter,
-            timeout=target.timeout,
+            target.method,
+            body,
+            headers,
+            limiter,
+            target.timeout,
+            follow=follow,
         )
-    if target.kind in AI_KINDS and _login_page(observed):
-        raise ProbeError(f"{target.name} returned an HTML login page")
-    return _select(observed, target.response_selector)
 
 
 def _websocket(target: Target, payload: str, scope: tuple[ScopeHost, ...]) -> str:
@@ -239,8 +266,14 @@ def fetch(
     headers: dict[str, str] | None = None,
     limiter: RateLimiter | None = None,
     timeout: float = 10,
+    *,
+    follow: bool = True,
 ) -> tuple[int, dict[str, str], str]:
-    """Status, response headers, and body. An error status is returned, not raised."""
+    """Status, response headers, and body. An error status is returned, not raised.
+
+    Redirects are followed only when `follow` is true. A 3xx is returned as-is
+    otherwise, and its Location is not requested.
+    """
     opener = urllib.request.OpenerDirector()
     opener.add_handler(urllib.request.HTTPHandler())
     opener.add_handler(urllib.request.HTTPSHandler())
@@ -262,20 +295,23 @@ def fetch(
         try:
             with opener.open(request, timeout=timeout) as response:
                 status = int(response.status)
-                if status in _REDIRECTS:
-                    location = response.headers.get("Location")
-                    if not isinstance(location, str) or not location:
-                        raise CliError("redirect is missing Location")
-                    current = urljoin(current, location)
-                    if status in {301, 302, 303}:
-                        method = "GET"
-                        body = None
-                    continue
                 raw = response.read(_MAX_BODY)
                 if not isinstance(raw, bytes):
                     raise CliError("response was not bytes")
                 received = {key.lower(): value for key, value in response.headers.items()}
-                return status, received, raw.decode("utf-8", "replace")
+                text = raw.decode("utf-8", "replace")
+                if status not in _REDIRECTS:
+                    return status, received, text
+                if not follow:
+                    return status, received, text
+                location = received.get("location", "")
+                if not location:
+                    raise CliError("redirect is missing Location")
+                current = urljoin(current, location)
+                if status in {301, 302, 303}:
+                    method = "GET"
+                    body = None
+                continue
         except TimeoutError as exc:
             raise ProbeError("target timed out") from exc
         except urllib.error.URLError as exc:

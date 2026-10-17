@@ -7,7 +7,7 @@ One scan covers two layers.
 
 **AI and agents.** Direct and indirect prompt injection, jailbreaks, hidden-context extraction, secret leakage, tool misuse, RAG and memory poisoning, and MCP or skill supply chain.
 
-**Applications.** Template, command, and SQL injection, path access, SSRF, broken object and function authorization, mass assignment, and JWT checks, plus repository secrets and dependency checks. XSS is not a separate policy check in this release. Installing an engine that supports XSS does not add it to the policy.
+**Applications.** Template, command, and SQL injection, open redirects, path access, SSRF, broken object and function authorization, mass assignment, and JWT checks, plus repository secrets and dependency checks. XSS is not a separate policy check in this release. Installing an engine that supports XSS does not add it to the policy.
 
 **The seam.** Agent checks include dangerous tool arguments, secondary injection through tool output, and tool-chain hijacking. Coverage depends on the target type and the evidence the adapter can observe. Adaptive attack discovery is planned for [Insidia Cloud](/docs/cloud/), which is not open yet.
 

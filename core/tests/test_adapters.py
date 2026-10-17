@@ -152,6 +152,7 @@ def test_every_registered_probe_resolves_to_its_adapter(
         "logic.race",
         "web.cmdi",
         "web.deserialization",
+        "web.open_redirect",
         "web.path_lfi",
         "web.sqli",
         "web.ssrf",

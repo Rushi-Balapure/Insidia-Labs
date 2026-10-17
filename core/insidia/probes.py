@@ -56,6 +56,7 @@ from insidia.transport import (
     current_budget,
     exchange,
     fetch,
+    fetch_target,
     repo_path,
 )
 
@@ -566,11 +567,69 @@ def _listed_rows(body: str) -> int | None:
     return None
 
 
+_REDIRECT_HOST = "insidia-redirect.invalid"
+_OPEN_REDIRECTS = (f"https://{_REDIRECT_HOST}/", f"//{_REDIRECT_HOST}")
+_REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
+_JS_REDIRECT = re.compile(
+    r"""(?i)(?:window\s*\.\s*)?location(?:\s*\.\s*href)?\s*=\s*['"]([^'"]+)['"]"""
+    r"""|location\s*\.\s*replace\(\s*['"]([^'"]+)['"]"""
+)
+
+
+def _paired_open_redirect(
+    target: Target,
+    scope: tuple[ScopeHost, ...],
+    root: Path,
+) -> tuple[list[EngineHit], str, str]:
+    """A 3xx or client redirect to the canary host. The canary host is never requested."""
+    del root
+    try:
+        for payload in _OPEN_REDIRECTS:
+            status, headers, body = fetch_target(target, payload, scope, follow=False)
+            evidence = _redirect_evidence(status, headers, body)
+            if evidence is not None:
+                return [EngineHit("insidia-open-redirect", payload, evidence, evidence)], "", ""
+    except ProbeError as exc:
+        return [], str(exc), ""
+    return [], "", ""
+
+
+def _redirect_evidence(status: int, headers: dict[str, str], body: str) -> str | None:
+    if status in _REDIRECT_STATUSES:
+        location = headers.get("location", "")
+        if _redirect_host(location) == _REDIRECT_HOST:
+            return f"{status} Location: {location.strip()}"
+    for url in _client_redirects(body):
+        if _redirect_host(url) == _REDIRECT_HOST:
+            return f"client redirect to {url}"
+    return None
+
+
+def _redirect_host(url: str) -> str:
+    return (urlparse(url.strip()).hostname or "").lower().rstrip(".")
+
+
+def _client_redirects(body: str) -> tuple[str, ...]:
+    found: list[str] = []
+    for tag in re.findall(r"(?is)<meta\b[^>]*>", body):
+        if re.search(r"(?i)http-equiv\s*=\s*['\"]?\s*refresh\b", tag) is None:
+            continue
+        match = re.search(r"(?i)\burl\s*=\s*['\"]?\s*([^'\"\s>]+)", tag)
+        if match is not None:
+            found.append(match.group(1))
+    for match in _JS_REDIRECT.finditer(body):
+        url = match.group(1) or match.group(2)
+        if url:
+            found.append(url)
+    return tuple(found)
+
+
 _PAIRED: dict[
     str, Callable[[Target, tuple[ScopeHost, ...], Path], tuple[list[EngineHit], str, str]]
 ] = {
     "web.ssti": _paired_ssti,
     "web.sqli": _paired_sqli,
+    "web.open_redirect": _paired_open_redirect,
     "api.bola_idor": _paired_bola,
     "infra.tls": _paired_tls,
     "infra.cve": _paired_cve,

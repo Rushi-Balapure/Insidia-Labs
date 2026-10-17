@@ -235,6 +235,12 @@ _CONTROLS = (
         taxonomy=("owasp-web:A01",),
     ),
     _control(
+        "web.open_redirect",
+        _WEB_API,
+        "Redirect only to a relative path on this host (CWE-601).",
+        taxonomy=("owasp-web:A01", "cwe:CWE-601"),
+    ),
+    _control(
         "web.ssrf",
         ("web",),
         "Do not fetch a URL the user supplies.",
