@@ -32,7 +32,11 @@ def diagnose(config_path: Path) -> tuple[list[dict[str, object]], int]:
             "name": "docker",
             "ok": docker is not None,
             "required": False,
-            "detail": "found" if docker else "not found; optional unless you use --engines docker",
+            "detail": (
+                "found"
+                if docker
+                else "not found; optional unless you use insidia engines install --docker"
+            ),
         }
     )
     from insidia.engines import installed_engines, unusable_engines

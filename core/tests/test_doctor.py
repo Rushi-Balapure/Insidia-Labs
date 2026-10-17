@@ -138,6 +138,42 @@ models: {}
     assert "✘" not in out
 
 
+def test_docker_hint_names_engines_install(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from insidia.cli import main
+
+    config = tmp_path / "insidia.yaml"
+    config.write_text(
+        """
+version: 1
+policy: L1
+coverage: standard
+scope:
+  - host: 127.0.0.1
+targets:
+  app:
+    kind: chat
+    url: http://127.0.0.1:9/chat
+models: {}
+"""
+    )
+    monkeypatch.setattr("insidia.doctor.shutil.which", lambda _name: None)
+    assert main(["--config", str(config), "doctor"]) == 0
+    out = capsys.readouterr().out
+    assert "insidia engines install --docker" in out
+    assert "--engines docker" not in out
+
+    with pytest.raises(SystemExit) as caught:
+        main(["engines", "install", "--help"])
+    assert caught.value.code == 0
+    assert "--docker" in capsys.readouterr().out
+    with pytest.raises(SystemExit) as caught:
+        main(["scan", "--engines", "docker"])
+    assert caught.value.code == 2
+    assert "unrecognized arguments" in capsys.readouterr().err
+
+
 def test_zap_with_java_is_installed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _fake_zap(tmp_path / "toolchain")
     monkeypatch.setenv("INSIDIA_TOOLCHAIN", str(tmp_path / "toolchain"))
