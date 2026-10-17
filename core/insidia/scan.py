@@ -306,7 +306,12 @@ def _scan_targets(
                     _detail(result, reasons, family_records),
                 )
             )
-            finished = tuple(record.engine for record in family_records if record.state != ERROR)
+            # A limited run is too shallow to credit. A finding still names the engine that saw it.
+            finished = tuple(
+                record.engine
+                for record in family_records
+                if record.state == COMPLETE or record.finding_count > 0
+            )
             _say(
                 progress,
                 Event(

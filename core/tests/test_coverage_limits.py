@@ -11,6 +11,10 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 from insidia.cli import main
+from insidia.probes import Attempt, ProbeHit
+from insidia.registry import Capability
+from insidia.scan import run as real_run
+from insidia.scan import select as real_select
 from insidia.transport import carries_payload
 from tests.support import target
 
@@ -255,3 +259,125 @@ targets:
     assert all(_NO_PAYLOAD in row["reason"] for row in rows)
     # Preflight still checks the endpoint. The probes themselves do not.
     assert len(recorder.requests) == 1
+
+
+def _garak_hit() -> ProbeHit:
+    return ProbeHit(
+        "bot",
+        "ai.data_leakage",
+        "garak",
+        "garak.ai.data_leakage",
+        "secret",
+        "high",
+        "high",
+        "ai",
+        ("owasp-llm:LLM02",),
+        "Stop returning secrets.",
+    )
+
+
+def _install_shallow_garak(monkeypatch: pytest.MonkeyPatch, finding: bool) -> None:
+    def fake_select(
+        family: str,
+        coverage: str,
+        model_available: bool = False,
+        entries: tuple[Capability, ...] | None = None,
+    ) -> list[Capability]:
+        chosen = real_select(
+            family, coverage, model_available=model_available, entries=entries
+        )
+        if family == "ai.data_leakage":
+            chosen.append(
+                Capability(family, "garak", "garak.ai.data_leakage", 50, False, True)
+            )
+        return chosen
+
+    def fake_run(adapter: object, spec: object, *args: object, **kwargs: object) -> Attempt:
+        if getattr(adapter, "engine", "") == "garak":
+            hits = (_garak_hit(),) if finding else ()
+            return Attempt(hits, untested="garak sent only 1 prompt(s)")
+        return real_run(adapter, spec, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr("insidia.scan.select", fake_select)
+    monkeypatch.setattr("insidia.scan.run", fake_run)
+
+
+def _chat_config(port: int) -> str:
+    return f"""\
+version: 1
+scope:
+  - host: 127.0.0.1
+targets:
+  bot:
+    kind: chat
+    url: http://127.0.0.1:{port}/chat
+    rate_limit:
+      rps: 100
+      concurrency: 1
+"""
+
+
+def _result_line(err: str, family: str, label: str) -> str:
+    matched = [line for line in err.splitlines() if family in line and label in line]
+    assert len(matched) == 1, err
+    return matched[0]
+
+
+def test_a_limited_relay_is_not_credited_for_a_pass(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("INSIDIA_TOOLCHAIN", str(tmp_path / "toolchain"))
+    _install_shallow_garak(monkeypatch, finding=False)
+    recorder = _Recorder()
+
+    def answer(path: str, body: bytes) -> tuple[int, str]:
+        del path, body
+        return 200, "ok"
+
+    with _serve(recorder, answer) as port:
+        config = tmp_path / "insidia.yaml"
+        config.write_text(_chat_config(port))
+        code = main(
+            ["scan", "--config", str(config), "--coverage", "thorough", "--yes"]
+        )
+    err = capsys.readouterr().err
+    line = _result_line(err, "ai.data_leakage", "pass")
+    assert "insidia" in line
+    assert "garak" not in line
+    runs = tmp_path / ".insidia" / "runs"
+    latest = max(runs.iterdir(), key=lambda path: path.name)
+    report = (latest / "report.html").read_text()
+    findings = json.loads((latest / "findings.json").read_text())
+    assert "garak" not in report
+    assert all("garak" not in item["engines"] for item in findings)
+    assert code == 0
+
+
+def test_a_limited_relay_that_found_a_bug_is_still_credited(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("INSIDIA_TOOLCHAIN", str(tmp_path / "toolchain"))
+    _install_shallow_garak(monkeypatch, finding=True)
+    recorder = _Recorder()
+
+    def answer(path: str, body: bytes) -> tuple[int, str]:
+        del path, body
+        return 200, "ok"
+
+    with _serve(recorder, answer) as port:
+        config = tmp_path / "insidia.yaml"
+        config.write_text(_chat_config(port))
+        code = main(
+            ["scan", "--config", str(config), "--coverage", "thorough", "--yes"]
+        )
+    err = capsys.readouterr().err
+    line = _result_line(err, "ai.data_leakage", "FAIL")
+    assert "garak" in line
+    runs = tmp_path / ".insidia" / "runs"
+    latest = max(runs.iterdir(), key=lambda path: path.name)
+    report = (latest / "report.html").read_text()
+    findings = json.loads((latest / "findings.json").read_text())
+    leak = next(item for item in findings if item["attack"] == "ai.data_leakage")
+    assert "garak" in leak["engines"]
+    assert "garak" in report
+    assert code == 1
