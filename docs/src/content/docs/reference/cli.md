@@ -67,6 +67,8 @@ insidia scan --policy L1 --coverage standard --yes --json
 
 Exit codes: **0** for a completed pass, **1** when any check found a problem, **2** for an incomplete run with no finding or an error, and **130** for cancellation. A finding exits 1 even when another target or check did not finish, so a CI gate on 1 never misses it. JSON includes `execution_status` and `policy_verdict`; review both. A scan never opens a browser unless you pass `--open`. Progress is printed while each control runs.
 
+`INSIDIA_VULN_DB=1` is the only opt-in for Trivy and osv-scanner vulnerability database downloads. Any other value, including an unset variable, keeps those downloads off. Trivy then uses `--skip-db-update` and `--skip-java-db-update`. osv-scanner uses `--offline`. With the variable set to `1`, Trivy contacts `mirror.gcr.io` and `ghcr.io`, and osv-scanner contacts `api.osv.dev` and may contact `api.deps.dev`. Those hosts are outside `scope`. The variable does not let a scan contact an arbitrary target.
+
 ## report
 
 ```bash

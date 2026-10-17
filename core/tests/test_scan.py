@@ -658,15 +658,25 @@ def test_trivy_and_osv_scanner_are_named_in_the_scan_output(
 
     monkeypatch.setattr("insidia.scan.select", fake_select)  # type: ignore[attr-defined]
     monkeypatch.setattr("insidia.scan.run", fake_run)  # type: ignore[attr-defined]
+    monkeypatch.delenv("INSIDIA_VULN_DB", raising=False)  # type: ignore[attr-defined]
     events: list[Event] = []
     outcome = execute(
         load_project(tmp_path / "insidia.yaml"), tmp_path, progress=events.append
     )
-    assert outcome.notes == (
-        "trivy downloads a vulnerability database from the internet when it runs",
-        "osv-scanner downloads a vulnerability database from the internet when it runs",
+    assert outcome.notes == ()
+    assert [event.detail for event in events if event.kind == "note"] == []
+    monkeypatch.setenv("INSIDIA_VULN_DB", "1")  # type: ignore[attr-defined]
+    opted: list[Event] = []
+    opted_in = execute(
+        load_project(tmp_path / "insidia.yaml"), tmp_path, progress=opted.append
     )
-    assert [event.detail for event in events if event.kind == "note"] == list(outcome.notes)
+    assert opted_in.notes == (
+        "trivy downloads a vulnerability database from mirror.gcr.io and ghcr.io "
+        "because INSIDIA_VULN_DB=1",
+        "osv-scanner downloads a vulnerability database from api.osv.dev "
+        "because INSIDIA_VULN_DB=1",
+    )
+    assert [event.detail for event in opted if event.kind == "note"] == list(opted_in.notes)
 
 
 def _latest(root: Path, name: str) -> Path:

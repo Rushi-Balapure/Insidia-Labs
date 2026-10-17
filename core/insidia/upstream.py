@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from collections.abc import Callable
 from pathlib import Path
@@ -35,6 +36,8 @@ NUGUARD_ENV = {
     "LITELLM_TELEMETRY": "False",
 }
 _NUGUARD_SEVERITIES = frozenset({"critical", "high", "medium"})
+# The only opt-in for Trivy and osv-scanner vulnerability database downloads.
+_VULN_DB_OPT_IN = "INSIDIA_VULN_DB"
 
 
 def build() -> tuple[RelayAdapter | ReportAdapter[ScopedUrl] | ReportAdapter[RepoPath], ...]:
@@ -311,6 +314,8 @@ def _repo_prepare(engine: str) -> Callable[[ProbeSpec, RepoPath, Path], Invocati
         elif engine == "skillspector":
             args = ("scan", source, "--no-llm", "--format", "json", "-o", report)
         elif engine == "trivy":
+            # --skip-db-update and --skip-java-db-update are Trivy 0.75 flags.
+            # The first run errors locally instead of downloading a database.
             args = (
                 "fs",
                 "--format",
@@ -318,9 +323,11 @@ def _repo_prepare(engine: str) -> Callable[[ProbeSpec, RepoPath, Path], Invocati
                 "--output",
                 report,
                 "--skip-version-check",
+                *_vuln_db_flags("--skip-db-update", "--skip-java-db-update"),
                 source,
             )
         elif engine == "osv-scanner":
+            # --offline is osv-scanner 2.6. It uses a cached database and does not connect.
             args = (
                 "scan",
                 "source",
@@ -329,6 +336,7 @@ def _repo_prepare(engine: str) -> Callable[[ProbeSpec, RepoPath, Path], Invocati
                 "json",
                 "--output-file",
                 report,
+                *_vuln_db_flags("--offline"),
                 source,
             )
         elif engine == "gitleaks":
@@ -792,6 +800,13 @@ def _zap_plan(url: str, workspace: Path, report: str) -> str:
         f"      reportDir: {workspace}\n"
         f"      reportFile: {report}\n"
     )
+
+
+def _vuln_db_flags(*flags: str) -> tuple[str, ...]:
+    """Keep vulnerability database downloads off unless INSIDIA_VULN_DB=1."""
+    if os.environ.get(_VULN_DB_OPT_IN) == "1":
+        return ()
+    return flags
 
 
 def _program(engine: str) -> str:

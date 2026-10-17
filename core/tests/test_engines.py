@@ -560,7 +560,10 @@ def test_projectdiscovery_engines_disable_update_checks(tmp_path: Path) -> None:
         assert "-disable-update-check" in invocation.args
 
 
-def test_repo_engines_are_pointed_at_the_repo(tmp_path: Path) -> None:
+def test_repo_engines_are_pointed_at_the_repo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("INSIDIA_VULN_DB", raising=False)
     repo = tmp_path / "repo"
     repo.mkdir()
     for name in REPO:
@@ -571,7 +574,43 @@ def test_repo_engines_are_pointed_at_the_repo(tmp_path: Path) -> None:
         assert any(str(repo) in arg for arg in invocation.args)
         if name == "trivy":
             assert "--skip-version-check" in invocation.args
-            assert "--skip-db-update" not in invocation.args
+            assert "--skip-db-update" in invocation.args
+            assert "--skip-java-db-update" in invocation.args
+        if name == "osv-scanner":
+            assert "--offline" in invocation.args
+
+
+def test_vuln_db_engines_stay_offline_unless_opted_in(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.delenv("INSIDIA_VULN_DB", raising=False)
+    for name, offline in (("trivy", "--skip-db-update"), ("osv-scanner", "--offline")):
+        workspace = tmp_path / f"default-{name}"
+        workspace.mkdir()
+        adapter = _engine(name)
+        invocation = adapter.prepare(adapter.probes[0], RepoPath(repo), workspace)  # type: ignore[arg-type]
+        assert offline in invocation.args
+        if name == "trivy":
+            assert "--skip-java-db-update" in invocation.args
+    for value in ("", "true", "yes", "0"):
+        monkeypatch.setenv("INSIDIA_VULN_DB", value)
+        workspace = tmp_path / f"rejected-{value or 'empty'}"
+        workspace.mkdir()
+        adapter = _engine("osv-scanner")
+        invocation = adapter.prepare(adapter.probes[0], RepoPath(repo), workspace)  # type: ignore[arg-type]
+        assert "--offline" in invocation.args
+    monkeypatch.setenv("INSIDIA_VULN_DB", "1")
+    for name, offline in (("trivy", "--skip-db-update"), ("osv-scanner", "--offline")):
+        workspace = tmp_path / f"opt-in-{name}"
+        workspace.mkdir()
+        adapter = _engine(name)
+        invocation = adapter.prepare(adapter.probes[0], RepoPath(repo), workspace)  # type: ignore[arg-type]
+        assert offline not in invocation.args
+        if name == "trivy":
+            assert "--skip-java-db-update" not in invocation.args
+            assert "--skip-version-check" in invocation.args
 
 
 def test_echoed_payload_with_a_timestamp_is_not_ssti(tmp_path: Path) -> None:

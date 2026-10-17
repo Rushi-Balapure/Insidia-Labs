@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -33,11 +34,15 @@ from insidia.scope import check_url, needs_confirmation, unauthorized_host
 from insidia.transport import bind_budget, current_budget, preflight, repo_path, reset_budget
 from insidia.ui import Event, short
 
-# These engines fetch vulnerability data from the internet when a scan runs them.
+# Printed only when INSIDIA_VULN_DB=1. The default argv keeps these engines offline.
 _NETWORK_DB = {
-    "trivy": "trivy downloads a vulnerability database from the internet when it runs",
+    "trivy": (
+        "trivy downloads a vulnerability database from mirror.gcr.io and ghcr.io "
+        "because INSIDIA_VULN_DB=1"
+    ),
     "osv-scanner": (
-        "osv-scanner downloads a vulnerability database from the internet when it runs"
+        "osv-scanner downloads a vulnerability database from api.osv.dev "
+        "because INSIDIA_VULN_DB=1"
     ),
 }
 
@@ -259,6 +264,8 @@ def _scan_targets(
             reasons: list[str] = []
             for capability in chosen:
                 note = _NETWORK_DB.get(capability.engine)
+                if os.environ.get("INSIDIA_VULN_DB") != "1":
+                    note = None
                 if note is not None and note not in notes:
                     notes.append(note)
                     _say(progress, Event("note", detail=note))
