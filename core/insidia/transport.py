@@ -301,6 +301,50 @@ def repo_path(target: Target, root: Path) -> Path:
     return resolved
 
 
+# Placeholders `_fill` substitutes. The path is narrower: only {{payload}}, matching `_in_path`.
+_FILL_MARKERS = ("{{conversation_json}}", "{{prompt_json}}", "{{prompt}}", "{{payload}}")
+
+
+def carries_payload(target: Target) -> bool:
+    """True when a probe string changes the request, not only the text we meant to send.
+
+    This follows `_http`: `{{payload}}` in the URL path, any `_fill` placeholder in
+    the URL query or `query` map, and the body from `_body`. A non-GET target with
+    no request template sends the raw payload as JSON, so it does carry one.
+    A websocket frame is the payload itself.
+    """
+    if target.url is None:
+        return False
+    if urlparse(target.url).scheme in {"ws", "wss"}:
+        return True
+    if _path_carries(target.url) or _query_carries(target.url, target.query):
+        return True
+    return _body_carries(target)
+
+
+def _path_carries(url: str) -> bool:
+    return "{{payload}}" in urlparse(url).path
+
+
+def _query_carries(url: str, query: dict[str, str]) -> bool:
+    parsed = urlparse(url)
+    values = [value for _key, value in parse_qsl(parsed.query, keep_blank_values=True)]
+    values.extend(query.values())
+    return any(_has_fill_marker(value) for value in values)
+
+
+def _body_carries(target: Target) -> bool:
+    if target.method == "GET":
+        return False
+    if target.request_template:
+        return _has_fill_marker(target.request_template)
+    return True
+
+
+def _has_fill_marker(text: str) -> bool:
+    return any(marker in text for marker in _FILL_MARKERS)
+
+
 def _in_path(url: str, payload: str) -> str:
     """Fill {{payload}} in the URL path, as in /users/{{payload}}. The host is never filled."""
     marker = "{{payload}}"

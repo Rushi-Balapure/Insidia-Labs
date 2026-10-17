@@ -52,6 +52,7 @@ from insidia.scope import ScopeHost, check_url
 from insidia.transport import (
     AI_KINDS,
     BoundBudget,
+    carries_payload,
     current_budget,
     exchange,
     fetch,
@@ -99,6 +100,8 @@ def run(
 ) -> Attempt:
     if target.kind not in spec.target_kinds:
         return Attempt()
+    if _payload_cannot_land(target, spec.family):
+        return Attempt(untested=_NO_PAYLOAD)
     untested = ""
     match adapter:
         case BuiltIn():
@@ -135,12 +138,25 @@ def run(
 _FIXTURE_ONLY_NOTE = "this check only recognises Insidia's benchmark app"
 # Fewer prompts than this is a smoke test, not coverage of the family.
 _RELAY_MIN_PROMPTS = 3
+_NO_PAYLOAD = (
+    "no {{payload}} placeholder in url, query, or body, "
+    "so every probe sent the same request"
+)
+# Banner and handshake checks read the server itself. They do not inject a payload.
+_PAYLOAD_FREE = frozenset({"infra.cve", "infra.tls"})
 
 _REPO_CHECKS = {
     "code.sast_sinks": repo_scan.sinks,
     "code.secrets": repo_scan.secrets,
     "deps.sca": repo_scan.dependencies,
 }
+
+
+def _payload_cannot_land(target: Target, family: str) -> bool:
+    """True when every payload would build the same request, so the check cannot run."""
+    if target.kind == "repo" or family in _PAYLOAD_FREE or target.url is None:
+        return False
+    return not carries_payload(target)
 
 
 def _judge(

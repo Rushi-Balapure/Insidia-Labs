@@ -233,7 +233,7 @@ def _scan_targets(
                 reason = unlock_hint(family, model_available)
                 skips.append(f"{target.name}: {family} has no runnable probe; {reason}")
                 records.append(CheckRecord(target.name, family, "", LIMITED, reason))
-                controls.append(_recorded(policy, family, target.name, "not tested"))
+                controls.append(_recorded(policy, family, target.name, "not tested", reason))
                 _say(
                     progress,
                     Event("end", target.name, family, result="not tested", detail=reason),
@@ -297,7 +297,15 @@ def _scan_targets(
                 )
             records.extend(family_records)
             result = _family_result(family_records)
-            controls.append(_recorded(policy, family, target.name, result))
+            controls.append(
+                _recorded(
+                    policy,
+                    family,
+                    target.name,
+                    result,
+                    _detail(result, reasons, family_records),
+                )
+            )
             finished = tuple(record.engine for record in family_records if record.state != ERROR)
             _say(
                 progress,
@@ -404,13 +412,18 @@ def _family_result(records: list[CheckRecord]) -> str:
     return "inconclusive"
 
 
-def _recorded(policy: Policy, family: str, target: str, result: str) -> dict[str, str]:
-    return {
+def _recorded(
+    policy: Policy, family: str, target: str, result: str, reason: str = ""
+) -> dict[str, str]:
+    recorded = {
         "id": family,
         "target": target,
         "result": result,
         "taxonomy": ",".join(policy.control(family).taxonomy),
     }
+    if reason:
+        recorded["reason"] = reason
+    return recorded
 
 
 def _grpc(target: Target) -> bool:
