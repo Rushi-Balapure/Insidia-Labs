@@ -22,7 +22,7 @@ from insidia.engines import install, list_engines
 from insidia.errors import CliError, ConfigError
 from insidia.mcp import serve
 from insidia.policy import POLICIES, get_policy
-from insidia.runstore import latest_run, read_manifest, verdict_text
+from insidia.runstore import latest_run, local_time, read_manifest, verdict_text
 from insidia.scan import execute
 from insidia.ui import InstallView, ScanView, Terminal
 
@@ -375,6 +375,7 @@ def _finish_scan(args: argparse.Namespace, project: Project, root: Path) -> int:
         execution_status=outcome.execution_status,
         policy_verdict=outcome.policy_verdict or None,
         untested=outcome.untested,
+        run_id=outcome.run_id,
     )
     document = {
         "schema_version": "2.0",
@@ -395,6 +396,7 @@ def _finish_scan(args: argparse.Namespace, project: Project, root: Path) -> int:
             execution_status=outcome.execution_status,
             policy_verdict=outcome.policy_verdict or None,
             untested=outcome.untested,
+            run_id=outcome.run_id,
         ),
     }
     if outcome.notes:
@@ -451,6 +453,7 @@ def scan_message(
     execution_status: str = "complete",
     policy_verdict: str | None = None,
     untested: int = 0,
+    run_id: str = "",
 ) -> str:
     head = verdict_text(
         policy,
@@ -461,8 +464,14 @@ def scan_message(
         untested=untested,
     )
     if opened:
-        return f"{head} Opened {report}."
-    return f"{head} Report: {report}."
+        body = f"{head} Opened {report}."
+    else:
+        body = f"{head} Report: {report}."
+    if not run_id:
+        return body
+    started = local_time(run_id)
+    when = f" (started {started})" if started else ""
+    return f"Run {run_id}{when}\n{body}"
 
 
 def _open(report: Path) -> bool:

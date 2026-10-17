@@ -8,7 +8,7 @@ from insidia.config import load_project
 from insidia.engines import install
 from insidia.findings import Finding
 from insidia.probes import Attempt
-from insidia.runstore import read_manifest, write_run
+from insidia.runstore import local_time, read_manifest, write_run
 from insidia.scan import ScanOutcome
 
 
@@ -96,6 +96,9 @@ def test_scan_opens_the_report_only_when_asked(
     assert closed == "The scan ran. Policy L1 passed. No findings. Report: report.html."
     thin = scan_message("L1", True, 0, "report.html", False, untested=12)
     assert "passed with no findings, but 12 checks were not tested" in thin
+    run_id = "20261015T174011Z-371e29"
+    stamped = scan_message("L1", True, 0, "report.html", False, run_id=run_id)
+    assert stamped.startswith(f"Run {run_id} (started {local_time(run_id)})")
 
 
 def test_global_options_work_before_the_command(
@@ -302,6 +305,37 @@ targets:
     assert seen
     assert all(item.startswith("ext ") for item in seen)
     assert all("qa-out-of-scope.invalid" not in item for item in seen)
+
+
+def test_repo_posture_row_is_under_the_target_and_run_shows_local_time(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source = tmp_path / "src"
+    source.mkdir()
+    (source / "app.py").write_text('token = "AKIAIOSFODNN7EXAMPLE"\n')
+    (tmp_path / "insidia.yaml").write_text(
+        """\
+version: 1
+policy: L1
+coverage: standard
+scope:
+  - host: 127.0.0.1
+targets:
+  code:
+    kind: repo
+    path: src
+"""
+    )
+    code = main(["scan", "--config", str(tmp_path / "insidia.yaml"), "--no-color"])
+    captured = capsys.readouterr()
+    header = captured.err.index("\ncode\n")
+    posture = captured.err.index("ai.agent_posture")
+    assert header < posture
+    assert "ai.agent_posture" not in captured.err[:header]
+    run_id = next((tmp_path / ".insidia" / "runs").iterdir()).name
+    started = local_time(run_id)
+    assert f"Run {run_id} (started {started})" in captured.out
+    assert code == 1
 
 
 def test_incomplete_target_prints_its_own_header(

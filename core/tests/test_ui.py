@@ -68,6 +68,21 @@ def test_each_target_header_precedes_its_first_row() -> None:
     assert alone_text.index("\ndead\n") < alone_text.index("incomplete")
 
 
+def test_not_tested_row_stays_under_its_target_header() -> None:
+    stream = _Stream()
+    view = ScanView(_terminal(stream))
+    view(Event("start", detail="scan · policy L1 · coverage standard · 1 target"))
+    view(Event("end", "code", "ai.agent_posture", result="not tested", detail="install nuguard"))
+    view(Event("begin", "code", "code.secrets", ("insidia",)))
+    view(Event("end", "code", "code.secrets", ("insidia",), "fail"))
+    text = stream.getvalue()
+    header = text.index("\ncode\n")
+    posture = text.index("ai.agent_posture")
+    secrets = text.index("code.secrets")
+    assert header < posture < secrets
+    assert "ai.agent_posture" not in text[:header]
+
+
 def test_quiet_prints_nothing() -> None:
     stream = _Stream()
     terminal = Terminal(stream, quiet=True, animate=False, no_color=True)
