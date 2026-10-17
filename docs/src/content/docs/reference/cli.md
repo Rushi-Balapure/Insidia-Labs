@@ -17,7 +17,12 @@ What goes in the config file is [insidia.yaml](/docs/start/config/). `insidia -h
 
 ## init
 
-Writes `insidia.yaml` in the current directory. Refuses to overwrite an existing file.
+```bash
+insidia init --url http://127.0.0.1:PORT/path
+insidia init --url http://127.0.0.1:8080/hello --kind web
+```
+
+Writes `insidia.yaml` in the current directory. `--url` sets `targets.app.url`. The host is added to scope only when it is localhost, `127.0.0.1`, or `::1`. A non-local host is refused; set `authorized: true` yourself before scanning it. `--kind` defaults to `chat` when the path ends with `/chat`, and is inferred otherwise. Without `--url`, the file uses `http://127.0.0.1:8080/chat` and the command tells you to set `targets.app.url`. Refuses to overwrite an existing file.
 
 ## doctor
 

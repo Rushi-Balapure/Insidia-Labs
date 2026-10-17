@@ -10,7 +10,7 @@ import webbrowser
 from pathlib import Path
 
 from insidia import version_text
-from insidia.config import init_config, load_project
+from insidia.config import init_config, load_project, prepare_init_kind, prepare_init_url
 from insidia.doctor import diagnose
 from insidia.engines import install, list_engines
 from insidia.errors import CliError
@@ -99,11 +99,19 @@ def main(argv: list[str] | None = None) -> int:
         title="commands",
         metavar="COMMAND",
     )
-    subcommands.add_parser(
+    init = subcommands.add_parser(
         "init",
         parents=[shared],
         help="write insidia.yaml in this directory",
-        description="Write insidia.yaml in this directory. Refuses to overwrite an existing file.",
+        description=(
+            "Write insidia.yaml in this directory. "
+            "Pass --url to set targets.app.url. Refuses to overwrite an existing file."
+        ),
+    )
+    init.add_argument("--url", help="app URL to write as targets.app.url (local hosts only)")
+    init.add_argument(
+        "--kind",
+        help="target kind (default: chat when the URL path ends with /chat)",
     )
     subcommands.add_parser(
         "doctor",
@@ -218,9 +226,24 @@ def main(argv: list[str] | None = None) -> int:
 
 def _run(args: argparse.Namespace) -> int:
     if args.command == "init":
+        url = args.url
+        kind = args.kind
+        if url is not None:
+            prepare_init_url(url)
+        if kind is not None:
+            prepare_init_kind(url or "http://127.0.0.1:8080/chat", kind)
         _progress(args, "Writing insidia.yaml in this directory.")
-        path = init_config(Path.cwd())
-        _emit(args.json, {"wrote": path.name}, f"Wrote {path.name}.")
+        path = init_config(Path.cwd(), url=url, kind=kind)
+        written = url or "http://127.0.0.1:8080/chat"
+        document: dict[str, object] = {"wrote": path.name, "url": written}
+        text = f"Wrote {path.name} with targets.app.url {written}."
+        if url is None:
+            document["next"] = "Set targets.app.url to your app before you scan."
+            text += (
+                " Set targets.app.url to your app before you scan. "
+                "Example: insidia init --url http://127.0.0.1:PORT/path"
+            )
+        _emit(args.json, document, text)
         return 0
     if args.command == "doctor":
         _progress(args, "Checking Python, the config file, and installed engines.")

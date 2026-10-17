@@ -52,13 +52,13 @@ Pin a commit or tag by adding it before the fragment: `...Insidia-Labs@<rev>#sub
 From the project you want to test:
 
 ```bash
-insidia init
+insidia init --url http://127.0.0.1:PORT/path
 insidia doctor
 insidia scan --policy L1 --yes
 insidia report --open
 ```
 
-`insidia init` writes `insidia.yaml`. A scan reads that file and does not take a URL. The generated target is a sample chat endpoint at `http://127.0.0.1:8080/chat`; it does not start an app. Before scanning, edit `targets` to match your running app's URL, request format, and response selector.
+Set your app URL. `insidia init --url http://127.0.0.1:PORT/path` writes `insidia.yaml` and sets `targets.app.url` to that address. Replace `PORT` and `path` with the app you are running, for example `insidia init --url http://127.0.0.1:8081/chat`. A scan reads the file and does not take a URL on the command line. Without `--url`, init writes the sample `http://127.0.0.1:8080/chat` and tells you to set `targets.app.url` before scanning. Init does not start an app. A path ending in `/chat` is a chat target; pass `--kind` for another kind. The host is added to scope only when it is localhost, `127.0.0.1`, or `::1`.
 
 | Exit code | Meaning |
 | --- | --- |
