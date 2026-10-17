@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import BinaryIO, cast
 
@@ -13,18 +14,38 @@ from insidia.errors import CliError
 from insidia.policy import POLICIES
 from insidia.runstore import latest_run
 from insidia.scan import execute
+from insidia.scope import needs_confirmation
 
 # Newest first. A client that asks for one of these gets it back. Any other
 # request gets the newest, and the client decides whether to continue.
 PROTOCOLS = ("2025-06-18", "2025-03-26", "2024-11-05")
+# One NDJSON line or one Content-Length body. Larger input is rejected.
+_MAX_MESSAGE = 1024 * 1024
+_TOO_LARGE = "message exceeds 1 MB"
+# Set only by `insidia mcp --allow-remote`. The model cannot set this.
+_allow_remote = False
+_REMOTE_REFUSAL = (
+    "non-local scope is refused over MCP; "
+    "start the server with --allow-remote or INSIDIA_MCP_ALLOW_REMOTE=1"
+)
 
 
-def serve(stdin: BinaryIO, stdout: BinaryIO) -> int:
+def serve(stdin: BinaryIO, stdout: BinaryIO, allow_remote: bool = False) -> int:
     """Newline-delimited JSON-RPC, as the MCP stdio transport specifies.
 
     Content-Length framing from older clients is still read, and those
     clients get framed replies.
     """
+    global _allow_remote
+    previous = _allow_remote
+    _allow_remote = allow_remote
+    try:
+        return _serve(stdin, stdout)
+    finally:
+        _allow_remote = previous
+
+
+def _serve(stdin: BinaryIO, stdout: BinaryIO) -> int:
     while True:
         try:
             read = _read(stdin)
@@ -54,6 +75,10 @@ def dispatch(message: dict[str, object]) -> dict[str, object] | None:
         if method == "tools/call":
             return _result(message.get("id"), _tool_error(str(exc)))
         return _error(message.get("id"), -32000, str(exc))
+    except Exception:
+        # A corrupt run file or any other unexpected failure must not kill the
+        # server, and the message must not echo file contents or secrets.
+        return _error(message.get("id"), -32603, "internal error")
     return _result(message.get("id"), result)
 
 
@@ -103,6 +128,13 @@ def _doctor(arguments: dict[str, object]) -> dict[str, object]:
     return {"checks": checks}
 
 
+def _remote_allowed() -> bool:
+    """Human opt-in for a non-local scope. A tool argument cannot set this."""
+    if _allow_remote:
+        return True
+    return os.environ.get("INSIDIA_MCP_ALLOW_REMOTE") == "1"
+
+
 def _scan(arguments: dict[str, object]) -> dict[str, object]:
     if arguments.get("confirmed") is not True:
         raise CliError("scan requires confirmed true after the user names the hosts")
@@ -111,8 +143,10 @@ def _scan(arguments: dict[str, object]) -> dict[str, object]:
         raise CliError(f"unknown policy {policy}")
     policy_name = policy if isinstance(policy, str) else None
     project = load_project(Path("insidia.yaml"))
+    if needs_confirmation(project.scope) and not _remote_allowed():
+        raise CliError(_REMOTE_REFUSAL)
     outcome = execute(project, Path.cwd(), policy_name=policy_name, assume_yes=True)
-    return {
+    payload: dict[str, object] = {
         "schema_version": "2.0",
         "run_id": outcome.run_id,
         "passed": outcome.passed,
@@ -121,6 +155,9 @@ def _scan(arguments: dict[str, object]) -> dict[str, object]:
         "findings": len(outcome.findings),
         "run_dir": str(outcome.run_dir),
     }
+    if outcome.notes:
+        payload["notes"] = list(outcome.notes)
+    return payload
 
 
 def _findings(arguments: dict[str, object]) -> dict[str, object]:
@@ -176,11 +213,11 @@ def _error(message_id: object, code: int, message: str) -> dict[str, object]:
 
 def _read(stdin: BinaryIO) -> tuple[dict[str, object], bool] | None:
     """One message and whether it came Content-Length framed."""
-    line = stdin.readline()
-    while line.strip() == b"":
-        if line == b"":
-            return None
-        line = stdin.readline()
+    line = _read_line(stdin)
+    while line is not None and line.strip() == b"":
+        line = _read_line(stdin)
+    if line is None:
+        return None
     if line.lstrip().startswith(b"{"):
         return _decode(line), False
     headers: dict[str, str] = {}
@@ -190,8 +227,8 @@ def _read(stdin: BinaryIO) -> tuple[dict[str, object], bool] | None:
             raise CliError("message is neither JSON nor an MCP header")
         key, value = decoded.split(":", 1)
         headers[key.strip().lower()] = value.strip()
-        line = stdin.readline()
-        if line == b"":
+        line = _read_line(stdin)
+        if line is None:
             return None
     try:
         length = int(headers.get("content-length", "0"))
@@ -199,7 +236,38 @@ def _read(stdin: BinaryIO) -> tuple[dict[str, object], bool] | None:
         raise CliError("Content-Length is not a number") from exc
     if length <= 0:
         raise CliError("missing Content-Length")
+    if length > _MAX_MESSAGE:
+        _discard(stdin, length)
+        raise CliError(_TOO_LARGE)
     return _decode(stdin.read(length)), True
+
+
+def _read_line(stdin: BinaryIO) -> bytes | None:
+    """One line, or None at EOF before any byte. Lines over 1 MB are refused."""
+    line = stdin.readline(_MAX_MESSAGE + 1)
+    if line == b"":
+        return None
+    if len(line) <= _MAX_MESSAGE:
+        return line
+    if not line.endswith(b"\n"):
+        _discard_line(stdin)
+    raise CliError(_TOO_LARGE)
+
+
+def _discard_line(stdin: BinaryIO) -> None:
+    while True:
+        chunk = stdin.readline(65536)
+        if chunk == b"" or chunk.endswith(b"\n"):
+            return
+
+
+def _discard(stdin: BinaryIO, length: int) -> None:
+    remaining = length
+    while remaining > 0:
+        chunk = stdin.read(min(65536, remaining))
+        if not chunk:
+            return
+        remaining -= len(chunk)
 
 
 def _decode(raw: bytes) -> dict[str, object]:
@@ -234,14 +302,21 @@ _TOOLS: tuple[dict[str, object], ...] = (
     },
     {
         "name": "scan",
-        "description": "Scan the hosts already listed in insidia.yaml. Does not accept a URL.",
+        "description": (
+            "Scan the hosts already listed in insidia.yaml. Does not accept a URL. "
+            "Localhost scope only, unless the server was started with --allow-remote "
+            "or INSIDIA_MCP_ALLOW_REMOTE=1."
+        ),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "policy": {"type": "string", "enum": ["L1", "L2", "L3"]},
                 "confirmed": {
                     "type": "boolean",
-                    "description": "True only after the user names the hosts to test.",
+                    "description": (
+                        "True only after the user names the hosts to test. "
+                        "This does not authorize a non-local scope."
+                    ),
                 },
             },
             "required": ["confirmed"],

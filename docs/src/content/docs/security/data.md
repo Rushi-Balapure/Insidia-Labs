@@ -3,7 +3,9 @@ title: Data handling
 description: What a local Insidia scan sends, and what it writes down.
 ---
 
-A CLI scan sends traffic to the targets in `insidia.yaml` and, if you configured them, to your attacker and judge endpoints. It does not phone home. There is no telemetry switch in this pre-release because there is no telemetry.
+A CLI scan sends traffic to the targets in `insidia.yaml` and, if you configured them, to your attacker and judge endpoints. Insidia itself does not phone home. There is no telemetry switch in this pre-release because there is no telemetry.
+
+Trivy and osv-scanner do contact the internet. When they are installed and a scan runs them, each downloads a vulnerability database. That traffic is not limited to the hosts in `scope`. The scan prints a note naming the engine when that happens. The other engines do not download a vulnerability database.
 
 Secrets in evidence are masked before they are written. The report shows a type, a length, and a fingerprint, not the raw value.
 

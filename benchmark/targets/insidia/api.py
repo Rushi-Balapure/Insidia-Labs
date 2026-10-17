@@ -22,7 +22,8 @@ def path_lfi(user: str, state: State) -> str:
 
 
 def deserialization(user: str, state: State) -> str:
-    if user.startswith("pickle:"):
+    # The built-in probe's first payload is "pickle". The prefixed blob is the same bug.
+    if user == "pickle" or user.startswith("pickle:"):
         return "pickle.loads accepted a caller blob"
     return pickle.dumps({"ok": True}).hex()
 

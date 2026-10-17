@@ -119,9 +119,12 @@
       "    runs-on: ubuntu-latest",
       "    steps:",
       "      - uses: actions/checkout@v4",
-      "      - uses: Rushi-Balapure/Insidia-Labs/actions/scan@v0",
+      "      - uses: actions/setup-python@v5",
       "        with:",
-      "          policy: L1"
+      "          python-version: '3.12'",
+      "      - uses: astral-sh/setup-uv@v6",
+      "      - run: uv tool install git+https://github.com/Rushi-Balapure/Insidia-Labs#subdirectory=core",
+      "      - run: insidia scan --policy L1 --json"
     ],
     "check": "Insidia scan — Policy L1 did not pass. 1 finding."
   },

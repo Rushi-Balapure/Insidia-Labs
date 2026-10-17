@@ -27,7 +27,7 @@ todos:
     content: "Phase 1D: Insidia Benchmark (open policy format, L1-L3 levels, OWASP LLM/ASI/web/API mappings, score) plus HTML report, SARIF, JSON"
     status: completed
   - id: phase1e
-    content: "Phase 1E: agent skill at the top of the docs, MCP server, llms.txt, GitHub Action, install from GitHub (uv/pipx from git, GHCR Docker image, release wheels), public launch"
+    content: "Phase 1E: agent skill at the top of the docs, MCP server, llms.txt, CLI-based CI, install from GitHub (uv/pipx from git, GHCR Docker image, release wheels), public launch"
     status: completed
   - id: phase1f
     content: "Phase 1F: reliability, evidence, independently verified coverage, onboarding, reports, and product presentation; see 23-productization-plan.md. F00 and F01 are underway."
@@ -70,7 +70,7 @@ The 10 October 2026 review found that earlier implementation-complete labels and
 | 1B Engines | Done | Branch `phase-1b-engines`. Adapters are wired for garak 0.17.0, promptfoo 0.124.0, PyRIT 1.1.0, DeepTeam 1.0.9, mcp-scanner 4.8.5, SkillSpector 2.12.0, ZAP 2.17.0, Nuclei 3.11.1, Dalfox 3.2.3, katana 1.8.0, httpx 1.12.0, Trivy 0.75.0, osv-scanner 2.6.0, gitleaks 8.30.1, Bandit 1.9.4, and gosec 2.29.0. The built-in scan proves every phase 1B cell whose plant lives under `benchmark/targets/insidia/`, including white box and direct, relay, tunnel, and sdk_bridge. The white-box scan reads the cloned Juice Shop, crAPI, VAmPI, DVGA, and AgentDojo sinks through the cell's connection. Black-box and gray-box Juice Shop, VAmPI, and crAPI cells hit the running apps through direct and tunnel. All 635 phase 1B cells pass. |
 | 1C Gap modules | Done | 556 cells. The built-in scan proves the sandbox plants. Juice Shop, crAPI, and DVGA are hit on the running apps. The AgentDojo workspace tools run in process. `email-validator` is Unlicense and is allowed for those tools. |
 | 1D Benchmark and report | Done | One scan writes the four OWASP scores, a static coverage matrix, fix guidance, and a re-run command. Light and dark follow the system theme. |
-| 1E Agents and launch | Done | The skill, MCP server, llms.txt, and GitHub Action are in the tree. A v* tag builds a signed wheel and the GHCR image with every pinned engine. The launch note is on the site. |
+| 1E Agents and launch | Done | The skill, MCP server, and llms.txt are in the tree. CI runs the CLI directly. A v* tag builds a signed wheel and the GHCR image with every pinned engine. The launch note is on the site. |
 | 1F Reliability and productization | In progress | F00–F06 are in the tree: result contract, target status, shared budgets, redaction, staged reports, and finding identity. F07–F22 are not finished. [Execution plan](23-productization-plan.md). |
 | 2A Model service | Not started | After Phase 1F readiness and product-validation gates. |
 | 2B Custom attacks and pentest agent | Not started | |
@@ -103,7 +103,7 @@ Each file opens with the phase it belongs to.
 | [08-engine-registry.md](08-engine-registry.md) | Capability registry, 1A and 1D |
 | [09-agent-security.md](09-agent-security.md) | Scripted checks in 1C; honeypots and A2A in Phase 3 |
 | [10-white-box.md](10-white-box.md) | Static scanners in 1B; AI-BOM and SDK in Phase 3 |
-| [11-continuous-scanning.md](11-continuous-scanning.md) | GitHub Action in 1E; schedules in 2C |
+| [11-continuous-scanning.md](11-continuous-scanning.md) | CLI-based CI in 1E; schedules in 2C |
 | [12-enterprise.md](12-enterprise.md) | Phase 4 |
 | [13-runtime-guardrails.md](13-runtime-guardrails.md) | Runtime guardrails, Phase 4 |
 | [14-database-schema.md](14-database-schema.md) | Insidia Cloud database |
@@ -130,7 +130,7 @@ Competitors: AI-side (Mindgard, Lakera, HiddenLayer, promptfoo's commercial tier
 - **Open core, Apache-2.0 everywhere.** `core/`, `benchmark/`, `skills/`, `cloud/`, `runner/`, `dashboard/`, and `docs/` are all Apache-2.0. What stays private: production infrastructure config, secrets, the staff admin deployment config, customer data, and anything a customer gives us. Contributions need a DCO sign-off (no CLA), so the license can stay Apache.
 - **The moat is operation, not secrecy.** Anyone can self-host Cloud with their own GPUs and an uncensored model. Most teams will not: they pay for hosted GPUs, models we tune and evaluate against the benchmark, attack corpora we keep current, the dashboard, and support. Self-hosters are a funnel, not a leak.
 - **Free versus paid is decided by where the work runs.**
-  - Free: scans launched from the CLI on the user's machine or CI, with the OSS engines, our gap modules, static attack corpora, and any model the user brings (local or API). Includes the HTML report, SARIF, the agent skill, the MCP server, and the GitHub Action.
+  - Free: scans launched from the CLI on the user's machine or CI, with the OSS engines, our gap modules, static attack corpora, and any model the user brings (local or API). Includes the HTML report, SARIF, the agent skill, and the MCP server.
   - Paid: anything that uses our hardware. That means CLI scans that call the Insidia Cloud attacker or judge (metered per token), scans launched or scheduled from the hosted dashboard, the hosted pentest agent, team history, compliance exports, and runners for internal targets.
 - **Phase 1's "dashboard" is a report, not an app.** The CLI writes one self-contained HTML file (no server, no network, works offline) and `insidia report --open` opens it. Scans always run from the CLI in Phase 1.
 - **Agent-agnostic.** The CLI is the contract. Every command has `--json`, is non-interactive with `--yes`, returns stable exit codes, and prints next steps. On top: an agent skill (`skills/insidia/SKILL.md`, installable with `npx skills add` and readable by any agent), an MCP server (`insidia mcp`, stdio), `AGENTS.md` and `llms.txt` in the docs. No agent framework is required to use Insidia, and no agent framework is used inside it (no LangGraph).
@@ -222,7 +222,6 @@ insidia login | connect        Phase 2: link the CLI to Insidia Cloud
   - `uv tool install "git+https://github.com/Rushi-Balapure/Insidia-Labs#subdirectory=core"` (recommended), or the same URL with `pipx install`. A tag pins a release (`...Insidia-Labs@v0.1.0#subdirectory=core`).
   - A wheel attached to each GitHub Release, for offline or air-gapped installs (`uv tool install ./insidia-0.1.0-py3-none-any.whl`).
   - A Docker image on GitHub Container Registry (`ghcr.io/rushi-balapure/insidia`) with every engine pinned. It is the zero-setup path on any OS.
-  - A GitHub Action (`uses: Rushi-Balapure/Insidia-Labs/actions/scan@v0`) that uploads SARIF.
   Releases are tagged, and the wheel and image are signed with Sigstore (cosign) and have checksums. `core/pyproject.toml` must stay installable from a git subdirectory: no build steps that need files outside `core/`.
 
 ## Engine overlap and selection
@@ -299,7 +298,6 @@ Insidia-Labs/
   admin/                  staff admin console (React)
   site/                   marketing site (Astro, Vercel)
   brand/                  approved brand kit: logo, lockups, colors, favicons, fonts
-  actions/scan/           GitHub Action that runs the CLI and uploads SARIF
   docs/                   docs site (Starlight): agent skill first, then CLI, benchmark, Cloud
   shared/proto/           relay and control protocol
   shared/sdk/             in-process SDK handlers (Phase 3)
@@ -330,7 +328,7 @@ Static Astro site on Vercel, separate from the product. The site leads with the 
 - **1B Engines:** garak, promptfoo, PyRIT (single-turn), DeepTeam, mcp-scanner, SkillSpector; ZAP, Nuclei, Dalfox, katana/httpx, Trivy, osv-scanner, gitleaks, Bandit, gosec. Exit: every cell that `ownership.yaml` assigns to 1B is green, with no model configured where the cell allows it.
 - **1C Gap modules:** the Insidia-built modules from [16-coverage-gaps.md](16-coverage-gaps.md) that do not need our hosted model: canary leakage oracle, instruction-hierarchy probes, indirect-injection fixtures (documents, web pages, tool results), RAG cross-tenant bleed, tool-trace and goal-diff oracles, output-sink checks, BOLA/BFLA, mass assignment, JWT, GraphQL depth, scripted AI-to-classic chains. Exit: every cell that `ownership.yaml` assigns to 1C is green.
 - **1D Benchmark and report:** the policy format and L1-L3 policies, framework mappings (`benchmark/mappings/`), per-control scoring, `benchmark.json`, SARIF, JSON, and the single-file HTML report (apple-design, light and dark, works offline, secrets masked, engine credited per finding, "fix this" guidance, a re-run command per finding). Exit: one scan produces a report and an OWASP LLM / ASI / Web / API score; the report renders with JavaScript off for the summary.
-- **1E Agents, distribution, launch:** the agent skill, `insidia mcp`, docs with the skill first, `llms.txt`, the GitHub Action, signed GitHub Releases (git install, wheel, GHCR image), a launch post, and the reworked site. Exit: a fresh machine with only a coding agent (Claude Code, Cursor, and Codex tested) goes from "test my app with Insidia" to an opened report with no manual commands, and the same flow works in CI.
+- **1E Agents, distribution, launch:** the agent skill, `insidia mcp`, docs with the skill first, `llms.txt`, direct CLI usage in CI, signed GitHub Releases (git install, wheel, GHCR image), a launch post, and the reworked site. Exit: a fresh machine with only a coding agent (Claude Code, Cursor, and Codex tested) goes from "test my app with Insidia" to an opened report with no manual commands, and the same flow works in CI.
 
 ### Phase 2 - Insidia Cloud (paid, open-source code)
 - **2A Model service:** Stage 0 model hosting, API keys, metering, `insidia login`, `provider: insidia-cloud`. Exit: the CLI runs an L3 scan with the hosted attacker and judge, and usage is metered per org.

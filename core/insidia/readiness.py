@@ -20,8 +20,8 @@ UNSCHEDULED_FAMILIES = (
     "deps.osv",
 )
 
-# Named in public copy before a capability existed. They stay absent until F21.
-ABSENT_CAPABILITIES = ("web.sqli", "web.xss")
+# Named in public copy before a capability existed. They stay absent until shipped.
+ABSENT_CAPABILITIES = ("web.xss",)
 
 
 @dataclass(frozen=True)

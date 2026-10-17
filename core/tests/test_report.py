@@ -45,8 +45,8 @@ def test_report_scores_frameworks_and_names_the_engine(tmp_path: Path) -> None:
     html = (directory / "report.html").read_text()
     assert "OWASP LLM" in html
     assert "OWASP Web" in html
-    assert "<tr><td>OWASP LLM Top 10</td><td>1</td><td>0</td><td>9</td></tr>" in html
-    assert "<tr><td>OWASP Web Top 10</td><td>0</td><td>1</td><td>9</td></tr>" in html
+    assert _score_line(html, "OWASP LLM Top 10") == ("1", "0", "9")
+    assert _score_line(html, "OWASP Web Top 10") == ("0", "1", "9")
     assert "<script" not in html
     assert "prefers-color-scheme: dark" in html
     assert "#101028" in html
@@ -96,10 +96,279 @@ def test_report_scores_frameworks_and_names_the_engine(tmp_path: Path) -> None:
     assert run["results"][0]["properties"]["engine"] == "insidia"
 
 
+def test_report_sections_follow_the_nessus_order(tmp_path: Path) -> None:
+    import re
+
+    chat = _bare(
+        track="ai",
+        probe="insidia.ai.data_leakage",
+        attack="ai.data_leakage",
+        response=mask(f"token {_SECRET}"),
+        taxonomy=("owasp-llm:LLM02",),
+        remediation="Stop returning secrets.",
+        target="nova",
+    )
+    web = _bare(target="shop", attack="web.cmdi", probe="insidia.web.cmdi", response="uid=0")
+    controls = [
+        {
+            "id": "ai.data_leakage",
+            "target": "nova",
+            "result": "fail",
+            "taxonomy": "owasp-llm:LLM02",
+        },
+        {"id": "web.cmdi", "target": "shop", "result": "fail", "taxonomy": "owasp-web:A03"},
+        {
+            "id": "ai.bias",
+            "target": "nova",
+            "result": "not tested",
+            "taxonomy": "owasp-llm:LLM01",
+        },
+    ]
+    directory = write_run(
+        tmp_path,
+        "20261016T012713Z-a321e5",
+        "L1",
+        False,
+        [chat, web],
+        controls,
+        ["nova: ai.bias needs a judge"],
+        targets=(
+            ("nova", "chat", "POST http://127.0.0.1:8100/api/v1/assistant"),
+            ("shop", "web", "GET http://127.0.0.1:8090/ping"),
+        ),
+        started_epoch=1_700_000_000.0,
+        scope_hosts=("127.0.0.1",),
+    )
+    html = (directory / "report.html").read_text()
+    headings = re.findall(r"<h2[^>]*>([^<]+)</h2>", html)
+    assert headings == [
+        "Executive summary",
+        "Targets",
+        "Findings by severity",
+        "Remediation summary",
+        "Coverage by target",
+        "Framework mapping",
+        "Scan information",
+    ]
+    assert html.index("Executive summary") < html.index("Findings by severity")
+    assert html.index("Findings by severity") < html.index("Coverage by target")
+    assert "OWASP item list" in html
+    assert html.index("Framework mapping") < html.index("OWASP item list")
+    for label in ("Critical", "High", "Medium", "Low", "Info"):
+        assert label in html
+    payload = json.loads((directory / "findings.json").read_text())
+    sarif = json.loads((directory / "results.sarif").read_text())["runs"][0]["results"]
+    shown = [int(item) for item in re.findall(r'class="tile t-[a-z]+"><b>(\d+)</b>', html)]
+    assert sum(shown) == len(payload) == len(sarif) == 2
+    manifest = json.loads((directory / "manifest.json").read_text())
+    assert manifest["finished_at"]
+    assert manifest["duration_s"] >= 0
+    assert manifest["insidia_version"].startswith("insidia ")
+    assert "Security scan report: nova, shop" in html
+    assert "127.0.0.1" in html
+    footer = html.split("<footer>", 1)[1]
+    assert footer.count("insidia rerun 20261016T012713Z-a321e5") == 1
+
+
+def test_finding_cards_list_fields_in_order_and_escape_evidence(tmp_path: Path) -> None:
+    import re
+
+    leaked = "ghp_" + ("b" * 36)
+    stripe = "sk_live_" + ("c" * 20)
+    response = f"see <img src=\"https://evil.example/a.png\"> {leaked} {stripe} {_SECRET}"
+    finding = _bare(
+        track="ai",
+        probe="insidia.ai.data_leakage",
+        attack="ai.data_leakage",
+        response=mask(response),
+        taxonomy=("owasp-llm:LLM02", "cwe:CWE-200"),
+        remediation="Stop returning secrets.",
+        target="nova",
+        evidence_hash="abc123",
+    )
+    directory = write_run(tmp_path, "run-card", "L1", False, [finding], [], [])
+    html = (directory / "report.html").read_text()
+    card = html.split('<details class="finding"', 1)[1].split("</details>", 1)[0]
+    labels = re.findall(r"<dt>([^<]+)</dt>", card)
+    assert labels == [
+        "Synopsis",
+        "Description",
+        "Solution",
+        "Risk factor",
+        "Insidia Risk Score",
+        "References",
+        "See Also",
+        "Plugin output",
+        "Re-run",
+    ]
+    assert "Insidia Risk Score" in card
+    assert "CVSS" not in card.split("Insidia Risk Score", 1)[0]
+    assert "<img" not in html
+    assert "https://evil.example/a.png" in html
+    assert leaked not in html
+    assert stripe not in html
+    assert _SECRET not in html
+    assert "[GITHUB_TOKEN " in html
+    assert "[AWS_ACCESS_KEY " in html
+    assert "OWASP LLM02" in card
+    assert "CWE-200" in card
+    assert "genai.owasp.org" in card
+    assert "insidia rerun run-card" in card
+
+
+def test_not_tested_rows_say_why_and_passes_are_counted_honestly(tmp_path: Path) -> None:
+    import re
+
+    controls = [
+        {
+            "id": "ai.bias",
+            "target": "nova",
+            "result": "not tested",
+            "taxonomy": "owasp-llm:LLM01",
+            "detail": "needs a judge model: `models: {}`",
+        },
+        {
+            "id": "infra.tls",
+            "target": "shop",
+            "result": "not tested",
+            "taxonomy": "owasp-web:A02",
+            "detail": "http:// target has no TLS to test",
+        },
+        {
+            "id": "logic.race",
+            "target": "shop",
+            "result": "not tested",
+            "taxonomy": "owasp-web:A04",
+        },
+        {
+            "id": "web.ssti",
+            "target": "shop",
+            "result": "pass",
+            "taxonomy": "owasp-web:A03,cwe:CWE-1336",
+        },
+    ]
+    directory = write_run(tmp_path, "run-cov", "L1", True, [], controls, [])
+    html = (directory / "report.html").read_text()
+    assert "not evidence that those risks are absent" in html
+    reasons = []
+    for row in re.findall(r"<tr>(.*?)</tr>", html, re.S):
+        if "NOT TESTED" not in row:
+            continue
+        why = re.search(r'data-l="Why">(.*?)</td>', row)
+        assert why is not None
+        text = why.group(1).strip()
+        assert text
+        reasons.append(text)
+    assert len(reasons) == 3
+    assert len(set(reasons)) == 3
+    assert any("judge model" in reason for reason in reasons)
+    assert any("no TLS" in reason for reason in reasons)
+    assert any("logic.race" in reason for reason in reasons)
+    assert _score_line(html, "OWASP LLM Top 10") == ("0", "0", "10")
+    assert _score_line(html, "OWASP Web Top 10") == ("0", "1", "9")
+    assert "@media (max-width:700px)" in html
+    assert "@media print" in html
+    assert "nav { display: none; }" in html
+    assert "prefers-color-scheme: dark" in html
+
+
+def _score_line(html: str, title: str) -> tuple[str, str, str]:
+    row = next(line for line in html.splitlines() if title in line)
+    cells = row.split("<td")
+    values = [cell.split(">", 1)[1].split("<", 1)[0] for cell in cells[1:]]
+    assert values[0] == title
+    return values[1], values[2], values[3]
+
+
 def test_unknown_taxonomy_id_is_rejected() -> None:
     controls = [{"id": "x", "target": "chat", "result": "fail", "taxonomy": "owasp-llm:LLM99"}]
     with pytest.raises(ValueError, match="unknown taxonomy id owasp-llm:LLM99"):
         score_frameworks(controls)
+
+
+def _bare(**overrides: object) -> Finding:
+    values: dict[str, object] = {
+        "track": "classic",
+        "engine": "insidia",
+        "probe": "insidia.web.ssti",
+        "severity": "high",
+        "confidence": "high",
+        "attack": "web.ssti",
+        "response": "49",
+        "trace_ref": "shop",
+        "taxonomy": ("owasp-web:A03",),
+        "remediation": "Do not evaluate user input as a template.",
+        "evidence_hash": "abc",
+        "cross_validated": False,
+        "target": "shop",
+    }
+    values.update(overrides)
+    return Finding(**values)  # type: ignore[arg-type]
+
+
+def test_every_sarif_result_locates_the_endpoint_or_the_file(tmp_path: Path) -> None:
+    chat = _bare(
+        track="ai",
+        probe="insidia.ai.data_leakage",
+        attack="ai.data_leakage",
+        response=mask(f"token {_SECRET}"),
+        taxonomy=("owasp-llm:LLM02",),
+        remediation="Stop returning secrets.",
+        target="nova",
+        location="",
+    )
+    repo = _bare(
+        probe="insidia.code.secrets",
+        attack="code.secrets",
+        response=mask(_SECRET),
+        taxonomy=("owasp-web:A05",),
+        remediation="Remove the key.",
+        target="tree",
+        location="pkg/secrets.py:12",
+    )
+    blank = _bare(target="orphan", location="")
+    endpoint = "POST http://127.0.0.1:8100/api/v1/assistant"
+    directory = write_run(
+        tmp_path,
+        "run-loc",
+        "L1",
+        False,
+        [chat, repo, blank],
+        [],
+        [],
+        targets=(
+            ("nova", "chat", endpoint),
+            ("tree", "repo", "benchmark/targets/insidia/repo"),
+        ),
+    )
+    payload = json.loads((directory / "findings.json").read_text())
+    by_target = {item["target"]: item for item in payload}
+    assert by_target["nova"]["endpoint"] == endpoint
+    assert by_target["nova"]["target_kind"] == "chat"
+    assert by_target["tree"]["target_kind"] == "repo"
+    assert by_target["tree"]["endpoint"] == "benchmark/targets/insidia/repo"
+    assert by_target["orphan"]["endpoint"] == ""
+    assert by_target["orphan"]["target_kind"] == ""
+    results = json.loads((directory / "results.sarif").read_text())["runs"][0]["results"]
+    assert len(results) == len(payload)
+    for result in results:
+        assert result["locations"]
+        physical = result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"]
+        assert "://" not in physical
+        assert not physical.startswith("/")
+    nova = next(item for item in results if "data_leakage" in item["ruleId"])
+    logical = nova["locations"][0]["logicalLocations"][0]
+    assert logical["kind"] == "endpoint"
+    assert logical["fullyQualifiedName"] == endpoint
+    assert nova["locations"][0]["physicalLocation"]["region"]["snippet"]["text"] == endpoint
+    assert nova["locations"][0]["physicalLocation"]["artifactLocation"]["uri"].startswith(
+        "insidia-endpoints/"
+    )
+    secret = next(item for item in results if item["ruleId"] == "insidia.code.secrets")
+    region = secret["locations"][0]["physicalLocation"]
+    assert region["artifactLocation"]["uri"] == "pkg/secrets.py"
+    assert region["region"]["startLine"] == 12
+    assert "logicalLocations" not in secret["locations"][0]
 
 
 def test_l1_tags_prompt_injection_and_template_injection() -> None:

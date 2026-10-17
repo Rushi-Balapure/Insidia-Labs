@@ -1,4 +1,8 @@
-"""HTTP front for the local fixtures. Listens only inside the sandbox network."""
+"""HTTP front for the local fixtures.
+
+Binds to 127.0.0.1 unless INSIDIA_FIXTURE_HOST is set. The sandbox image sets
+that to 0.0.0.0 so other containers on the sandbox network can reach it.
+"""
 
 from __future__ import annotations
 
@@ -42,6 +46,11 @@ def call(module: str, function: str, user: str) -> str:
     return str(result)
 
 
+def listen_host() -> str:
+    """Loopback unless a container sets INSIDIA_FIXTURE_HOST."""
+    return os.environ.get("INSIDIA_FIXTURE_HOST", "127.0.0.1")
+
+
 def main() -> None:
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -77,7 +86,7 @@ def main() -> None:
         def log_message(self, fmt: str, *args: object) -> None:
             return
 
-    host = os.environ.get("INSIDIA_FIXTURE_HOST", "0.0.0.0")
+    host = listen_host()
     port = int(os.environ.get("INSIDIA_FIXTURE_PORT", "8080"))
     ThreadingHTTPServer((host, port), Handler).serve_forever()
 

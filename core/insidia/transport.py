@@ -20,7 +20,7 @@ from urllib.parse import parse_qsl, quote, urlencode, urljoin, urlparse, urlunpa
 
 from insidia.config import Target, resolve_secret
 from insidia.errors import CliError, ConfigError, HttpStatus, ProbeError, ScopeError
-from insidia.scope import ScopeHost, check_url, hostname
+from insidia.scope import ScopeHost, check_url, redirect_refusal
 
 _MAX_BODY = 1_000_000
 _REDIRECTS = frozenset({301, 302, 303, 307, 308})
@@ -119,25 +119,39 @@ def preflight(target: Target, scope: tuple[ScopeHost, ...], root: Path) -> str:
 
     A web app may answer one odd input with 400 or 500, and that answer is
     evidence. A missing route, a wrong method, or an AI endpoint that rejects
-    a plain prompt means every check would fail the same way.
+    a plain prompt means every check would fail the same way. A 3xx is also
+    an answer: the route exists, even when the page it points at does not.
     """
     if target.kind == "repo":
         return ""
+    scheme = urlparse(target.url).scheme if target.url else ""
+    if scheme in {"http", "https"} and target.api != "grpc":
+        try:
+            status, _headers, body = fetch_target(target, "hello", scope, follow=False)
+        except ProbeError as exc:
+            return f"{target.url}: {exc}"
+        if status in _REDIRECTS or status < 400:
+            return ""
+        return _status_reason(target, HttpStatus(status, body), scope)
     try:
         exchange(target, "hello", scope, root)
     except HttpStatus as exc:
-        hint = _NO_ROUTE.get(exc.status)
-        if exc.status == 404 and target.kind not in AI_KINDS and _app_answer(target, exc, scope):
-            hint = None
-        if hint is None and target.kind not in AI_KINDS:
-            return ""
-        where = f"{target.method} {target.url}"
-        if hint == "check method":
-            hint = f"method is {target.method}; set method: GET if the app reads a query"
-        return f"{where} returned HTTP {exc.status}" + (f" ({hint})" if hint else "")
+        return _status_reason(target, exc, scope)
     except ProbeError as exc:
         return f"{target.url}: {exc}"
     return ""
+
+
+def _status_reason(target: Target, exc: HttpStatus, scope: tuple[ScopeHost, ...]) -> str:
+    hint = _NO_ROUTE.get(exc.status)
+    if exc.status == 404 and target.kind not in AI_KINDS and _app_answer(target, exc, scope):
+        hint = None
+    if hint is None and target.kind not in AI_KINDS:
+        return ""
+    where = f"{target.method} {target.url}"
+    if hint == "check method":
+        hint = f"method is {target.method}; set method: GET if the app reads a query"
+    return f"{where} returned HTTP {exc.status}" + (f" ({hint})" if hint else "")
 
 
 def _app_answer(target: Target, missing: HttpStatus, scope: tuple[ScopeHost, ...]) -> bool:
@@ -146,7 +160,8 @@ def _app_answer(target: Target, missing: HttpStatus, scope: tuple[ScopeHost, ...
     `/file?name=hello` may answer "no such file", and that is the app talking.
     A 404 that matches the catch-all page means the route itself is wrong.
     """
-    assert target.url is not None
+    if target.url is None:
+        raise ConfigError(f"{target.name} needs a url")
     parsed = urlparse(target.url)
     missing_path = f"/insidia-no-such-route-{os.urandom(4).hex()}"
     probe = urlunparse(parsed._replace(path=missing_path, query=""))
@@ -158,32 +173,48 @@ def _app_answer(target: Target, missing: HttpStatus, scope: tuple[ScopeHost, ...
 
 
 def _http(target: Target, payload: str, scope: tuple[ScopeHost, ...]) -> str:
-    assert target.url is not None
+    status, _headers, text = fetch_target(target, payload, scope)
+    if status >= 400:
+        raise HttpStatus(status, text)
+    if target.kind in AI_KINDS and _login_page(text):
+        raise ProbeError(f"{target.name} returned an HTML login page")
+    return _select(text, target.response_selector)
+
+
+def fetch_target(
+    target: Target,
+    payload: str,
+    scope: tuple[ScopeHost, ...],
+    *,
+    follow: bool = True,
+) -> tuple[int, dict[str, str], str]:
+    """Status, headers, and body for one payload. Redirects are optional."""
+    if target.url is None:
+        raise ConfigError(f"{target.name} needs a url")
     limiter, gate = _slot(target)
     url = _with_query(_in_path(target.url, payload), target.query, payload)
-    method = target.method
     body = _body(target, payload)
     headers = _headers(target, body is not None)
     with gate:
-        observed = read_url(
+        return fetch(
             url,
             scope,
-            method=method,
-            body=body,
-            headers=headers,
-            limiter=limiter,
-            timeout=target.timeout,
+            target.method,
+            body,
+            headers,
+            limiter,
+            target.timeout,
+            follow=follow,
         )
-    if target.kind in AI_KINDS and _login_page(observed):
-        raise ProbeError(f"{target.name} returned an HTML login page")
-    return _select(observed, target.response_selector)
 
 
 def _websocket(target: Target, payload: str, scope: tuple[ScopeHost, ...]) -> str:
-    assert target.url is not None
+    if target.url is None:
+        raise ConfigError(f"{target.name} needs a url")
     check_url(target.url, scope)
     parsed = urlparse(target.url)
-    assert parsed.hostname is not None
+    if parsed.hostname is None:
+        raise ConfigError("URL is missing a host")
     port = parsed.port or (443 if parsed.scheme == "wss" else 80)
     sock = socket.create_connection((parsed.hostname, port), timeout=10)
     try:
@@ -220,7 +251,7 @@ def read_url(
     limiter: RateLimiter | None = None,
     timeout: float = 10,
 ) -> str:
-    """Read one URL. Redirects that change host are refused, and no proxy is used."""
+    """Read one URL. A redirect that changes host or port, or downgrades TLS, is refused."""
     status, _headers, text = fetch(url, scope, method, body, headers, limiter, timeout)
     if status >= 400:
         raise HttpStatus(status, text)
@@ -235,18 +266,25 @@ def fetch(
     headers: dict[str, str] | None = None,
     limiter: RateLimiter | None = None,
     timeout: float = 10,
+    *,
+    follow: bool = True,
 ) -> tuple[int, dict[str, str], str]:
-    """Status, response headers, and body. An error status is returned, not raised."""
+    """Status, response headers, and body. An error status is returned, not raised.
+
+    Redirects are followed only when `follow` is true. A 3xx is returned as-is
+    otherwise, and its Location is not requested.
+    """
     opener = urllib.request.OpenerDirector()
     opener.add_handler(urllib.request.HTTPHandler())
     opener.add_handler(urllib.request.HTTPSHandler())
-    origin = hostname(url)
+    origin = url
     current = url
     request_headers = dict(headers or {})
     for _ in range(4):
         check_url(current, scope)
-        if hostname(current) != origin:
-            raise ScopeError(f"redirect left {origin}")
+        refusal = redirect_refusal(origin, current)
+        if refusal is not None:
+            raise ScopeError(refusal)
         if limiter is not None:
             limiter.wait()
         request = urllib.request.Request(
@@ -258,20 +296,23 @@ def fetch(
         try:
             with opener.open(request, timeout=timeout) as response:
                 status = int(response.status)
-                if status in _REDIRECTS:
-                    location = response.headers.get("Location")
-                    if not isinstance(location, str) or not location:
-                        raise CliError("redirect is missing Location")
-                    current = urljoin(current, location)
-                    if status in {301, 302, 303}:
-                        method = "GET"
-                        body = None
-                    continue
                 raw = response.read(_MAX_BODY)
                 if not isinstance(raw, bytes):
                     raise CliError("response was not bytes")
                 received = {key.lower(): value for key, value in response.headers.items()}
-                return status, received, raw.decode("utf-8", "replace")
+                text = raw.decode("utf-8", "replace")
+                if status not in _REDIRECTS:
+                    return status, received, text
+                if not follow:
+                    return status, received, text
+                location = received.get("location", "")
+                if not location:
+                    raise CliError("redirect is missing Location")
+                current = urljoin(current, location)
+                if status in {301, 302, 303}:
+                    method = "GET"
+                    body = None
+                continue
         except TimeoutError as exc:
             raise ProbeError("target timed out") from exc
         except urllib.error.URLError as exc:
@@ -295,6 +336,50 @@ def repo_path(target: Target, root: Path) -> Path:
     if resolved != project and project not in resolved.parents:
         raise ScopeError(f"{target.name} path is outside the project")
     return resolved
+
+
+# Placeholders `_fill` substitutes. The path is narrower: only {{payload}}, matching `_in_path`.
+_FILL_MARKERS = ("{{conversation_json}}", "{{prompt_json}}", "{{prompt}}", "{{payload}}")
+
+
+def carries_payload(target: Target) -> bool:
+    """True when a probe string changes the request, not only the text we meant to send.
+
+    This follows `_http`: `{{payload}}` in the URL path, any `_fill` placeholder in
+    the URL query or `query` map, and the body from `_body`. A non-GET target with
+    no request template sends the raw payload as JSON, so it does carry one.
+    A websocket frame is the payload itself.
+    """
+    if target.url is None:
+        return False
+    if urlparse(target.url).scheme in {"ws", "wss"}:
+        return True
+    if _path_carries(target.url) or _query_carries(target.url, target.query):
+        return True
+    return _body_carries(target)
+
+
+def _path_carries(url: str) -> bool:
+    return "{{payload}}" in urlparse(url).path
+
+
+def _query_carries(url: str, query: dict[str, str]) -> bool:
+    parsed = urlparse(url)
+    values = [value for _key, value in parse_qsl(parsed.query, keep_blank_values=True)]
+    values.extend(query.values())
+    return any(_has_fill_marker(value) for value in values)
+
+
+def _body_carries(target: Target) -> bool:
+    if target.method == "GET":
+        return False
+    if target.request_template:
+        return _has_fill_marker(target.request_template)
+    return True
+
+
+def _has_fill_marker(text: str) -> bool:
+    return any(marker in text for marker in _FILL_MARKERS)
 
 
 def _in_path(url: str, payload: str) -> str:

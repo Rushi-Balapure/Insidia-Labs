@@ -17,7 +17,12 @@ What goes in the config file is [insidia.yaml](/docs/start/config/). `insidia -h
 
 ## init
 
-Writes `insidia.yaml` in the current directory. Refuses to overwrite an existing file.
+```bash
+insidia init --url http://127.0.0.1:PORT/path
+insidia init --url http://127.0.0.1:8080/hello --kind web
+```
+
+Writes `insidia.yaml` in the current directory, or the file given by `--config`. `--url` sets `targets.app.url`. The host is added to scope only when it is localhost, `127.0.0.1`, or `::1`. A non-local host is refused; set `authorized: true` yourself before scanning it. `--kind` defaults to `chat` when the path ends with `/chat`, and is inferred otherwise. Without `--url`, the file uses `http://127.0.0.1:8080/chat` and the command tells you to set `targets.app.url`. Refuses to overwrite an existing file.
 
 ## doctor
 
@@ -33,6 +38,8 @@ insidia engines install --docker
 ```
 
 `list`, or `insidia engines` alone, prints each known engine, its license, and whether it is installed. An engine that was downloaded but needs a runtime this machine lacks says what it needs. A check whose only engines are not installed is reported as not tested, with the engine to install. To install toolchains, name the engines, for example `insidia engines install garak zap`. With no names, `install` reports that built-in probes are available. `--docker` checks for Docker; named engine images are not available through this command yet.
+
+A downloaded engine binary is checked against a pinned SHA-256 for that engine, version, and platform before it is unpacked. If the bytes do not match, the install stops. If this platform has no pin, the install stops unless you pass `--allow-unverified`.
 
 ## policy
 
@@ -80,6 +87,7 @@ Scans again with the policy and coverage recorded for that run. If `insidia.yaml
 
 ```bash
 insidia mcp
+insidia mcp --allow-remote
 ```
 
-Speaks MCP over stdio. Tools: `init`, `doctor`, `scan`, `findings`, `report`. `scan` requires `confirmed: true` and reads `insidia.yaml`. It does not accept a URL. See [Use a coding agent](/docs/start/agent/).
+Speaks MCP over stdio. Tools: `init`, `doctor`, `scan`, `findings`, `report`. `scan` requires `confirmed: true` and reads `insidia.yaml`. It does not accept a URL. Localhost, `127.0.0.1`, and `::1` run by default. A scope that names any other host is refused unless the person who starts the server passes `--allow-remote` or sets `INSIDIA_MCP_ALLOW_REMOTE=1`. The calling model cannot turn that on. See [Use a coding agent](/docs/start/agent/).

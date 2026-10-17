@@ -52,13 +52,13 @@ Pin a commit or tag by adding it before the fragment: `...Insidia-Labs@<rev>#sub
 From the project you want to test:
 
 ```bash
-insidia init
+insidia init --url http://127.0.0.1:PORT/path
 insidia doctor
 insidia scan --policy L1 --yes
 insidia report --open
 ```
 
-`insidia init` writes `insidia.yaml`. A scan reads that file and does not take a URL. The generated target is a sample chat endpoint at `http://127.0.0.1:8080/chat`; it does not start an app. Before scanning, edit `targets` to match your running app's URL, request format, and response selector.
+Set your app URL. `insidia init --url http://127.0.0.1:PORT/path` writes `insidia.yaml` and sets `targets.app.url` to that address. Replace `PORT` and `path` with the app you are running, for example `insidia init --url http://127.0.0.1:8081/chat`. A scan reads the file and does not take a URL on the command line. Without `--url`, init writes the sample `http://127.0.0.1:8080/chat` and tells you to set `targets.app.url` before scanning. Init does not start an app. A path ending in `/chat` is a chat target; pass `--kind` for another kind. The host is added to scope only when it is localhost, `127.0.0.1`, or `::1`.
 
 | Exit code | Meaning |
 | --- | --- |
@@ -67,7 +67,7 @@ insidia report --open
 | `2` | The run was incomplete with no finding, or an error stopped it. |
 | `130` | The run was cancelled. |
 
-`--json` prints the run id, findings, and skips. `--yes` is only required when `scope` includes a host other than localhost. The same steps are on [the quickstart](https://insidialabs.com/docs/start/quickstart/).
+`--json` prints the run id, findings, and skips. `--yes` is only required when `scope` includes a host other than localhost, `127.0.0.1`, or `::1`. The same steps are on [the quickstart](https://insidialabs.com/docs/start/quickstart/).
 
 ## insidia.yaml
 
@@ -123,7 +123,7 @@ Paste this into Claude Code, Cursor, Codex, or any agent that can run a shell:
 Test this app with Insidia. Only scan localhost, and open the report when you're done.
 ```
 
-You confirm the hosts. The agent should install the CLI, keep the scope you named, read `.insidia/runs/<run-id>/findings.json`, and open `report.html`. The skill is `skills/insidia/SKILL.md` (`npx skills add Rushi-Balapure/Insidia-Labs`, which needs Node.js 22 or later). `insidia mcp` is the local MCP server over stdio. It reads newline-delimited JSON-RPC or Content-Length framing and negotiates MCP 2025-06-18, 2025-03-26, or 2024-11-05. The CLI remains the contract: `--json`, `--yes`, and stable exit codes.
+You confirm the hosts. The agent should install the CLI, keep the scope you named, read `.insidia/runs/<run-id>/findings.json`, and open `report.html`. The skill is `skills/insidia/SKILL.md` (`npx skills add Rushi-Balapure/Insidia-Labs`, which needs Node.js 22 or later). `insidia mcp` is the local MCP server over stdio. It reads newline-delimited JSON-RPC or Content-Length framing and negotiates MCP 2025-06-18, 2025-03-26, or 2024-11-05. A localhost scope can be scanned through it. Any other host needs `insidia mcp --allow-remote` or `INSIDIA_MCP_ALLOW_REMOTE=1` when the server starts. The CLI remains the contract: `--json`, `--yes`, and stable exit codes.
 
 ## Planned coverage
 
@@ -215,7 +215,6 @@ Flags that go before or after the command: `--config PATH` (default `insidia.yam
 | [`core/`](core) | The `insidia` package: CLI, configuration, scope guard, engines, probes, findings, and reports |
 | [`benchmark/`](benchmark) | Scanner matrix, framework mappings, sandboxed targets, and regression tests |
 | [`skills/insidia/`](skills/insidia) | Instructions for coding agents to install and run Insidia |
-| [`actions/scan/`](actions/scan) | GitHub Action for running the CLI in CI |
 | [`Dockerfile`](Dockerfile) | CLI container image with the pinned scanner engines |
 | [`site/`](site) | Marketing site, published at [insidialabs.com](https://insidialabs.com) |
 | [`docs/`](docs) | Documentation, published at [insidialabs.com/docs](https://insidialabs.com/docs/) |

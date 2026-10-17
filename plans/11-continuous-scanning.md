@@ -1,6 +1,6 @@
 # Continuous scanning — CI in Phase 1E, schedules in Phase 2C, the rest in Phase 3
 
-> This file covers continuous scanning. The free path needs no account: `insidia scan` in CI exits 0 when the policy passes, 1 when it fails, and 2 on error, and writes SARIF. The GitHub Action `Rushi-Balapure/Insidia-Labs/actions/scan` (Phase 1E) wraps that CLI and talks to the local engines only. Schedules, webhooks, and Slack notifications are Phase 2C (they run in Cloud). Jira, the GitLab CI template, SIEM export, the Burp extension, and fleet discovery are Phase 3. Race and WebSocket modules run locally in Phase 1B.
+> This file covers continuous scanning. The free path needs no account: `insidia scan` in CI exits 0 when the policy passes, 1 when it fails, and 2 on error, and writes SARIF. CI jobs install the CLI directly and run local engines. Schedules, webhooks, and Slack notifications are Phase 2C (they run in Cloud). Jira, the GitLab CI template, SIEM export, the Burp extension, and fleet discovery are Phase 3. Race and WebSocket modules run locally in Phase 1B.
 
 Depends on: the CLI (Phase 1E) for CI, and the Cloud API (Phase 2C) for schedules.
 Parent: [00-master-plan.md](00-master-plan.md).
@@ -10,7 +10,7 @@ A repository fails its own build on new high-severity findings with no account. 
 
 ## Exit
 - `insidia-runner scan --target <id> --profile <id> --wait` exits non-zero when the scan's new findings meet a threshold.
-- The GitHub Action (Phase 1E) and a GitLab CI template (Phase 3) run that command, using an org API key for Cloud scans.
+- CI workflows invoke the CLI directly; a GitLab CI template (Phase 3) uses an org API key for Cloud scans.
 - A baseline scan stores a fingerprint set. A later scan fails only on findings not in the baseline (regression), not on accepted or baselined items.
 - Scheduled scan fires from Celery beat, notifies Slack or a generic webhook.
 - Jira issue create is a documented webhook mapping (Phase 3) when the generic webhook can carry the fields. If Jira needs auth, add one integration module.
@@ -20,7 +20,7 @@ A repository fails its own build on new high-severity findings with no account. 
 ## CI
 The CLI itself. `insidia scan --policy L1 --sarif out.sarif` writes SARIF and exits 1 when the policy fails. `--baseline <run-id>` fails only on findings not in that run. No API key.
 
-The GitHub Action checks out the repo and runs that command, with inputs `policy`, `fail-on`, `baseline`, and an optional `insidia-cloud-key` for teams who want the hosted attacker. Pin the action to a release tag. The action does not bundle engines; the CLI installs them, or the job uses the GHCR image.
+The CI job checks out the repo, installs the CLI from a tested commit, starts the configured targets, and runs the scan command directly. Preserve the scan exit code and archive `.insidia/runs/` even when the scan fails. Install any optional engines the configuration needs on the runner.
 
 ## Baselines
 Table `finding_fingerprints (org_id, target_id, probe_id, evidence_hash, state)`.
