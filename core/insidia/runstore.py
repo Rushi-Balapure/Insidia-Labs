@@ -291,14 +291,6 @@ def write_run(
         "scores": [asdict(score) for score in scores],
     }
     (staging / "benchmark.json").write_text(json.dumps(benchmark, indent=2) + "\n")
-    headline = verdict_text(
-        policy,
-        passed,
-        len(findings),
-        execution_status=execution_status,
-        policy_verdict=verdict,
-        untested=not_tested(controls),
-    )
     names = ["findings.json", "results.sarif", "benchmark.json", "report.html"]
     if config_text is not None:
         (staging / "insidia.yaml").write_bytes(config_text)
@@ -314,7 +306,6 @@ def write_run(
     html = _render(
         run_id=run_id,
         policy=policy,
-        headline=headline,
         passed=passed,
         findings=findings,
         controls=controls,
@@ -517,7 +508,6 @@ def _render(
     *,
     run_id: str,
     policy: str,
-    headline: str,
     passed: bool,
     findings: list[Finding],
     controls: list[dict[str, str]],
@@ -539,6 +529,15 @@ def _render(
     if names:
         title = f"{title}: {', '.join(names)}"
     status = "pass" if passed else "fail"
+    summary = _executive_summary(
+        run_id=run_id,
+        policy=policy,
+        findings=findings,
+        controls=controls,
+        targets=targets,
+        execution_status=execution_status,
+        verdict=verdict,
+    )
     tiles = _tiles(findings)
     nav = (
         '<nav><a href="#summary">Summary</a><a href="#targets">Targets</a>'
@@ -571,14 +570,8 @@ def _render(
         nav,
         "<main>",
         '<h2 id="summary">Executive summary</h2>',
-        f'<p class="status {status}">{_escape(headline)}</p>',
+        f'<p class="status {status}">{_escape(summary)}</p>',
         tiles,
-        (
-            '<p class="note">This report is test evidence mapped to framework ids. '
-            "It is not a certification. A pass means our probes did not trigger, "
-            "not that the risk is absent. Checks that were not tested are not "
-            "evidence that those risks are absent.</p>"
-        ),
         '<h2 id="targets">Targets</h2>',
         _targets_table(findings, controls, targets),
         '<h2 id="findings">Findings by severity</h2>',
@@ -649,6 +642,78 @@ def _target_names(
         if finding.target and finding.target not in names:
             names.append(finding.target)
     return names
+
+
+def _executive_summary(
+    *,
+    run_id: str,
+    policy: str,
+    findings: list[Finding],
+    controls: list[dict[str, str]],
+    targets: tuple[tuple[str, str, str], ...],
+    execution_status: str,
+    verdict: str,
+) -> str:
+    """Fail, pass, and incomplete summaries share one shape and one ending."""
+
+    names = _target_names(findings, controls, targets)
+    total = len(controls)
+    untested = not_tested(controls)
+    tested = total - untested
+    weak = sum(1 for control in controls if control.get("assurance") == "low")
+    target_count = len(names)
+    target_word = "target" if target_count == 1 else "targets"
+    if names:
+        target_clause = f"{target_count} {target_word} ({', '.join(names)})"
+    else:
+        target_clause = f"{target_count} {target_word}"
+    counts = {bucket: 0 for bucket in _BUCKETS}
+    for finding in findings:
+        counts[_bucket(finding.severity)] += 1
+    severity_counts = ", ".join(
+        f"{counts[bucket]} {_BUCKET_LABEL[bucket].lower()}" for bucket in _BUCKETS
+    )
+    finding_word = "finding" if len(findings) == 1 else "findings"
+    if verdict == "pass":
+        outcome = f"Policy {policy} passed"
+    elif verdict == "fail":
+        outcome = f"Policy {policy} did not pass"
+    else:
+        outcome = f"Policy {policy} is inconclusive"
+    outcome_sentence = f"{outcome}: {len(findings)} {finding_word} ({severity_counts})."
+    if execution_status != "complete":
+        outcome_sentence = f"The scan did not finish: {execution_status}. {outcome_sentence}"
+    if findings:
+        top = findings[0]
+        title = top.title or top.attack
+        serious = (
+            f"The most serious finding is {title}, severity {top.severity}, "
+            f"score {top.risk_score:.1f}, target {top.target}."
+        )
+    else:
+        serious = "The most serious finding is none."
+    if weak == 1:
+        weak_clause = "1 passed check has low assurance"
+    else:
+        weak_clause = f"{weak} passed checks have low assurance"
+    if untested == 1:
+        untested_clause = "1 check was not tested"
+    else:
+        untested_clause = f"{untested} checks were not tested"
+    sentences = [
+        f"Insidia ran {tested} of {total} checks against {target_clause}.",
+        outcome_sentence,
+        serious,
+        (
+            f"{weak_clause} and {untested_clause}. "
+            "Checks that were not tested are not evidence that those risks are absent."
+        ),
+    ]
+    if execution_status != "complete":
+        sentences.append(f"Results below cover {tested} checks only.")
+        sentences.append(f"Re-run with `insidia rerun {run_id}`.")
+    sentences.append("This report is test evidence, not a certification.")
+    return " ".join(sentences)
 
 
 def _tiles(findings: list[Finding]) -> str:

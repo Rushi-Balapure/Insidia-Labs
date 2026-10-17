@@ -50,7 +50,9 @@ def test_report_scores_frameworks_and_names_the_engine(tmp_path: Path) -> None:
     assert "<script" not in html
     assert "prefers-color-scheme: dark" in html
     assert "#101028" in html
-    assert "The scan ran. Policy L1 did not pass. 1 finding." in html
+    assert html.split('<p class="status', 1)[1].split("</p>", 1)[0].endswith(
+        "This report is test evidence, not a certification."
+    )
     assert "<svg" in html
     assert "owasp-llm:LLM01" in html
     assert "not tested" in html
@@ -389,6 +391,124 @@ def _risk_factor_text(card: str) -> str:
 
     chunk = card.split("<dt>Risk factor</dt><dd>", 1)[1].split("</dd>", 1)[0]
     return re.sub(r"<[^>]+>", "", chunk)
+
+
+_NOT_A_CERTIFICATION = "This report is test evidence, not a certification."
+
+
+def _summary_paragraph(html: str) -> str:
+    block = html.split('<h2 id="summary">Executive summary</h2>', 1)[1]
+    paragraph = block.split("<p", 1)[1]
+    return paragraph.split(">", 1)[1].split("</p>", 1)[0]
+
+
+def _leak() -> Finding:
+    return _bare(
+        track="ai",
+        attack="ai.data_leakage",
+        probe="insidia.ai.data_leakage",
+        severity="critical",
+        title="Secret returned in chatbot reply",
+        risk_score=9.1,
+        risk_factors=("live-format credential floor 9.1",),
+        target="nova",
+        taxonomy=("owasp-llm:LLM02",),
+    )
+
+
+def _nova_controls() -> list[dict[str, str]]:
+    return [
+        {
+            "id": "ai.data_leakage",
+            "target": "nova",
+            "result": "fail",
+            "taxonomy": "owasp-llm:LLM02",
+        },
+        {
+            "id": "web.ssti",
+            "target": "nova",
+            "result": "pass",
+            "taxonomy": "owasp-web:A03",
+        },
+        {
+            "id": "ai.bias",
+            "target": "nova",
+            "result": "not tested",
+            "taxonomy": "owasp-llm:LLM01",
+        },
+    ]
+
+
+def test_fail_summary_names_the_run_and_is_not_a_certification(tmp_path: Path) -> None:
+    directory = write_run(tmp_path, "run-fail", "L1", False, [_leak()], _nova_controls(), [])
+    text = _summary_paragraph((directory / "report.html").read_text())
+    assert text == (
+        "Insidia ran 2 of 3 checks against 1 target (nova). "
+        "Policy L1 did not pass: 1 finding (1 critical, 0 high, 0 medium, 0 low, 0 info). "
+        "The most serious finding is Secret returned in chatbot reply, severity critical, "
+        "score 9.1, target nova. "
+        "0 passed checks have low assurance and 1 check was not tested. "
+        "Checks that were not tested are not evidence that those risks are absent. "
+        "This report is test evidence, not a certification."
+    )
+    assert text.endswith(_NOT_A_CERTIFICATION)
+
+
+def test_pass_summary_follows_the_same_shape(tmp_path: Path) -> None:
+    controls = [
+        {
+            "id": "web.ssti",
+            "target": "shop",
+            "result": "pass",
+            "taxonomy": "owasp-web:A03",
+        },
+        {
+            "id": "ai.bias",
+            "target": "shop",
+            "result": "not tested",
+            "taxonomy": "owasp-llm:LLM01",
+        },
+    ]
+    directory = write_run(tmp_path, "run-pass", "L1", True, [], controls, [])
+    text = _summary_paragraph((directory / "report.html").read_text())
+    assert text == (
+        "Insidia ran 1 of 2 checks against 1 target (shop). "
+        "Policy L1 passed: 0 findings (0 critical, 0 high, 0 medium, 0 low, 0 info). "
+        "The most serious finding is none. "
+        "0 passed checks have low assurance and 1 check was not tested. "
+        "Checks that were not tested are not evidence that those risks are absent. "
+        "This report is test evidence, not a certification."
+    )
+    assert text.endswith(_NOT_A_CERTIFICATION)
+    assert "did not pass" not in text
+    assert "The scan did not finish" not in text
+
+
+def test_incomplete_summary_follows_the_same_shape(tmp_path: Path) -> None:
+    directory = write_run(
+        tmp_path,
+        "run-gap",
+        "L1",
+        False,
+        [_leak()],
+        _nova_controls(),
+        [],
+        execution_status="incomplete",
+    )
+    text = _summary_paragraph((directory / "report.html").read_text())
+    assert text == (
+        "Insidia ran 2 of 3 checks against 1 target (nova). "
+        "The scan did not finish: incomplete. "
+        "Policy L1 did not pass: 1 finding (1 critical, 0 high, 0 medium, 0 low, 0 info). "
+        "The most serious finding is Secret returned in chatbot reply, severity critical, "
+        "score 9.1, target nova. "
+        "0 passed checks have low assurance and 1 check was not tested. "
+        "Checks that were not tested are not evidence that those risks are absent. "
+        "Results below cover 2 checks only. "
+        "Re-run with `insidia rerun run-gap`. "
+        "This report is test evidence, not a certification."
+    )
+    assert text.endswith(_NOT_A_CERTIFICATION)
 
 
 def _score_line(html: str, title: str) -> tuple[str, str, str]:
