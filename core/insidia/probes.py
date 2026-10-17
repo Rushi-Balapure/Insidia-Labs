@@ -36,6 +36,7 @@ from insidia.adapters import (
     ReportAdapter,
     ScopedUrl,
     has_standalone,
+    markdown_beacon,
 )
 from insidia.config import Project, Target, resolve_secret
 from insidia.errors import (
@@ -46,7 +47,7 @@ from insidia.errors import (
     ProbeError,
     ScopeError,
 )
-from insidia.policy import Control
+from insidia.policy import MARKDOWN_BEACON, Control, get_policy
 from insidia.process import launch_installed
 from insidia.scope import ScopeHost, check_url
 from insidia.transport import (
@@ -78,6 +79,10 @@ class ProbeHit:
     upstream: str = ""
     evidence: str = ""
     location: str = ""
+    check_id: str = ""
+    title: str = ""
+    synopsis: str = ""
+    description: str = ""
 
 
 @dataclass(frozen=True)
@@ -88,6 +93,76 @@ class Attempt:
     error: str = ""
     # The engine finished but could not test this target, for example TLS over plain HTTP.
     untested: str = ""
+
+
+def _probe_hit(
+    spec: ProbeSpec,
+    target_name: str,
+    engine: str,
+    control: Control,
+    hit: EngineHit,
+) -> ProbeHit:
+    """One engine observation. A markdown beacon keeps its own title on this family."""
+    chosen = control
+    if hit.family and hit.family != spec.family:
+        chosen = get_policy("L1").control(hit.family)
+    return ProbeHit(
+        target_name,
+        hit.family or spec.family,
+        engine,
+        hit.probe or spec.probe,
+        hit.response,
+        hit.severity or chosen.severity,
+        hit.confidence or "high",
+        chosen.track,
+        chosen.taxonomy,
+        hit.remediation or chosen.remediation,
+        hit.upstream,
+        hit.evidence,
+        hit.location,
+        check_id=hit.check_id,
+        title=hit.title,
+        synopsis=hit.synopsis,
+        description=hit.description,
+    )
+
+
+def _judge_reply(
+    spec: ProbeSpec,
+    payload: str,
+    outcome: str,
+    target: Target,
+    evidence: str | None,
+) -> list[EngineHit]:
+    """The family oracle, plus a markdown beacon on any chat-style reply.
+
+    The beacon URL is recorded and not requested.
+    """
+    found: list[EngineHit] = []
+    if evidence is not None:
+        found.append(EngineHit(spec.upstream, payload, outcome, evidence))
+    if target.kind not in AI_KINDS:
+        return found
+    url = markdown_beacon(payload, outcome, target)
+    if url is None:
+        return found
+    copy = MARKDOWN_BEACON
+    found.append(
+        EngineHit(
+            spec.upstream,
+            payload,
+            outcome,
+            url,
+            family=copy.family,
+            probe=f"insidia.{copy.family}",
+            check_id=copy.check_id,
+            title=copy.title,
+            synopsis=copy.synopsis,
+            description=copy.description,
+            remediation=copy.remediation,
+        )
+    )
+    return found
 
 
 def run(
@@ -115,24 +190,7 @@ def run(
             found, error = _report(adapter, spec, RepoPath(repo_path(target, root)), launch)
         case _:
             raise CliError(f"{adapter.engine}: no adapter arm")
-    hits = tuple(
-        ProbeHit(
-            target.name,
-            spec.family,
-            adapter.engine,
-            spec.probe,
-            hit.response,
-            hit.severity or control.severity,
-            hit.confidence or "high",
-            control.track,
-            control.taxonomy,
-            control.remediation,
-            hit.upstream,
-            hit.evidence,
-            hit.location,
-        )
-        for hit in found
-    )
+    hits = tuple(_probe_hit(spec, target.name, adapter.engine, control, hit) for hit in found)
     return Attempt(hits, error, "" if hits else untested)
 
 
@@ -208,8 +266,7 @@ def _corpus(
                 continue
             answered += 1
             evidence = oracle(payload, outcome, target)
-            if evidence is not None:
-                hits.append(EngineHit(spec.upstream, payload, outcome, evidence))
+            hits.extend(_judge_reply(spec, payload, outcome, target, evidence))
             if _fixture_follow_up_is_useless(spec.family, index, outcome):
                 break
     except ProbeError as exc:
@@ -748,8 +805,7 @@ def _relay(
             hits: list[EngineHit] = []
             for prompt, response in pairs:
                 evidence = oracle(prompt, response, target)
-                if evidence is not None:
-                    hits.append(EngineHit(spec.upstream, prompt, response, evidence))
+                hits.extend(_judge_reply(spec, prompt, response, target, evidence))
             if failed is not None:
                 return hits, str(failed), ""
             if not pairs:
