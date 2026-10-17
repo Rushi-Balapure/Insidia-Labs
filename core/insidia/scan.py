@@ -96,7 +96,7 @@ def execute(
     model_available = project.attacker is not None
     hits: list[ProbeHit] = []
     records: list[CheckRecord] = []
-    controls: list[dict[str, str]] = []
+    controls: list[dict[str, str | int]] = []
     skips: list[str] = []
     count = len(project.targets)
     _say(
@@ -138,7 +138,7 @@ def _run_targets(
     model_available: bool,
     hits: list[ProbeHit],
     records: list[CheckRecord],
-    controls: list[dict[str, str]],
+    controls: list[dict[str, str | int]],
     skips: list[str],
     progress: Callable[[Event], None] | None,
     config_text: bytes,
@@ -188,7 +188,7 @@ def _scan_targets(
     model_available: bool,
     hits: list[ProbeHit],
     records: list[CheckRecord],
-    controls: list[dict[str, str]],
+    controls: list[dict[str, str | int]],
     skips: list[str],
     progress: Callable[[Event], None] | None,
     notes: list[str],
@@ -262,6 +262,8 @@ def _scan_targets(
             began = time.monotonic()
             family_records: list[CheckRecord] = []
             reasons: list[str] = []
+            probe_count = 0
+            request_count = 0
             for capability in chosen:
                 note = _NETWORK_DB.get(capability.engine)
                 if os.environ.get("INSIDIA_VULN_DB") != "1":
@@ -287,6 +289,8 @@ def _scan_targets(
                     attempt_hits = attempt.hits
                     error = attempt.error
                     untested = attempt.untested
+                    probe_count += attempt.probes
+                    request_count += attempt.requests
                 # A relay under the prompt minimum stays out of engines and reported_by.
                 if not untested:
                     hits.extend(attempt_hits)
@@ -327,7 +331,12 @@ def _scan_targets(
             records.extend(family_records)
             result = _family_result(family_records)
             detail = _detail(result, reasons, family_records)
-            recorded = _recorded(policy, family, target.name, result, detail)
+            if result == "not tested":
+                probe_count = 0
+                request_count = 0
+            recorded = _recorded(
+                policy, family, target.name, result, detail, probe_count, request_count
+            )
             # A one-prompt relay that missed is a pass with low assurance.
             if result == "pass":
                 notes = list(
@@ -358,6 +367,7 @@ def _scan_targets(
                     result,
                     shown,
                     time.monotonic() - began,
+                    probes=probe_count if result in {"pass", "fail"} else None,
                 ),
             )
 
@@ -378,7 +388,7 @@ def _finish(
     mode: str,
     hits: list[ProbeHit],
     records: list[CheckRecord],
-    controls: list[dict[str, str]],
+    controls: list[dict[str, str | int]],
     skips: list[str],
     progress: Callable[[Event], None] | None,
     config_text: bytes,
@@ -520,13 +530,21 @@ def _target_facts(project: Project) -> tuple[tuple[str, str, str], ...]:
 
 
 def _recorded(
-    policy: Policy, family: str, target: str, result: str, detail: str = ""
-) -> dict[str, str]:
-    row = {
+    policy: Policy,
+    family: str,
+    target: str,
+    result: str,
+    detail: str = "",
+    probes: int = 0,
+    requests: int = 0,
+) -> dict[str, str | int]:
+    row: dict[str, str | int] = {
         "id": family,
         "target": target,
         "result": result,
         "taxonomy": ",".join(policy.control(family).taxonomy),
+        "probes": probes,
+        "requests": requests,
     }
     if detail:
         row["detail"] = detail

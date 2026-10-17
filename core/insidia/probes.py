@@ -53,6 +53,7 @@ from insidia.scope import ScopeHost, check_url
 from insidia.transport import (
     AI_KINDS,
     BoundBudget,
+    RateLimiter,
     carries_payload,
     current_budget,
     exchange,
@@ -93,6 +94,39 @@ class Attempt:
     error: str = ""
     # The engine finished but could not test this target, for example TLS over plain HTTP.
     untested: str = ""
+    # Payloads or prompts handed to the target, and HTTP requests made for them.
+    probes: int = 0
+    requests: int = 0
+
+
+# Shared list so a worker thread can record a payload the scan thread totals.
+_probe_tally: contextvars.ContextVar[list[int] | None] = contextvars.ContextVar(
+    "insidia_probe_tally", default=None
+)
+_probe_tally_lock = threading.Lock()
+
+
+def _count_bucket(bucket: list[int] | None) -> None:
+    if bucket is None:
+        return
+    with _probe_tally_lock:
+        bucket[0] += 1
+
+
+def _count_probe() -> None:
+    _count_bucket(_probe_tally.get())
+
+
+def _bound_limiter(target: Target) -> RateLimiter | None:
+    table = current_budget()
+    if table is None or target.name not in table:
+        return None
+    return table[target.name][0]
+
+
+def _request_count(target: Target) -> int:
+    limiter = _bound_limiter(target)
+    return 0 if limiter is None else limiter.sent
 
 
 def _probe_hit(
@@ -178,23 +212,30 @@ def run(
         return Attempt()
     if _payload_cannot_land(target, spec.family):
         return Attempt(untested=_NO_PAYLOAD)
-    untested = ""
-    match adapter:
-        case BuiltIn():
-            found, error, untested = _judge(adapter, spec, target, project.scope, root)
-        case RelayAdapter():
-            found, error, untested = _relay(adapter, spec, target, project, root, launch)
-        case ReportAdapter() if _over_url(adapter):
-            found, error = _report(adapter, spec, _scoped_url(target, project.scope), launch)
-        case ReportAdapter() if _over_repo(adapter):
-            found, error = _report(adapter, spec, RepoPath(repo_path(target, root)), launch)
-        case _:
-            raise CliError(f"{adapter.engine}: no adapter arm")
-    hits = tuple(_probe_hit(spec, target.name, adapter.engine, control, hit) for hit in found)
-    # A hit clears a miss-only note. A relay under the prompt minimum stays limited.
-    if hits and not _is_relay_shallow_note(untested):
+    bucket = [0]
+    token = _probe_tally.set(bucket)
+    before = _request_count(target)
+    try:
         untested = ""
-    return Attempt(hits, error, untested)
+        match adapter:
+            case BuiltIn():
+                found, error, untested = _judge(adapter, spec, target, project.scope, root)
+            case RelayAdapter():
+                found, error, untested = _relay(adapter, spec, target, project, root, launch)
+            case ReportAdapter() if _over_url(adapter):
+                found, error = _report(adapter, spec, _scoped_url(target, project.scope), launch)
+            case ReportAdapter() if _over_repo(adapter):
+                found, error = _report(adapter, spec, RepoPath(repo_path(target, root)), launch)
+            case _:
+                raise CliError(f"{adapter.engine}: no adapter arm")
+        hits = tuple(_probe_hit(spec, target.name, adapter.engine, control, hit) for hit in found)
+        # A hit clears a miss-only note. A relay under the prompt minimum stays limited.
+        if hits and not _is_relay_shallow_note(untested):
+            untested = ""
+        sent = _request_count(target) - before
+        return Attempt(hits, error, untested, bucket[0], sent if sent > 0 else 0)
+    finally:
+        _probe_tally.reset(token)
 
 
 _FIXTURE_ONLY_NOTE = "this check only recognises Insidia's benchmark app"
@@ -368,6 +409,7 @@ def _send(
     timeout: float | None = None,
 ) -> str:
     """A web app's error page is its answer to the attack, so it is judged too."""
+    _count_probe()
     if timeout is not None:
         target = replace(target, timeout=timeout)
     try:
@@ -552,7 +594,12 @@ def _paired_cve(
     if target.url is None:
         raise ConfigError(f"{target.name} needs a url")
     try:
-        _status, headers, _body = fetch(target.url, scope, headers=dict(target.headers))
+        _status, headers, _body = fetch(
+            target.url,
+            scope,
+            headers=dict(target.headers),
+            limiter=_bound_limiter(target),
+        )
     except ProbeError as exc:
         return [], str(exc), ""
     banner = " ".join(
@@ -692,6 +739,7 @@ def _paired_open_redirect(
     del root
     try:
         for payload in _OPEN_REDIRECTS:
+            _count_probe()
             status, headers, body = fetch_target(target, payload, scope, follow=False)
             evidence = _redirect_evidence(status, headers, body)
             if evidence is not None:
@@ -786,6 +834,7 @@ def _relay(
     token = secrets.token_hex(16)
     pairs: list[tuple[str, str]] = []
     budget = current_budget()
+    bucket = _probe_tally.get()
 
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:  # noqa: N802
@@ -816,6 +865,8 @@ def _relay(
                 self.end_headers()
                 return
             try:
+                # The relay thread does not inherit the scan tally. Count the prompt here.
+                _count_bucket(bucket)
                 with BoundBudget(budget):
                     response = exchange(target, prompt, project.scope, root)
             except (CliError, OSError):

@@ -32,6 +32,8 @@ class Event:
     seconds: float = 0.0
     # Requests sent to the target since `begin`, read while the check runs.
     sent: Callable[[], int] | None = None
+    # Payloads or prompts for a finished check. None when this row has no count.
+    probes: int | None = None
 
 
 def wants_color(stream: TextIO, no_color: bool = False) -> bool:
@@ -204,6 +206,17 @@ class Terminal:
             self._draw(0)
 
 
+def _payload_count(event: Event) -> str:
+    """Payloads or prompts on a pass or fail line, for example `8 payloads`."""
+    count = event.probes
+    if count is None or event.result not in {"pass", "fail"}:
+        return ""
+    noun = "prompt" if event.family.startswith("ai.") else "payload"
+    if count != 1:
+        noun += "s"
+    return f"{count} {noun}"
+
+
 def _requests(event: Event) -> Callable[[], str] | None:
     sent = event.sent
     if sent is None:
@@ -275,9 +288,11 @@ class ScanView:
         }[event.result]
         right = event.detail or ", ".join(event.engines)
         timing = seconds_text(event.seconds) if event.seconds else ""
+        count = _payload_count(event)
+        timed = f"{count} · {timing}" if count and timing else count or timing
         term.line(
             f"  {term.symbol(event.result)} {event.family:<30} "
-            f"{term.paint(f'{label:<10}', tint)} {term.dim(right)} {term.dim(timing)}".rstrip()
+            f"{term.paint(f'{label:<10}', tint)} {term.dim(right)} {term.dim(timed)}".rstrip()
         )
 
     def totals(self) -> str:

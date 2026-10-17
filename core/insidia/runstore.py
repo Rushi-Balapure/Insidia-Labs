@@ -297,7 +297,7 @@ def write_run(
     policy: str,
     passed: bool,
     findings: list[Finding],
-    controls: list[dict[str, str]],
+    controls: list[dict[str, str | int]],
     skips: list[str],
     execution_status: str = "complete",
     policy_verdict: str | None = None,
@@ -406,7 +406,7 @@ def write_run(
     return directory
 
 
-def not_tested(controls: list[dict[str, str]]) -> int:
+def not_tested(controls: list[dict[str, str | int]]) -> int:
     return sum(1 for control in controls if control.get("result") == "not tested")
 
 
@@ -533,7 +533,7 @@ def _score_rows(scores: tuple[Score, ...]) -> str:
     return "\n".join(lines)
 
 
-def _coverage_rows(controls: list[dict[str, str]]) -> str:
+def _coverage_rows(controls: list[dict[str, str | int]]) -> str:
     lines = []
     labels = ("Control", "Title", "Result")
     for row in coverage(controls):
@@ -576,7 +576,7 @@ def _render(
     policy: str,
     passed: bool,
     findings: list[Finding],
-    controls: list[dict[str, str]],
+    controls: list[dict[str, str | int]],
     skips: list[str],
     scores: tuple[Score, ...],
     targets: tuple[tuple[str, str, str], ...],
@@ -700,7 +700,7 @@ def _render(
 
 def _target_names(
     findings: list[Finding],
-    controls: list[dict[str, str]],
+    controls: list[dict[str, str | int]],
     targets: tuple[tuple[str, str, str], ...],
 ) -> list[str]:
     names: list[str] = []
@@ -722,7 +722,7 @@ def _executive_summary(
     run_id: str,
     policy: str,
     findings: list[Finding],
-    controls: list[dict[str, str]],
+    controls: list[dict[str, str | int]],
     targets: tuple[tuple[str, str, str], ...],
     execution_status: str,
     verdict: str,
@@ -805,7 +805,7 @@ def _tiles(findings: list[Finding]) -> str:
 
 def _targets_table(
     findings: list[Finding],
-    controls: list[dict[str, str]],
+    controls: list[dict[str, str | int]],
     targets: tuple[tuple[str, str, str], ...],
 ) -> str:
     meta = {name: (kind, endpoint) for name, kind, endpoint in targets}
@@ -1196,10 +1196,10 @@ def _remediation_table(findings: list[Finding]) -> str:
     )
 
 
-def _coverage_by_target(controls: list[dict[str, str]], skips: list[str]) -> str:
+def _coverage_by_target(controls: list[dict[str, str | int]], skips: list[str]) -> str:
     if not controls:
         return '<p class="note">No checks were recorded.</p>'
-    by_target: dict[str, list[dict[str, str]]] = {}
+    by_target: dict[str, list[dict[str, str | int]]] = {}
     for control in controls:
         by_target.setdefault(str(control.get("target", "")), []).append(control)
     blocks = []
@@ -1212,7 +1212,7 @@ def _coverage_by_target(controls: list[dict[str, str]], skips: list[str]) -> str
         )
         body = []
         for control in rows:
-            result = control.get("result", "")
+            result = _control_text(control, "result")
             label, css = {
                 "fail": ("FAIL", "fail"),
                 "pass": ("PASS", "pass"),
@@ -1244,17 +1244,38 @@ _JUDGE_WHY = {
 }
 
 
-def _coverage_why(control: dict[str, str], skips: list[str]) -> str:
-    if control.get("assurance") == "low":
-        reason = control.get("assurance_reason", "").strip()
+def _control_text(control: dict[str, str | int], key: str) -> str:
+    value = control.get(key, "")
+    return value if isinstance(value, str) else ""
+
+
+def _sent_clause(control: dict[str, str | int]) -> str:
+    value = control.get("probes", 0)
+    count = value if isinstance(value, int) else 0
+    noun = "prompt" if _control_text(control, "id").startswith("ai.") else "payload"
+    if count != 1:
+        noun += "s"
+    return f"{count} {noun} sent"
+
+
+def _coverage_why(control: dict[str, str | int], skips: list[str]) -> str:
+    if _control_text(control, "assurance") == "low":
+        reason = _control_text(control, "assurance_reason").strip()
         if reason:
             return reason
-    detail = control.get("detail", "").strip()
+    detail = _control_text(control, "detail").strip()
+    result = _control_text(control, "result")
+    if result in {"pass", "fail"} and "probes" in control:
+        sent = _sent_clause(control)
+        if detail:
+            return f"{sent}. {detail}"
+        if result == "pass":
+            return f"{sent}, none triggered."
+        return f"{sent}. A probe reported this check."
     if detail:
         return detail
-    result = control.get("result", "")
-    family = str(control.get("id", ""))
-    target = str(control.get("target", ""))
+    family = _control_text(control, "id")
+    target = _control_text(control, "target")
     if result == "fail":
         return "A probe reported this check."
     if result == "pass":

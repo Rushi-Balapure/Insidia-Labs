@@ -645,3 +645,90 @@ models:
     assert attempt.hits
     assert attempt.error == ""
     assert attempt.untested == ""
+
+
+def _query_value(path: str) -> str:
+    values = [value for group in parse_qs(urlparse(path).query).values() for value in group]
+    return values[0] if values else ""
+
+
+def test_probe_and_request_counts_match_the_loopback_log(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """One check's probes and requests equal what the loopback target logged."""
+    from insidia.runstore import _coverage_why
+
+    recorder = _Recorder()
+
+    def answer(path: str, body: bytes) -> tuple[int, str]:
+        del path, body
+        return 200, "ok"
+
+    def only_cmdi(
+        family: str,
+        coverage: str,
+        model_available: bool = False,
+        entries: object = None,
+    ) -> list[object]:
+        del entries
+        if family != "web.cmdi":
+            return []
+        return list(real_select(family, coverage, model_available))
+
+    monkeypatch.setattr("insidia.scan.select", only_cmdi)
+    monkeypatch.setenv("INSIDIA_TOOLCHAIN", str(tmp_path / "toolchain"))
+    with _serve(recorder, answer) as port:
+        config = tmp_path / "insidia.yaml"
+        config.write_text(
+            f"""\
+version: 1
+scope:
+  - host: 127.0.0.1
+targets:
+  ping:
+    kind: web
+    url: http://127.0.0.1:{port}/ping
+    method: GET
+    query:
+      host: "{{{{payload}}}}"
+    rate_limit:
+      rps: 100
+      concurrency: 1
+"""
+        )
+        code = main(["scan", "--config", str(config), "--no-color"])
+    assert code == 0, capsys.readouterr()
+    err = capsys.readouterr().err
+    logged = [item for item in recorder.requests if _query_value(item[1]) != "hello"]
+    assert logged
+    runs = tmp_path / ".insidia" / "runs"
+    latest = max(runs.iterdir(), key=lambda path: path.name)
+    benchmark = json.loads((latest / "benchmark.json").read_text())
+    controls = benchmark["controls"]
+    assert isinstance(controls, list)
+    for control in controls:
+        assert isinstance(control, dict)
+        assert isinstance(control["probes"], int)
+        assert isinstance(control["requests"], int)
+        if control.get("result") == "not tested":
+            assert control["probes"] == 0
+            assert control["requests"] == 0
+    row = _rows(benchmark, "web.cmdi")[0]
+    assert row["result"] == "pass"
+    assert row["target"] == "ping"
+    assert row["probes"] == len(logged)
+    assert row["requests"] == len(logged)
+    phrase = f"{row['probes']} payloads sent, none triggered."
+    html = (latest / "report.html").read_text()
+    assert phrase in html
+    assert f"{row['probes']} payloads · " in err
+    assert "web.cmdi" in err
+    failed = {
+        "id": "web.cmdi",
+        "target": "ping",
+        "result": "fail",
+        "taxonomy": "owasp-web:A03",
+        "probes": 8,
+        "requests": 8,
+    }
+    assert _coverage_why(failed, []) == "8 payloads sent. A probe reported this check."
