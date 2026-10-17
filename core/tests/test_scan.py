@@ -16,7 +16,7 @@ from insidia.providers import build_provider
 from insidia.registry import Capability
 from insidia.scan import execute
 from insidia.scope import ScopeHost
-from insidia.transport import RateLimiter, exchange
+from insidia.transport import RateLimiter, exchange, fetch
 from insidia.ui import Event
 from tests.support import start_fixture, stop_fixture, target
 
@@ -216,6 +216,83 @@ def test_same_origin_redirect_is_followed(tmp_path: Path) -> None:
     finally:
         server.shutdown()
     assert body == "land"
+
+
+@pytest.mark.parametrize("location", ["a b", "/v1/127.0.0.1 && id"])
+def test_redirect_with_a_raw_space_returns_the_302(location: str) -> None:
+    seen: list[str] = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            seen.append(self.path)
+            self.send_response(302)
+            self.send_header("Location", location)
+            self.end_headers()
+
+        def log_message(self, fmt: str, *args: object) -> None:
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    port = server.server_address[1]
+    try:
+        status, headers, _body = fetch(
+            f"http://127.0.0.1:{port}/go",
+            (ScopeHost("127.0.0.1", False),),
+        )
+    finally:
+        server.shutdown()
+    assert status == 302
+    assert headers.get("location") == location
+    assert seen == ["/go"]
+
+
+def test_spaced_location_that_changes_port_is_not_contacted() -> None:
+    hit = {"followed": False}
+
+    class Other(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            hit["followed"] = True
+            self.send_response(200)
+            self.end_headers()
+
+        def log_message(self, fmt: str, *args: object) -> None:
+            return
+
+    other = ThreadingHTTPServer(("127.0.0.1", 0), Other)
+    other_port = other.server_address[1]
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            self.send_response(302)
+            self.send_header("Location", f"http://127.0.0.1:{other_port}/a b")
+            self.end_headers()
+
+        def log_message(self, fmt: str, *args: object) -> None:
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threads = [
+        threading.Thread(target=server.serve_forever, daemon=True),
+        threading.Thread(target=other.serve_forever, daemon=True),
+    ]
+    for thread in threads:
+        thread.start()
+    port = server.server_address[1]
+    try:
+        fetch(
+            f"http://127.0.0.1:{port}/go",
+            (ScopeHost("127.0.0.1", False),),
+        )
+    except ScopeError as exc:
+        assert "redirect changed port" in str(exc)
+        assert "closed the connection" not in str(exc)
+    else:
+        raise AssertionError("expected ScopeError")
+    finally:
+        server.shutdown()
+        other.shutdown()
+    assert hit["followed"] is False
 
 
 def test_scan_refuses_a_same_host_port_change(
