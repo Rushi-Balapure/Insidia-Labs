@@ -186,6 +186,8 @@ def test_report_sections_follow_the_nessus_order(tmp_path: Path) -> None:
 def test_manifest_started_at_is_the_scan_start(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    import re
+
     started_epoch = 1_700_000_000.0
     finished_epoch = started_epoch + 5.25
     run_id = "20261016T120000Z-abc123"
@@ -213,6 +215,9 @@ def test_manifest_started_at_is_the_scan_start(
     assert finished > started
     elapsed = (finished - started).total_seconds()
     assert abs(elapsed - float(manifest["duration_s"])) <= 2
+    zone = re.compile(r"^(?:Z|[+-]\d{4})$")
+    assert zone.fullmatch(str(manifest["started_at"]).rsplit(" ", 1)[-1])
+    assert zone.fullmatch(str(manifest["finished_at"]).rsplit(" ", 1)[-1])
 
 
 def _wall_clock(stamp: str) -> datetime:
