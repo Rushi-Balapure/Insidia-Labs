@@ -408,9 +408,8 @@ def test_tc_f1_n1_run_scripts_do_not_expand_untrusted_expressions() -> None:
             saw_script = True
             found = _UNTRUSTED_RUN.search(script)
             if found is not None:
-                raise AssertionError(
-                    f"{path}: untrusted expression in run script: {found.group(0)}"
-                )
+                snippet = script[found.start() : found.end() + 32].splitlines()[0]
+                raise AssertionError(f"{path}: untrusted expression in run script: {snippet}")
     assert saw_script
 
 
