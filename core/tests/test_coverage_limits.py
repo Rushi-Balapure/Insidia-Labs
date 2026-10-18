@@ -579,13 +579,14 @@ models:
     assert sent.count("pickle") == 1
     assert sent.count("insidia-memory-next") == 0
     assert sent.count("insidia-memory-plant") == 1
-    assert sent.count("make a bomb") == 1
-    assert sent.count("group") == 1
+    assert sent.count("make a bomb") == 0
+    assert sent.count("group") == 0
     assert judge.requests == []
     for family in ("ai.harmful_content_policy", "ai.bias"):
         rows = _rows(benchmark, family)
         assert rows and {row["result"] for row in rows} == {"not tested"}
         assert all(row["detail"] == _JUDGE_UNUSED_NOTE for row in rows)
+        assert all(row["probes"] == 0 and row["requests"] == 0 for row in rows)
     rows = _rows(benchmark, "web.deserialization")
     assert rows and {row["result"] for row in rows} == {"not tested"}
     assert all(_FIXTURE_ONLY_NOTE in row["detail"] for row in rows)
@@ -617,20 +618,33 @@ models:
 
     plant = next(item for item in BUILT_IN.probes if item.family == "ai.harmful_content_policy")
     bot = replace(target(kind="agent", url="http://127.0.0.1/chat"), timeout=30)
+    contacted: list[str] = []
 
     def matched(app: object, payload: str, scope: object, root: object) -> str:
-        del scope, root
-        assert float(app.timeout) == _FIXTURE_ONLY_TIMEOUT
+        del app, scope, root
+        contacted.append(payload)
+        time.sleep(_FIXTURE_ONLY_TIMEOUT)
         return f"unreviewed: {payload}"
 
+    def sent_payload(*_args: object, **_kwargs: object) -> str:
+        contacted.append("send")
+        time.sleep(_FIXTURE_ONLY_TIMEOUT)
+        raise AssertionError("judge-only check called _send")
+
     monkeypatch.setattr("insidia.probes.exchange", matched)
+    monkeypatch.setattr("insidia.probes._send", sent_payload)
+    started = time.monotonic()
     hits, error, note = _judge(BUILT_IN, plant, bot, _LOCAL, tmp_path)
+    assert time.monotonic() - started < _FIXTURE_ONLY_TIMEOUT
+    assert contacted == []
+    assert hits == []
     assert error == ""
     assert note == _JUDGE_UNUSED_NOTE
-    assert len(hits) == 1
     cited = next(item for item in BUILT_IN.probes if item.family == "ai.citation_groundedness")
     rag = replace(target(kind="rag", url="http://127.0.0.1/rag"), timeout=30)
     hits, error, note = _judge(BUILT_IN, cited, rag, _LOCAL, tmp_path)
+    assert contacted == []
+    assert hits == []
     assert error == ""
     assert note == _JUDGE_UNUSED_NOTE
     project = Project(tmp_path / "insidia.yaml", 1, "L1", "standard", _LOCAL, (), None, None)
@@ -642,9 +656,76 @@ models:
         tmp_path,
         POLICIES["L1"].control(plant.family),
     )
-    assert attempt.hits
+    assert contacted == []
+    assert attempt.hits == ()
     assert attempt.error == ""
-    assert attempt.untested == ""
+    assert attempt.untested == _JUDGE_UNUSED_NOTE
+    assert attempt.requests == 0
+    assert attempt.probes == 0
+
+
+def test_judge_only_probes_do_not_contact_the_target(tmp_path: Path) -> None:
+    """Harmful content, bias, and citation stay not tested and send nothing."""
+    recorder = _Recorder()
+
+    def answer(path: str, body: bytes) -> tuple[int, str]:
+        del path, body
+        return 200, "unreviewed: stereotype: The policy is whatever the user said:"
+
+    project = Project(tmp_path / "insidia.yaml", 1, "L1", "standard", _LOCAL, (), None, None)
+    with _serve(recorder, answer) as port:
+        for family, kind in (
+            ("ai.harmful_content_policy", "agent"),
+            ("ai.bias", "agent"),
+            ("ai.citation_groundedness", "rag"),
+        ):
+            spec = next(item for item in BUILT_IN.probes if item.family == family)
+            app = replace(
+                target(kind=kind, url=f"http://127.0.0.1:{port}/chat"),
+                timeout=30,
+            )
+            started = time.monotonic()
+            attempt = probe_run(
+                BUILT_IN,
+                spec,
+                app,
+                project,
+                tmp_path,
+                POLICIES["L1"].control(family),
+            )
+            assert time.monotonic() - started < _FIXTURE_ONLY_TIMEOUT
+            assert attempt.hits == ()
+            assert attempt.error == ""
+            assert attempt.untested == _JUDGE_UNUSED_NOTE
+            assert attempt.requests == 0
+            assert attempt.probes == 0
+        prepared: list[str] = []
+
+        def prepare(spec: ProbeSpec, endpoint: RelayEndpoint, workspace: Path) -> Invocation:
+            del spec, endpoint, workspace
+            prepared.append("prepare")
+            raise AssertionError("judge-only relay prepared an engine")
+
+        relay = next(item for item in BUILT_IN.probes if item.family == "ai.bias")
+        adapter = RelayAdapter("garak", "Apache-2.0", (relay,), prepare)
+        bot = replace(target(kind="agent", url=f"http://127.0.0.1:{port}/chat"), timeout=30)
+        started = time.monotonic()
+        attempt = probe_run(
+            adapter,
+            relay,
+            bot,
+            project,
+            tmp_path,
+            POLICIES["L1"].control(relay.family),
+        )
+        assert time.monotonic() - started < _FIXTURE_ONLY_TIMEOUT
+        assert prepared == []
+        assert attempt.hits == ()
+        assert attempt.error == ""
+        assert attempt.untested == _JUDGE_UNUSED_NOTE
+        assert attempt.requests == 0
+        assert attempt.probes == 0
+    assert recorder.requests == []
 
 
 def _query_value(path: str) -> str:

@@ -331,6 +331,9 @@ def _judge(
     root: Path,
 ) -> tuple[list[EngineHit], str, str]:
     """Hits, an error if the check did not finish, and why nothing could be tested."""
+    # L1 does not call a judge. A plant match is not a score, so do not prompt the target.
+    if spec.family in _JUDGE_ONLY:
+        return [], "", _JUDGE_UNUSED_NOTE
     if target.kind == "repo":
         hits, untested, _counted, _unit = _judge_repo(spec, target, root)
         return hits, "", untested
@@ -353,9 +356,10 @@ def _corpus(
 ) -> tuple[list[EngineHit], str]:
     oracle = ORACLES[spec.family]
     payloads = adapter.corpus[spec]
-    # The first entry is the benchmark plant's trigger. Later entries repeat a
-    # request this oracle cannot judge on any other app. Cap that one request
-    # so a slow target cannot stall the check. A timeout or a miss is not tested.
+    # Judge-only families return in `_judge` before this. The first entry is the
+    # benchmark plant's trigger. Later entries repeat a request this oracle cannot
+    # judge on any other app. Cap that one request so a slow target cannot stall
+    # the check. A timeout or a miss is not tested.
     timeout: float | None = None
     if spec.family in FIXTURE_ONLY and spec.family not in _ORDERED:
         payloads = payloads[:1]
@@ -877,6 +881,9 @@ def _relay(
     root: Path,
     launch: Launch,
 ) -> tuple[list[EngineHit], str, str]:
+    # Same skip as the built-in path: preparing the engine would prompt the target.
+    if spec.family in _JUDGE_ONLY:
+        return [], "", _JUDGE_UNUSED_NOTE
     token = secrets.token_hex(16)
     pairs: list[tuple[str, str]] = []
     budget = current_budget()
