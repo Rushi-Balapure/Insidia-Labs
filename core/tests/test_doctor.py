@@ -488,3 +488,51 @@ def test_doctor_accepts_an_authorized_non_local_host(
     checks = {str(item["name"]): item for item in document["checks"]}
     assert checks["target.app"]["ok"] is True
     assert checks["target.app"]["detail"] == detail
+
+
+def test_doctor_redirected_to_a_cp1252_pipe_is_utf8(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import io
+    import sys
+
+    from insidia.cli import main
+
+    monkeypatch.chdir(tmp_path)
+    buffer = io.BytesIO()
+    stdout = io.TextIOWrapper(buffer, encoding="cp1252", errors="strict")
+    monkeypatch.setattr(sys, "stdout", stdout)
+
+    code = main(["--quiet", "doctor", "--config", str(tmp_path / "missing.yaml")])
+
+    stdout.flush()
+    text = buffer.getvalue().decode("utf-8")
+    assert code == 2
+    assert "✔ python:" in text
+    assert "✘ config:" in text
+
+
+def test_doctor_uses_plain_marks_when_stdout_stays_cp1252(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import io
+    import sys
+
+    from insidia.cli import main
+
+    class Stuck(io.TextIOWrapper):
+        def reconfigure(self, *args: object, **kwargs: object) -> None:
+            raise OSError("stuck")
+
+    monkeypatch.chdir(tmp_path)
+    buffer = io.BytesIO()
+    stdout = Stuck(buffer, encoding="cp1252", errors="strict")
+    monkeypatch.setattr(sys, "stdout", stdout)
+
+    code = main(["--quiet", "doctor", "--config", str(tmp_path / "missing.yaml")])
+
+    stdout.flush()
+    text = buffer.getvalue().decode("cp1252")
+    assert code == 2
+    assert "+ python:" in text
+    assert "x config:" in text
