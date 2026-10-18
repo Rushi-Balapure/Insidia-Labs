@@ -758,13 +758,13 @@ def test_tc_f1_p5_matching_version_installs_the_action_core(tmp_path: Path) -> N
     _assert_nothing_fetched(work / "empty")
 
 
-_REAL_RUN = "20260101T120000Z-abcdef"
+_REAL_RUN = "20261018T070000Z-aaaaaa"
 _PLANTED_RUN = "99991231T235959Z-ffffff"
-_REAL_MARKER = "REAL-RUN-N9"
-_PLANTED_MARKER = "PLANTED-MARKER-N9"
-_OUTSIDE_MARKER = "OUTSIDE-MARKER-N10"
+_REAL_MARKER = "REAL"
+_PLANTED_MARKER = "PLANTED"
 _REPORT_NAMES = ("results.sarif", "report.html", "findings.json")
 _FIND_SORT_TAIL = re.compile(r"find\b.*\|\s*sort\b.*\|\s*tail\b")
+_ELSEWHERE = Path("/tmp/elsewhere/.insidia/runs") / _REAL_RUN
 
 
 def _collect_step(document: dict[str, Any]) -> dict[str, Any]:
@@ -792,13 +792,51 @@ def _collected_text(work: Path) -> str:
     return "\n".join(parts)
 
 
-def _run_collect(bash: str, work: Path) -> subprocess.CompletedProcess[str]:
-    store = work / "empty"
+def _report_files(work: Path) -> list[Path]:
+    dest = work / "insidia-reports"
+    if not dest.exists():
+        return []
+    return [path for path in sorted(dest.rglob("*")) if path.is_file() or path.is_symlink()]
+
+
+def _output_map(text: str) -> dict[str, str]:
+    parsed: dict[str, str] = {}
+    for line in text.splitlines():
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        parsed[key] = value
+    return parsed
+
+
+def _prepare_collect_root(root: Path) -> Path:
+    """Lay out $PWD/collect.sh, $PWD/ws, and $PWD/out.txt for the collect step."""
+    ws = root / "ws"
+    _fill_reports(ws / ".insidia" / "runs" / _REAL_RUN, _REAL_MARKER)
+    _fill_reports(ws / ".insidia" / "runs" / _PLANTED_RUN, _PLANTED_MARKER)
+    script = str(_collect_step(_action())["run"])
+    if not script.endswith("\n"):
+        script += "\n"
+    (root / "collect.sh").write_text(script)
+    (root / "out.txt").write_text("")
+    return ws
+
+
+def _run_collect_harness(bash: str, root: Path) -> subprocess.CompletedProcess[str]:
+    """Run `cd ws && bash ../collect.sh` with GITHUB_WORKSPACE=$PWD/ws."""
+    store = root / "empty"
     env = _offline_env(store)
-    env["GITHUB_WORKSPACE"] = str(work.resolve())
-    env["GITHUB_OUTPUT"] = str(work / "github-output.txt")
-    (work / "github-output.txt").write_text("")
-    return _bash(bash, str(_collect_step(_action())["run"]), env, work)
+    env["GITHUB_WORKSPACE"] = str(root / "ws")
+    env["GITHUB_OUTPUT"] = str(root / "out.txt")
+    (root / "out.txt").write_text("")
+    return subprocess.run(
+        [bash, "--noprofile", "--norc", "-c", "cd ws && bash ../collect.sh"],
+        cwd=root,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
 
 def _folded(text: str) -> str:
@@ -840,133 +878,172 @@ def test_tc_f1_n8_run_folder_comes_only_from_run_dir() -> None:
         raise AssertionError("\n\n".join(problems))
 
 
-def test_tc_f1_n9_collect_ignores_a_later_planted_folder(tmp_path: Path) -> None:
-    """TC-F1-N9. Collect copies the reported run, not a later planted name.
+def _assert_output_keys(outputs: dict[str, str], blob: str) -> None:
+    if "sarif" not in outputs or "found" not in outputs:
+        raise AssertionError(f"out.txt keys differ from sarif and found: {outputs!r}\n{blob}")
 
-    99991231T235959Z-ffffff sorts after the real run and holds marker files.
-    Those markers must not appear in the collected set.
-    """
+
+def test_tc_f1_n9_collect_ignores_a_later_planted_folder(tmp_path: Path) -> None:
+    """TC-F1-N9. A valid run_dir copies only the real run, not the planted one."""
     bash = _require_bash()
-    work = tmp_path / "workspace"
-    real = work / ".insidia" / "runs" / _REAL_RUN
-    planted = work / ".insidia" / "runs" / _PLANTED_RUN
-    _fill_reports(real, _REAL_MARKER)
-    _fill_reports(planted, _PLANTED_MARKER)
-    (work / "insidia-scan.json").write_text(
+    root = tmp_path / "harness"
+    ws = _prepare_collect_root(root)
+    (ws / "insidia-scan.json").write_text(
         json.dumps({"run_dir": f".insidia/runs/{_REAL_RUN}"}) + "\n"
     )
-    result = _run_collect(bash, work)
+    result = _run_collect_harness(bash, root)
     blob = _blob(result)
-    collected = _collected_text(work)
-    if _PLANTED_MARKER in collected:
-        raise AssertionError(f"planted files were copied\n{blob}\n{collected}")
-    dest = work / "insidia-reports"
+    collected = _collected_text(ws)
+    output = (root / "out.txt").read_text()
+    if _PLANTED_MARKER in collected or _PLANTED_MARKER in output:
+        raise AssertionError(f"planted files were copied\n{blob}\n{collected}\n{output}")
     for name in _REPORT_NAMES:
-        copied = dest / name
-        if not copied.is_file() or copied.read_text() != (real / name).read_text():
-            raise AssertionError(f"collected {name} is not the reported run\n{blob}\n{collected}")
-    _assert_nothing_fetched(work / "empty")
+        copied = ws / "insidia-reports" / name
+        if not copied.is_file() or _REAL_MARKER not in copied.read_text():
+            raise AssertionError(f"collected {name} is not the real run\n{blob}\n{collected}")
+        if _PLANTED_MARKER in copied.read_text():
+            raise AssertionError(f"planted files were copied in {name}\n{blob}")
+    parsed = _output_map(output)
+    _assert_output_keys(parsed, blob)
+    assert parsed["sarif"] == "true", output
+    assert parsed["found"] == "true", output
+    _assert_nothing_fetched(root / "empty")
 
 
 def test_tc_f1_p7_uploads_relative_and_absolute_run_dir(tmp_path: Path) -> None:
     """TC-F1-P7. A relative run_dir and an absolute run_dir both upload that run."""
     bash = _require_bash()
-    work = tmp_path / "workspace"
-    real = work / ".insidia" / "runs" / _REAL_RUN
-    _fill_reports(real, _REAL_MARKER)
-    _fill_reports(work / ".insidia" / "runs" / _PLANTED_RUN, _PLANTED_MARKER)
+    root = tmp_path / "harness"
+    ws = _prepare_collect_root(root)
+    real = ws / ".insidia" / "runs" / _REAL_RUN
     reported = (f".insidia/runs/{_REAL_RUN}", str(real.resolve()))
     for run_dir in reported:
-        (work / "insidia-scan.json").write_text(json.dumps({"run_dir": run_dir}) + "\n")
-        result = _run_collect(bash, work)
+        (ws / "insidia-scan.json").write_text(json.dumps({"run_dir": run_dir}) + "\n")
+        result = _run_collect_harness(bash, root)
         blob = _blob(result)
-        collected = _collected_text(work)
+        collected = _collected_text(ws)
         if _PLANTED_MARKER in collected:
             raise AssertionError(f"planted files were copied for {run_dir}\n{blob}\n{collected}")
         for name in _REPORT_NAMES:
-            copied = work / "insidia-reports" / name
-            if not copied.is_file() or copied.read_text() != (real / name).read_text():
+            copied = ws / "insidia-reports" / name
+            if not copied.is_file() or _REAL_MARKER not in copied.read_text():
                 raise AssertionError(f"{run_dir} did not upload {name}\n{blob}\n{collected}")
-    _assert_nothing_fetched(work / "empty")
+    _assert_nothing_fetched(root / "empty")
 
 
-def _n10_workspace(tmp_path: Path, case: str) -> tuple[Path, str | None, bool]:
-    """Return workspace, run_dir value, and whether insidia-scan.json exists."""
-    work = tmp_path / "workspace"
-    real = work / ".insidia" / "runs" / _REAL_RUN
-    planted = work / ".insidia" / "runs" / _PLANTED_RUN
-    _fill_reports(real, _REAL_MARKER)
-    _fill_reports(planted, _PLANTED_MARKER)
-    outside = tmp_path / "outside"
-    _fill_reports(outside, _OUTSIDE_MARKER)
-    if case == "no-json":
-        return work, None, False
-    if case == "missing-key":
-        return work, None, True
-    if case == "outside-workspace":
-        return work, str(outside.resolve()), True
-    if case == "dotdot-traversal":
-        escaped = f".insidia/runs/{_REAL_RUN}/../../../../outside"
-        assert ".." in escaped
-        return work, escaped, True
-    if case == "symlinked-folder":
-        link = work / ".insidia" / "runs" / "20260102T120000Z-abcdef"
-        link.symlink_to(planted, target_is_directory=True)
-        return work, f".insidia/runs/{link.name}", True
-    if case == "bad-run-id":
-        _fill_reports(work / ".insidia" / "runs" / "not-a-run", _PLANTED_MARKER)
-        return work, ".insidia/runs/not-a-run", True
-    if case == "symlinked-file":
-        target = planted / "results.sarif"
-        sarif = real / "results.sarif"
-        sarif.unlink()
-        sarif.symlink_to(target)
-        return work, f".insidia/runs/{_REAL_RUN}", True
-    if case == "empty-run-dir":
-        return work, "", True
+def _n10_case(ws: Path, case: str) -> None:
+    scan_json = ws / "insidia-scan.json"
+    real = f".insidia/runs/{_REAL_RUN}"
+    if case == "a-no-json":
+        scan_json.unlink(missing_ok=True)
+        return
+    if case == "b-invalid-json":
+        scan_json.write_text("{")
+        return
+    if case == "c-missing":
+        scan_json.write_text(json.dumps({"schema_version": "2.0"}) + "\n")
+        return
+    if case == "c-empty":
+        scan_json.write_text(json.dumps({"run_dir": ""}) + "\n")
+        return
+    if case == "c-number":
+        scan_json.write_text(json.dumps({"run_dir": 1}) + "\n")
+        return
+    if case == "d-outside":
+        if _ELSEWHERE.exists():
+            shutil.rmtree(_ELSEWHERE)
+        _fill_reports(_ELSEWHERE, "OUTSIDE")
+        scan_json.write_text(json.dumps({"run_dir": str(_ELSEWHERE)}) + "\n")
+        return
+    if case == "e-dotdot":
+        scan_json.write_text(
+            json.dumps({"run_dir": f".insidia/runs/../runs/{_REAL_RUN}/.."}) + "\n"
+        )
+        return
+    if case == "f-symlink-latest":
+        link = ws / ".insidia" / "runs" / "latest"
+        link.symlink_to(ws / ".insidia" / "runs" / _PLANTED_RUN, target_is_directory=True)
+        scan_json.write_text(json.dumps({"run_dir": ".insidia/runs/latest"}) + "\n")
+        return
+    if case == "g-bad-name":
+        _fill_reports(ws / ".insidia" / "runs" / "not-a-run-id", _PLANTED_MARKER)
+        scan_json.write_text(json.dumps({"run_dir": ".insidia/runs/not-a-run-id"}) + "\n")
+        return
+    if case == "h-symlinked-findings":
+        findings = ws / ".insidia" / "runs" / _REAL_RUN / "findings.json"
+        findings.unlink()
+        findings.symlink_to("/etc/hostname")
+        scan_json.write_text(json.dumps({"run_dir": real}) + "\n")
+        return
     raise AssertionError(f"unknown N10 case {case}")
 
 
 @pytest.mark.parametrize(
     "case",
     [
-        "no-json",
-        "missing-key",
-        "outside-workspace",
-        "dotdot-traversal",
-        "symlinked-folder",
-        "bad-run-id",
-        "symlinked-file",
-        "empty-run-dir",
+        "a-no-json",
+        "b-invalid-json",
+        "c-missing",
+        "c-empty",
+        "c-number",
+        "d-outside",
+        "e-dotdot",
+        "f-symlink-latest",
+        "g-bad-name",
+        "h-symlinked-findings",
     ],
 )
 def test_tc_f1_n10_unsafe_run_dir_is_not_copied(tmp_path: Path, case: str) -> None:
-    """TC-F1-N10. An unsafe or missing run_dir copies nothing planted or outside.
+    """TC-F1-N10. Unsafe or missing run_dir values do not copy planted content.
 
-    The collect step must not list .insidia/runs when run_dir is unusable.
-    The empty-string case is the stand-in for the plan's eighth variant.
+    (a) through (g) leave insidia-reports empty with sarif=false and found=false.
+    (h) copies the real sarif and html, skips the symlinked findings.json, and
+    sets found=false. The action writes those two out.txt keys.
     """
     bash = _require_bash()
-    work, run_dir, write_json = _n10_workspace(tmp_path, case)
-    scan_json = work / "insidia-scan.json"
-    if not write_json:
-        scan_json.unlink(missing_ok=True)
-    elif run_dir is None:
-        scan_json.write_text(json.dumps({"schema_version": "2.0"}) + "\n")
-    else:
-        scan_json.write_text(json.dumps({"schema_version": "2.0", "run_dir": run_dir}) + "\n")
-    result = _run_collect(bash, work)
+    root = tmp_path / "harness"
+    ws = _prepare_collect_root(root)
+    result: subprocess.CompletedProcess[str] | None = None
+    try:
+        _n10_case(ws, case)
+        result = _run_collect_harness(bash, root)
+    finally:
+        if case == "d-outside":
+            shutil.rmtree("/tmp/elsewhere", ignore_errors=True)
+    if result is None:
+        raise AssertionError(f"{case}: collect step did not run")
     blob = _blob(result)
-    collected = _collected_text(work)
-    if _PLANTED_MARKER in collected or _OUTSIDE_MARKER in collected:
-        raise AssertionError(f"{case}: fell back to listing or copied outside\n{blob}\n{collected}")
-    if case != "symlinked-file" and collected.strip():
-        raise AssertionError(f"{case}: copied files without a safe run_dir\n{blob}\n{collected}")
-    if case == "symlinked-file":
-        copied_sarif = work / "insidia-reports" / "results.sarif"
-        if copied_sarif.exists():
-            raise AssertionError(f"{case}: followed a symlinked report\n{blob}\n{collected}")
-    _assert_nothing_fetched(work / "empty")
+    collected = _collected_text(ws)
+    output = (root / "out.txt").read_text()
+    visible = "\n".join((collected, output, result.stdout, result.stderr))
+    if _PLANTED_MARKER in visible:
+        raise AssertionError(f"{case}: planted content was copied\n{blob}\n{collected}\n{output}")
+    if "OUTSIDE" in visible:
+        raise AssertionError(f"{case}: outside content was copied\n{blob}\n{collected}\n{output}")
+    parsed = _output_map(output)
+    _assert_output_keys(parsed, blob)
+    reports = _report_files(ws)
+    if case == "h-symlinked-findings":
+        names = {path.name for path in reports}
+        if names != {"results.sarif", "report.html"}:
+            raise AssertionError(f"{case}: copied {sorted(names)}\n{blob}\n{collected}")
+        for name in ("results.sarif", "report.html"):
+            text = (ws / "insidia-reports" / name).read_text()
+            if _REAL_MARKER not in text:
+                raise AssertionError(f"{case}: {name} is not REAL\n{text}")
+        if (ws / "insidia-reports" / "findings.json").exists():
+            raise AssertionError(f"{case}: findings.json was copied\n{blob}")
+        hostname = Path("/etc/hostname").read_text().strip()
+        if hostname and hostname in collected:
+            raise AssertionError(f"{case}: symlinked findings.json was copied\n{collected}")
+        assert parsed["found"] == "false", output
+        assert parsed["sarif"] == "true", output
+    else:
+        if reports:
+            raise AssertionError(f"{case}: insidia-reports is not empty: {reports}\n{blob}")
+        assert parsed["sarif"] == "false", output
+        assert parsed["found"] == "false", output
+    _assert_nothing_fetched(root / "empty")
 
 
 def test_tc_f1_n3_uses_are_pinned_and_scan_workflow_permissions_are_minimal() -> None:
