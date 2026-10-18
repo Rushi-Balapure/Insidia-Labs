@@ -1900,6 +1900,9 @@ def _sarif_message(finding: Finding) -> str:
     return f"{title} ({finding.target})"
 
 
+_BANNER_RULE_ID = "insidia.infra.cve.banner"
+
+
 def _sarif_banner_note(
     control: dict[str, str | int], endpoints: dict[str, str]
 ) -> dict[str, object] | None:
@@ -1909,7 +1912,7 @@ def _sarif_banner_note(
     target_name = _control_text(control, "target") or "target"
     endpoint = endpoints.get(target_name, "") or target_name
     return {
-        "ruleId": "insidia.infra.cve",
+        "ruleId": _BANNER_RULE_ID,
         "level": "note",
         "message": {"text": mask(warning)},
         "properties": {
@@ -1924,7 +1927,7 @@ def _sarif_banner_note(
 
 def _banner_rule(warning: str) -> dict[str, object]:
     return {
-        "id": "insidia.infra.cve",
+        "id": _BANNER_RULE_ID,
         "name": "infra.cve",
         "shortDescription": {"text": "Banner version is not a vulnerability assessment"},
         "fullDescription": {"text": warning},
@@ -1964,7 +1967,7 @@ def _sarif(
         note = _sarif_banner_note(control, endpoints)
         if not warning or note is None:
             continue
-        rule_id = "insidia.infra.cve"
+        rule_id = _BANNER_RULE_ID
         if rule_id not in seen:
             seen.add(rule_id)
             rules.append(_banner_rule(mask(warning)))
