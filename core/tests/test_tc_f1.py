@@ -1,7 +1,8 @@
 """TC-F1 checks for the scan action. Static files and local runs only.
 
-TC-F1-P1 and TC-F1-P2 need a real GitHub Actions run and are not executed here.
-TC-F1-N4 and the SARIF shape check are local proxies, not those Actions runs.
+TC-F1-P1, TC-F1-P2, and TC-F1-N7 need a real GitHub Actions run and are not
+executed here. TC-F1-N4 and the SARIF shape check are local proxies, not those
+Actions runs.
 
 Set TC_F1_ROOT to point the file checks at a copy of the tree.
 """
@@ -53,6 +54,20 @@ _P1_REASON = (
     "--log` and `gh run download <id>`. Artifacts must include non-empty "
     "report.html, findings.json, and results.sarif. The log must show that "
     "pinned version, and the scan must contact only 127.0.0.1."
+)
+
+_N7_REASON = (
+    "NOT AUTOMATABLE. TC-F1-N7 needs a real GitHub Actions run on "
+    "Rushi-Balapure/Insidia-Labs, not a local shell replay. On a pull request, "
+    "set the ./actions/scan version input to a pin that does not match the "
+    "action checkout core/pyproject.toml (for example 9.9.9 while that file is "
+    "0.1.0). Trigger .github/workflows/insidia-scan.yml from the pull request "
+    "or workflow_dispatch. The Install Insidia step must exit 1 with a clear "
+    "non-empty error that the action core version does not match the input. "
+    "`uv` must not run, and the log must not show `uv tool install "
+    "insidia==<version>`, `pip install insidia`, or `pipx install insidia`. "
+    "Save `gh run view <id> --log`. test_tc_f1_n6_missing_or_mismatched_core_does_not_call_uv "
+    "is the local replay. It is not TC-F1-N7."
 )
 
 _P2_REASON = (
@@ -524,18 +539,38 @@ def _owned_core_install(tool: str, args: str, core: Path, work: Path) -> bool:
     return False
 
 
-def _claims_pypi_fallback(statement: str) -> bool:
-    lowered = statement.lower()
-    return any(
-        needle in lowered
-        for needle in (
-            "tries pypi",
-            "from pypi when",
-            "pypi only when",
-            "pypi when it is published",
-            "when it is not on pypi",
+# An install of the bare name, or insidia==<version>, from an index.
+_BARE_INDEX_INSTALL = re.compile(
+    r"""(?x)
+    (?: \b(?:pip3?|pipx)\s+install\b | \buv\s+(?:tool\s+|pip\s+)?install\b )
+    [^\n]*?
+    (?:^|[\s"'=])insidia(?:==|\s|["']|$)
+    """
+)
+
+
+def _index_install_lines(document: dict[str, Any]) -> list[str]:
+    hits: list[str] = []
+    for script in _run_scripts(document):
+        hits.extend(
+            line.strip() for line in script.splitlines() if _BARE_INDEX_INSTALL.search(line)
         )
+    return hits
+
+
+def _action_install_claim(document: dict[str, Any]) -> str:
+    scripts = "\n".join(_run_scripts(document))
+    has_index = bool(_index_install_lines(document))
+    has_core = "uv tool install" in scripts and (
+        "INSIDIA_CORE" in scripts or "./core" in scripts
     )
+    if has_index and has_core:
+        return "checkout-then-pypi"
+    if has_index:
+        return "pypi"
+    if has_core:
+        return "checkout-only"
+    return "unclear"
 
 
 def _install_statements(text: str) -> list[str]:
@@ -544,79 +579,163 @@ def _install_statements(text: str) -> list[str]:
     return [part for part in paragraphs if "pypi" in part.lower()]
 
 
-def _assert_docs_match_checkout_install(guide: str, script: str) -> None:
-    statements = _install_statements(guide)
+def _statement_claim(statement: str) -> str:
+    lowered = statement.lower()
+    pypi_first = "from pypi when" in lowered or "when it is not on pypi" in lowered
+    checkout_then_pypi = "tries pypi" in lowered or "pypi only when" in lowered
+    checkout_only = (
+        "never" in lowered
+        and "pypi" in lowered
+        and "checkout" in lowered
+        and not pypi_first
+        and not checkout_then_pypi
+    )
+    claims = [
+        name
+        for name, present in (
+            ("pypi-first", pypi_first),
+            ("checkout-then-pypi", checkout_then_pypi),
+            ("checkout-only", checkout_only),
+        )
+        if present
+    ]
+    if len(claims) == 1:
+        return claims[0]
+    return "unclear"
+
+
+def _guide_path() -> Path:
+    return _root() / "docs" / "src" / "content" / "docs" / "guides" / "ci.md"
+
+
+def test_tc_f1_n5_static_install_source_agrees() -> None:
+    """TC-F1-N5. action.yml never installs insidia by bare name or index.
+
+    The two install statements in guides/ci.md must not contradict each other
+    or that action.
+    """
+    document = _action()
     problems: list[str] = []
+    hits = _index_install_lines(document)
+    if hits:
+        problems.append(
+            "action.yml installs insidia from PyPI by bare name or index: " + " | ".join(hits)
+        )
+    statements = _install_statements(_guide_path().read_text())
     if len(statements) != 2:
         problems.append(
             f"expected the two install statements in guides/ci.md, found {len(statements)}"
         )
-    for statement in statements:
-        if _claims_pypi_fallback(statement):
-            problems.append(f"docs claim PyPI is tried: {statement}")
-            continue
-        lowered = statement.lower()
-        if "never" not in lowered or "pypi" not in lowered or "checkout" not in lowered:
-            problems.append(f"docs do not agree with a checkout-only install: {statement}")
-    if "insidia==" in script or "pip install insidia" in script:
-        problems.append("action install step still installs insidia from PyPI")
+    claims = [_statement_claim(statement) for statement in statements]
+    if len(claims) == 2 and claims[0] != claims[1]:
+        problems.append(
+            "guides/ci.md install statements contradict each other: "
+            f"{claims[0]} vs {claims[1]}"
+        )
+    action_claim = _action_install_claim(document)
+    for claim, statement in zip(claims, statements, strict=False):
+        if claim != action_claim:
+            problems.append(
+                f"guides/ci.md contradicts the action ({action_claim} vs {claim}): {statement}"
+            )
     if problems:
         raise AssertionError("\n\n".join(problems))
 
 
-def test_tc_f1_i62_refuses_pypi_without_a_matching_core(tmp_path: Path) -> None:
-    """TC-F1-I62. No matching core never installs insidia from PyPI.
+def _replay_install(
+    bash: str, work: Path, version: str, core_version: str | None
+) -> tuple[subprocess.CompletedProcess[str], str, Path]:
+    action_dir = work / "actions" / "scan"
+    action_dir.mkdir(parents=True)
+    core = work / "core"
+    if core_version is not None:
+        core.mkdir()
+        (core / "pyproject.toml").write_text(
+            f'[project]\nname = "insidia"\nversion = "{core_version}"\n'
+        )
+    log = work / "tools.log"
+    bin_dir = work / "bin"
+    _tool_stub(bin_dir, log, code=0)
+    store = work / "empty"
+    step = _install_step(_action())
+    inputs = {"version": version, "github.action_path": str(action_dir)}
+    script = _expand_run(str(step["run"]), inputs)
+    env = _offline_env(store, bin_dir)
+    env.update(_env_from_step(step, inputs))
+    result = _bash(bash, script, env, work)
+    recorded = log.read_text() if log.exists() else ""
+    return result, recorded, core
 
-    The install step must fail with a clear error, or install the action
-    checkout's own core. guides/ci.md's two install statements must say the
-    same thing and must not claim PyPI is tried first.
+
+def test_tc_f1_n6_missing_or_mismatched_core_does_not_call_uv(tmp_path: Path) -> None:
+    """TC-F1-N6. No matching core exits 1 before uv runs.
+
+    A missing core/ and a core/pyproject.toml version other than the input
+    each fail with a clear non-empty error. The stub uv records arguments
+    and must not be called.
     """
     bash = _require_bash()
-    step = _install_step(_action())
-    guide = (_root() / "docs" / "src" / "content" / "docs" / "guides" / "ci.md").read_text()
-    problems: list[str] = []
-    layouts = (
-        ("version-mismatch", 'version = "9.9.9"\n', True),
-        ("core-absent", "", False),
+    cases = (
+        ("core-absent", None),
+        ("version-mismatch", "9.9.9"),
     )
-    for label, version_line, write_core in layouts:
+    problems: list[str] = []
+    for label, core_version in cases:
         work = tmp_path / label
-        action_dir = work / "actions" / "scan"
-        action_dir.mkdir(parents=True)
-        core = work / "core"
-        if write_core:
-            core.mkdir()
-            (core / "pyproject.toml").write_text(f"[project]\nname = \"insidia\"\n{version_line}")
-        log = work / "tools.log"
-        bin_dir = work / "bin"
-        _tool_stub(bin_dir, log, code=0)
-        store = work / "empty"
-        inputs = {"version": "0.1.0", "github.action_path": str(action_dir)}
-        script = _expand_run(str(step["run"]), inputs)
-        env = _offline_env(store, bin_dir)
-        env.update(_env_from_step(step, inputs))
-        result = _bash(bash, script, env, work)
+        result, recorded, _core = _replay_install(bash, work, "0.1.0", core_version)
         blob = _blob(result)
-        try:
-            calls = _tool_calls(log.read_text() if log.exists() else "")
-            for tool, args in calls:
-                if _index_insidia(tool, args):
-                    raise AssertionError(f"PyPI install of insidia: {tool} {args}\n{blob}")
-            owned = any(_owned_core_install(tool, args, core, work) for tool, args in calls)
-            if not owned:
-                if result.returncode == 0:
-                    raise AssertionError(f"no matching core was a success:\n{blob}")
-                if not result.stderr.strip() or "error" not in result.stderr.lower():
-                    raise AssertionError(f"no matching core produced no clear error:\n{blob}")
-            _assert_nothing_fetched(store)
-        except AssertionError as exc:
-            problems.append(f"{label}: {exc}")
-    try:
-        _assert_docs_match_checkout_install(guide, str(step["run"]))
-    except AssertionError as exc:
-        problems.append(f"docs: {exc}")
+        calls = _tool_calls(recorded)
+        uv_calls = [args for tool, args in calls if tool == "uv"]
+        case_problems: list[str] = []
+        if result.returncode != 1:
+            case_problems.append(f"exit={result.returncode}, expected 1")
+        if uv_calls:
+            case_problems.append("uv was called: " + "; ".join(uv_calls))
+        if not result.stderr.strip():
+            case_problems.append("error message is empty")
+        elif "error" not in result.stderr.lower():
+            case_problems.append(f"error message is not clear: {result.stderr!r}")
+        if case_problems:
+            problems.append(f"{label}: " + "; ".join(case_problems) + "\n" + blob)
+        else:
+            try:
+                _assert_nothing_fetched(work / "empty")
+            except AssertionError as exc:
+                problems.append(f"{label}: {exc}")
     if problems:
         raise AssertionError("\n\n".join(problems))
+
+
+def test_tc_f1_p5_matching_version_installs_the_action_core(tmp_path: Path) -> None:
+    """TC-F1-P5. A matching version installs the action checkout core.
+
+    uv may install Python. The only package it installs is that core path.
+    A bare insidia== spec is a failure.
+    """
+    bash = _require_bash()
+    work = tmp_path / "match"
+    result, recorded, core = _replay_install(bash, work, "0.1.0", "0.1.0")
+    blob = _blob(result)
+    assert result.returncode == 0, blob
+    calls = _tool_calls(recorded)
+    uv_calls = [args for tool, args in calls if tool == "uv"]
+    assert uv_calls, f"uv was not called\n{blob}"
+    for tool, args in calls:
+        if _index_insidia(tool, args):
+            raise AssertionError(f"bare insidia spec: {tool} {args}\n{blob}")
+    package = [
+        (tool, args)
+        for tool, args in calls
+        if not (tool == "uv" and args.split()[:2] == ["python", "install"])
+        and "install" in args.split()
+    ]
+    assert package, f"uv did not install the action core\n{recorded}\n{blob}"
+    for tool, args in package:
+        if not _owned_core_install(tool, args, core, work):
+            raise AssertionError(
+                f"uv installed something other than the action core: {tool} {args}"
+            )
+    _assert_nothing_fetched(work / "empty")
 
 
 def test_tc_f1_n3_uses_are_pinned_and_scan_workflow_permissions_are_minimal() -> None:
@@ -815,6 +934,12 @@ def test_tc_f1_p1_live_github_actions_run_not_automated() -> None:
 def test_tc_f1_p2_live_code_scanning_not_automated() -> None:
     """TC-F1-P2 is the code scanning UI. Do not fake alerts."""
     raise AssertionError("TC-F1-P2 must not be faked locally")
+
+
+@pytest.mark.skip(reason=_N7_REASON)
+def test_tc_f1_n7_version_mismatch_on_actions_runner_not_automated() -> None:
+    """TC-F1-N7 is a version mismatch on a real Actions runner. Do not fake it."""
+    raise AssertionError("TC-F1-N7 must not be faked locally")
 
 
 @contextmanager
