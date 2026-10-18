@@ -1,14 +1,15 @@
-"""Regression cases for open bugs N2 and N4.
+"""Regression cases for N2 and N4.
 
 N2: an api or web target with no ``{{payload}}`` placeholder must not report
-injection checks as a plain pass. N4: ``ai.hidden_context_extraction`` must not
+injection checks as a plain pass. A users-only scan is inconclusive (exit 2):
+payload checks are not tested, and the payload-free infra checks stay not
+tested for their own reasons. N4: ``ai.hidden_context_extraction`` must not
 report a plain pass when the reply contains a system prompt that does not use
 the phrasing "you are a". Guard cases (N2-P2, N2-N1, N4-N1) lock in detections
 and real passes that a fix must leave alone.
 
-Bug-asserting cases failed on 64e3a8f for a plain ``pass``. N2 stays
-``xfail(strict=True, reason="N2 open")`` until Test Planner decides the
-exit-code question. N4 is a live guard: the fix landed in 708d7f0.
+Both bugs are live guards. N4 landed in 708d7f0. N2's exit 2 is the intended
+verdict confirmed at 08f6f87.
 """
 
 from __future__ import annotations
@@ -28,10 +29,13 @@ from tests.regression_v6 import (
     finding_text,
     hidden_context_problem,
     owasp_problem,
+    reason_text,
     run_scan,
     vacuous_problem,
     write_config,
 )
+
+_PAYLOAD_FREE = ("infra.cve", "infra.tls")
 
 
 def _scan(
@@ -47,7 +51,6 @@ def _scan(
     return run_scan(tmp_path, config, monkeypatch, capsys, servers)
 
 
-@pytest.mark.xfail(strict=True, reason="N2 open")
 def test_tc_n2_p1_users_without_placeholder_is_not_a_plain_pass(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -61,9 +64,11 @@ def test_tc_n2_p1_users_without_placeholder_is_not_a_plain_pass(
             [server],
             ("users",),
         )
-    assert ran.code == 0, _tail(ran)
+    assert ran.code == 2, _tail(ran)
+    assert ran.benchmark.get("policy_verdict") == "inconclusive"
     assert ran.findings == [], _tail(ran)
-    problems = [
+    problems = _infra_not_tested(ran)
+    problems += [
         problem
         for family in N2_FAMILIES
         if (
@@ -132,7 +137,6 @@ def test_tc_n2_n1_substituted_payloads_stay_passes(
     assert not problems, "\n".join(problems)
 
 
-@pytest.mark.xfail(strict=True, reason="N2 open")
 def test_tc_n2_nfp1_owasp_rows_from_users_are_not_plain_passes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -146,8 +150,10 @@ def test_tc_n2_nfp1_owasp_rows_from_users_are_not_plain_passes(
             [server],
             ("users",),
         )
-    assert ran.code == 0, _tail(ran)
-    problems = [
+    assert ran.code == 2, _tail(ran)
+    assert ran.benchmark.get("policy_verdict") == "inconclusive"
+    problems = _infra_not_tested(ran)
+    problems += [
         problem
         for family in N2_FAMILIES
         if (
@@ -173,7 +179,6 @@ def test_tc_n2_nfp1_owasp_rows_from_users_are_not_plain_passes(
     assert not problems, "\n".join(problems)
 
 
-@pytest.mark.xfail(strict=True, reason="N2 open")
 def test_tc_n2_nfp2_identical_probes_are_not_plain_passes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -188,18 +193,10 @@ def test_tc_n2_nfp2_identical_probes_are_not_plain_passes(
             ("users",),
         )
         recorded = [line for _stamp, line in server.requests]
-    assert recorded, "fixture recorded no request lines"
-    assert ran.code == 0, _tail(ran)
-    problems = []
-    saw_identical = False
+    assert ran.code == 2, _tail(ran)
+    assert ran.benchmark.get("policy_verdict") == "inconclusive"
+    problems = _infra_not_tested(ran)
     for family in N2_FAMILIES:
-        lines = ran.probes.get(("users", family), [])
-        if not lines:
-            problems.append(f"{family}: fixture recorded no probe request lines")
-            continue
-        if len(set(lines)) != 1:
-            continue
-        saw_identical = True
         problem = vacuous_problem(
             ran.control("users", family),
             ran.detail("users", family),
@@ -208,10 +205,9 @@ def test_tc_n2_nfp2_identical_probes_are_not_plain_passes(
             allow_low_assurance=True,
         )
         if problem:
-            sample = lines[0]
-            problems.append(f"{problem} (identical probe {sample!r}, count={len(lines)})")
-    if not saw_identical:
-        problems.append("no check had identical probe lines, so the oracle did not run")
+            problems.append(problem)
+    problems.extend(_payload_did_not_land(ran, recorded))
+    problems.extend(_no_users_pass(ran))
     assert not problems, "\n".join(problems)
 
 
@@ -365,6 +361,68 @@ def test_tc_n4_nfp2_data_leakage_does_not_hide_the_prompt(
         allow_low_assurance=True,
     )
     assert problem is None, problem
+
+
+def _infra_not_tested(ran: ScanRun) -> list[str]:
+    """infra.cve and infra.tls are payload-free, so they stay not tested with a reason."""
+    problems: list[str] = []
+    for family in _PAYLOAD_FREE:
+        control = ran.control("users", family)
+        result = control.get("result")
+        reason = reason_text(
+            control, ran.detail("users", family), ran.benchmark.get("skips"), family
+        )
+        if result != "not tested":
+            problems.append(f"{family}: expected 'not tested', got {result!r}")
+        elif not reason:
+            problems.append(f"{family}: expected a non-empty reason")
+    return problems
+
+
+def _payload_did_not_land(ran: ScanRun, recorded: list[str]) -> list[str]:
+    """Payload checks return before HTTP. Only infra or preflight may hit /api/users/1."""
+    controls = ran.benchmark.get("controls")
+    if not isinstance(controls, list):
+        return ["benchmark controls is not a list"]
+    payload_ids = [
+        str(row.get("id"))
+        for row in controls
+        if isinstance(row, dict)
+        and row.get("target") == "users"
+        and row.get("id") not in _PAYLOAD_FREE
+    ]
+    problems: list[str] = []
+    payload_lines: set[str] = set()
+    for family in payload_ids:
+        sent = [line for line in ran.probes.get(("users", family), []) if "/api/users/1" in line]
+        payload_lines.update(sent)
+        if sent:
+            problems.append(f"{family}: payload check requested /api/users/1: {sent!r}")
+    infra_lines = {
+        line
+        for family in _PAYLOAD_FREE
+        for line in ran.probes.get(("users", family), [])
+        if "/api/users/1" in line
+    }
+    stray = [
+        line
+        for line in recorded
+        if "/api/users/1" in line and line not in infra_lines and line in payload_lines
+    ]
+    if stray:
+        problems.append(f"fixture recorded payload requests for /api/users/1: {stray!r}")
+    return problems
+
+
+def _no_users_pass(ran: ScanRun) -> list[str]:
+    controls = ran.benchmark.get("controls")
+    if not isinstance(controls, list):
+        return ["benchmark controls is not a list"]
+    return [
+        f"{row.get('id')}: expected not a plain pass, got 'pass'"
+        for row in controls
+        if isinstance(row, dict) and row.get("target") == "users" and row.get("result") == "pass"
+    ]
 
 
 def _tail(ran: ScanRun) -> str:
