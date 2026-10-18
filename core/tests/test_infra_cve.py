@@ -13,8 +13,10 @@ import pytest
 from insidia.adapters import find
 from insidia.cli import main
 from insidia.config import load_project
+from insidia.findings import Finding
 from insidia.policy import get_policy
 from insidia.probes import run
+from insidia.runstore import write_run
 from insidia.score import coverage
 
 _TOKEN = "ghp_" + "A" * 36
@@ -265,3 +267,52 @@ def test_the_banner_url_is_not_fetched_as_an_exploit(
     for path in seen:
         folded = path.lower()
         assert not any(mark.lower() in folded for mark in _EXPLOIT)
+
+
+def test_a_cve_finding_and_a_banner_note_are_separate_sarif_rules(tmp_path: Path) -> None:
+    finding = Finding(
+        track="classic",
+        engine="insidia",
+        probe="insidia.infra.cve",
+        severity="high",
+        confidence="high",
+        attack="infra.cve",
+        response="Apache/2.4.49: CVE-2021-41773",
+        trace_ref="old",
+        taxonomy=("owasp-web:A06",),
+        remediation="Remove the vulnerable server banner.",
+        evidence_hash="cve",
+        cross_validated=False,
+        target="old",
+    )
+    detail = (
+        "nginx/1.25.3 identified; no match in the built-in list (8 entries); "
+        "banner-based, low confidence; not a vulnerability assessment"
+    )
+    controls = [
+        {
+            "id": "infra.cve",
+            "target": "current",
+            "result": "info",
+            "detail": detail,
+        }
+    ]
+    directory = write_run(tmp_path, "run-mixed-cve", "L1", False, [finding], controls, [])
+    sarif = json.loads((directory / "results.sarif").read_text(encoding="utf-8"))
+    run = sarif["runs"][0]
+    rules = {rule["id"]: rule for rule in run["tool"]["driver"]["rules"]}
+    assert set(rules) == {"insidia.infra.cve", "insidia.infra.cve.banner"}
+    assert rules["insidia.infra.cve"]["shortDescription"]["text"] == "Cve"
+    assert rules["insidia.infra.cve"]["properties"]["security-severity"] == "7.5"
+    assert rules["insidia.infra.cve.banner"]["properties"]["security-severity"] == "0.0"
+    results = {item["ruleId"]: item for item in run["results"]}
+    assert set(results) == {"insidia.infra.cve", "insidia.infra.cve.banner"}
+    note = results["insidia.infra.cve.banner"]
+    cve = results["insidia.infra.cve"]
+    assert note["level"] == "note"
+    assert note["properties"]["security-severity"] == "0.0"
+    assert rules[note["ruleId"]]["properties"]["security-severity"] == "0.0"
+    assert "not a vulnerability assessment" in note["message"]["text"]
+    assert cve["properties"]["security-severity"] == "7.5"
+    assert "CVE-2021-41773" in cve["message"]["text"]
+    assert "Cve" in cve["message"]["text"]
