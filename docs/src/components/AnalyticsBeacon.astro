@@ -10,8 +10,6 @@ const { path, dsn } = Astro.props;
 <insidia-analytics data-path={path} data-dsn={dsn}></insidia-analytics>
 
 <script>
-  import { inject, pageview } from "@vercel/analytics";
-  import { injectSpeedInsights } from "@vercel/speed-insights";
   import { pageUrl, type TrackedPath } from "../lib/analytics";
 
   const tag = "insidia-analytics";
@@ -19,6 +17,29 @@ const { path, dsn } = Astro.props;
   function trackedPath(value: string | undefined): TrackedPath | null {
     if (value === "/site" || value === "/documentation") return value;
     return null;
+  }
+
+  function queue(name: "va" | "si") {
+    const host = window as unknown as Record<string, (...args: unknown[]) => void>;
+    const existing = host[name];
+    if (typeof existing === "function") return existing;
+    const key = name === "va" ? "vaq" : "siq";
+    const fn = (...params: unknown[]) => {
+      const bucket = (host[key] as unknown as unknown[] | undefined) ?? [];
+      bucket.push(params);
+      host[key] = bucket as unknown as (...args: unknown[]) => void;
+    };
+    host[name] = fn;
+    return fn;
+  }
+
+  function addScript(src: string, dataset: Record<string, string>) {
+    if (document.head.querySelector("script[src='" + src + "']")) return;
+    const script = document.createElement("script");
+    script.src = src;
+    script.defer = true;
+    for (const [key, value] of Object.entries(dataset)) script.dataset[key] = value;
+    document.head.appendChild(script);
   }
 
   if (!customElements.get(tag)) {
@@ -32,19 +53,21 @@ const { path, dsn } = Astro.props;
           if (!path || !dsn) return;
           this.dataset.ready = "1";
           const urlFor = (current: string) => pageUrl(current, path, window.location.href);
-          inject({
+          const va = queue("va");
+          va("beforeSend", (event: { url: string }) => ({ ...event, url: urlFor(event.url) }));
+          addScript("/_vercel/insights/script.js", {
             dsn,
-            disableAutoTrack: true,
-            beforeSend(event) {
-              return { ...event, url: urlFor(event.url) };
-            },
+            sdkn: "@vercel/analytics",
+            sdkv: "2.0.1",
+            disableAutoTrack: "1",
           });
-          pageview({ path, route: path });
-          injectSpeedInsights({
+          va("pageview", { path, route: path });
+          const si = queue("si");
+          si("beforeSend", (event: { url: string }) => ({ ...event, route: path, url: urlFor(event.url) }));
+          addScript("/_vercel/speed-insights/script.js", {
+            sdkn: "@vercel/speed-insights",
+            sdkv: "2.0.0",
             route: path,
-            beforeSend(event) {
-              return { ...event, route: path, url: urlFor(event.url) };
-            },
           });
         }
       },
