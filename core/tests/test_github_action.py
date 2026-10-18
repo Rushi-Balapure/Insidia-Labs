@@ -234,7 +234,9 @@ def test_scan_step_writes_json_from_insidia_json_scan(tmp_path: Path) -> None:
     scan = next(step for step in _steps(_action()) if "insidia --json scan" in step.get("run", ""))
     assert scan["id"] == "scan"
     collect = next(step for step in _steps(_action()) if step.get("id") == "reports")
-    assert collect["if"] == "steps.scan.outcome == 'success' || steps.scan.outcome == 'failure'"
+    assert collect["if"] == (
+        "always() && (steps.scan.outcome == 'success' || steps.scan.outcome == 'failure')"
+    )
     assert '"$RUNNER_TEMP/insidia-scan.json"' in _collect_script()
     assert "run_dir" in _collect_script()
 

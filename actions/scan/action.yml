@@ -144,7 +144,7 @@ runs:
         exit "$code"
 
     - name: Collect scan reports
-      if: steps.scan.outcome == 'success' || steps.scan.outcome == 'failure'
+      if: always() && (steps.scan.outcome == 'success' || steps.scan.outcome == 'failure')
       id: reports
       shell: bash
       run: |
