@@ -1,0 +1,186 @@
+name: Insidia scan
+description: >
+  Run an Insidia policy and upload SARIF to GitHub code scanning.
+  version is required and has no default. The calling workflow checks out
+  the tag or commit SHA for that version before this action runs. When the
+  version is not on PyPI, this action installs the local core/ project with
+  uv from that checkout. insidia scan is invoked with --yes. --yes does not
+  authorize a host: anything other than localhost, 127.0.0.1, or ::1 still
+  needs authorized: true in insidia.yaml.
+
+# GitHub applies permissions from the calling workflow. This block is the
+# contract for that workflow: do not add actions: write, id-token: write,
+# or contents: write.
+permissions:
+  contents: read
+  security-events: write
+
+inputs:
+  version:
+    description: >
+      Insidia package version to install, matching core/pyproject.toml at
+      the tag or commit SHA the workflow checked out. Required. An empty
+      value fails before any scan. Do not pass a branch name.
+    required: true
+  policy:
+    description: Policy passed to insidia scan --policy. L1 is the policy that runs.
+    required: false
+    default: L1
+  fail-on-inconclusive:
+    description: >
+      When true, scan exit code 2 fails the job. Exit code 1 always fails
+      the job. Exit code 0 passes.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Require a pinned version
+      shell: bash
+      env:
+        INSIDIA_VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        if [ -z "${INSIDIA_VERSION}" ]; then
+          printf '%s\n' "error: version is required and must be non-empty" >&2
+          exit 1
+        fi
+        case "${INSIDIA_VERSION}" in
+          *[!A-Za-z0-9._+-]*)
+            printf '%s\n' "error: version must be a pin such as 0.1.0, not a floating ref" >&2
+            exit 1
+            ;;
+        esac
+        case "${INSIDIA_VERSION}" in
+          *[0-9]*) ;;
+          *)
+            printf '%s\n' "error: version must be a pin such as 0.1.0, not a floating ref" >&2
+            exit 1
+            ;;
+        esac
+
+    - name: Set up uv
+      uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+
+    - name: Install Insidia
+      shell: bash
+      env:
+        INSIDIA_VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        if [ -z "${INSIDIA_VERSION}" ]; then
+          printf '%s\n' "error: version is required and must be non-empty" >&2
+          exit 1
+        fi
+        case "${INSIDIA_VERSION}" in
+          *[!A-Za-z0-9._+-]*)
+            printf '%s\n' "error: version must be a pin such as 0.1.0, not a floating ref" >&2
+            exit 1
+            ;;
+        esac
+        uv python install 3.12
+        if uv tool install --python 3.12 "insidia==${INSIDIA_VERSION}"; then
+          exit 0
+        fi
+        printf '%s\n' "Insidia is not on PyPI. Installing core/ from the checked-out tag or SHA."
+        if [ ! -f core/pyproject.toml ]; then
+          printf '%s\n' "error: core/pyproject.toml is missing. Check out the tag or SHA for this version." >&2
+          exit 1
+        fi
+        checkout_version="$(
+          awk '
+            $0 == "[project]" { section = 1; next }
+            section && /^\[/ { section = 0 }
+            section && /^version = / {
+              value = $3
+              gsub("\"", "", value)
+              print value
+              exit
+            }
+          ' core/pyproject.toml
+        )"
+        if [ "$checkout_version" != "$INSIDIA_VERSION" ]; then
+          printf '%s\n' "error: checked-out core/pyproject.toml version does not match the version input. Check out the tag or SHA for that version." >&2
+          exit 1
+        fi
+        uv tool install --python 3.12 --force ./core
+
+    - name: Scan
+      shell: bash
+      env:
+        INSIDIA_POLICY: ${{ inputs.policy }}
+        INSIDIA_FAIL_ON_INCONCLUSIVE: ${{ inputs.fail-on-inconclusive }}
+      run: |
+        set -euo pipefail
+        set +e
+        insidia scan --policy "$INSIDIA_POLICY" --yes
+        code=$?
+        set -e
+        printf '%s\n' "insidia scan exit code: ${code}"
+        if [ "$code" -eq 0 ]; then
+          exit 0
+        fi
+        if [ "$code" -eq 1 ]; then
+          exit 1
+        fi
+        if [ "$code" -eq 2 ]; then
+          if [ "$INSIDIA_FAIL_ON_INCONCLUSIVE" = "true" ]; then
+            exit 2
+          fi
+          if [ "$INSIDIA_FAIL_ON_INCONCLUSIVE" = "false" ]; then
+            printf '%s\n' "scan was inconclusive (exit 2); fail-on-inconclusive is false" >&2
+            exit 0
+          fi
+          printf '%s\n' "error: fail-on-inconclusive must be true or false" >&2
+          exit 2
+        fi
+        exit "$code"
+
+    - name: Collect scan reports
+      if: always()
+      id: reports
+      shell: bash
+      run: |
+        set -euo pipefail
+        dest="insidia-reports"
+        rm -rf "$dest"
+        mkdir -p "$dest"
+        found=false
+        sarif=false
+        if [ -d .insidia/runs ]; then
+          latest="$(find .insidia/runs -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1)"
+          if [ -n "$latest" ]; then
+            copied=0
+            for name in results.sarif report.html findings.json; do
+              if [ -f "$latest/$name" ]; then
+                cp "$latest/$name" "$dest/$name"
+                copied=$((copied + 1))
+              fi
+            done
+            if [ -f "$dest/results.sarif" ]; then
+              sarif=true
+            fi
+            if [ "$copied" -eq 3 ]; then
+              found=true
+            fi
+          fi
+        fi
+        printf 'sarif=%s\n' "$sarif" >> "$GITHUB_OUTPUT"
+        printf 'found=%s\n' "$found" >> "$GITHUB_OUTPUT"
+
+    - name: Upload SARIF
+      if: always() && steps.reports.outputs.sarif == 'true'
+      uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+      with:
+        sarif_file: insidia-reports/results.sarif
+
+    - name: Upload scan reports
+      if: always() && steps.reports.outputs.found == 'true'
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: insidia-reports
+        path: insidia-reports/
+        if-no-files-found: warn
+        include-hidden-files: true
+        retention-days: 14
