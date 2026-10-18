@@ -20,6 +20,7 @@ from insidia.results import (
     CANCELLED,
     COMPLETE,
     ERROR,
+    INFO,
     LIMITED,
     NOT_APPLICABLE,
     UNSUPPORTED,
@@ -72,6 +73,7 @@ def execute(
     assume_yes: bool = False,
     progress: Callable[[Event], None] | None = None,
     rerun_of: str = "",
+    accept_banner_only: bool = False,
 ) -> ScanOutcome:
     blocked = unauthorized_host(project.scope)
     if blocked is not None:
@@ -127,6 +129,7 @@ def execute(
             snapshot,
             started,
             rerun_of,
+            accept_banner_only,
         )
     finally:
         reset_budget(token)
@@ -146,6 +149,7 @@ def _run_targets(
     config_text: bytes,
     started_epoch: float,
     rerun_of: str = "",
+    accept_banner_only: bool = False,
 ) -> ScanOutcome:
     notes: list[str] = []
     try:
@@ -161,6 +165,7 @@ def _run_targets(
             skips,
             progress,
             notes,
+            accept_banner_only,
         )
     except KeyboardInterrupt:
         reason = "cancelled by the user"
@@ -196,6 +201,7 @@ def _scan_targets(
     skips: list[str],
     progress: Callable[[Event], None] | None,
     notes: list[str],
+    accept_banner_only: bool = False,
 ) -> None:
     for target in project.targets:
         if _grpc(target):
@@ -270,6 +276,7 @@ def _scan_targets(
             request_count = 0
             counted = 0
             unit = ""
+            banner_notes: list[str] = []
             for capability in chosen:
                 note = _NETWORK_DB.get(capability.engine)
                 if os.environ.get("INSIDIA_VULN_DB") != "1":
@@ -279,6 +286,7 @@ def _scan_targets(
                     _say(progress, Event("note", detail=note))
                 adapter, spec = find(capability.probe)
                 reason_limit = 90
+                info = ""
                 try:
                     attempt = run(adapter, spec, target, project, root, policy.control(family))
                 except ScopeError as exc:
@@ -295,6 +303,7 @@ def _scan_targets(
                     attempt_hits = attempt.hits
                     error = attempt.error
                     untested = attempt.untested
+                    info = attempt.info
                     probe_count += attempt.probes
                     request_count += attempt.requests
                     if (
@@ -336,6 +345,31 @@ def _scan_targets(
                         ),
                     )
                     continue
+                if info:
+                    warning = mask(info)
+                    if accept_banner_only:
+                        family_records.append(
+                            CheckRecord(
+                                target.name,
+                                family,
+                                capability.engine,
+                                COMPLETE,
+                                finding_count=0,
+                            )
+                        )
+                        banner_notes.append(warning)
+                    else:
+                        family_records.append(
+                            CheckRecord(
+                                target.name,
+                                family,
+                                capability.engine,
+                                INFO,
+                                warning,
+                                finding_count=0,
+                            )
+                        )
+                    continue
                 family_records.append(
                     CheckRecord(
                         target.name,
@@ -356,17 +390,25 @@ def _scan_targets(
                 policy, family, target.name, result, detail, probe_count, request_count
             )
             # A one-prompt relay that missed is a pass with low assurance.
+            # A banner with no built-in CVE match is the same shape when the flag is on.
             if result == "pass":
-                notes = list(
+                relay_notes = list(
                     dict.fromkeys(
                         record.reason
                         for record in family_records
                         if record.state == LIMITED and _is_relay_shallow_note(record.reason)
                     )
                 )
-                if notes:
+                if relay_notes:
                     recorded["assurance"] = "low"
-                    recorded["assurance_reason"] = "; ".join(notes)
+                    recorded["assurance_reason"] = "; ".join(relay_notes)
+                elif banner_notes:
+                    warning = "; ".join(dict.fromkeys(banner_notes))
+                    recorded["assurance"] = "low"
+                    recorded["assurance_reason"] = warning
+                    recorded["detail"] = warning
+            if result == "info":
+                recorded["confidence"] = "low"
             controls.append(recorded)
             # A limited run is too shallow to credit, even when one prompt hit.
             finished = tuple(
@@ -519,6 +561,11 @@ def _configured_secrets(project: Project) -> tuple[str, ...]:
 def _detail(result: str, reasons: list[str], records: list[CheckRecord]) -> str:
     if result == "inconclusive" and reasons:
         return reasons[0]
+    if result == "info":
+        return next(
+            (record.reason for record in records if record.state == INFO and record.reason),
+            "",
+        )
     if result == "not tested":
         return next((record.reason for record in records if record.reason), "")
     limited = [record.reason for record in records if record.state == LIMITED and record.reason]
@@ -531,6 +578,10 @@ def _family_result(records: list[CheckRecord]) -> str:
     _status, verdict = aggregate(records)
     if verdict == "fail":
         return "fail"
+    if any(record.state == INFO for record in records) and not any(
+        record.state == COMPLETE and record.finding_count == 0 for record in records
+    ):
+        return "info"
     if _status == "complete" and verdict == "pass":
         return "pass"
     if _status == "complete":

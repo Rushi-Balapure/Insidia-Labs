@@ -113,6 +113,7 @@ class Terminal:
                 "skipped": "–",
                 "inconclusive": "?",
                 "not tested": "·",
+                "info": "i",
                 "note": "!",
                 "ok": "✔",
             }
@@ -123,6 +124,7 @@ class Terminal:
                 "skipped": "-",
                 "inconclusive": "?",
                 "not tested": ".",
+                "info": "i",
                 "note": "!",
                 "ok": "+",
             }
@@ -134,6 +136,7 @@ class Terminal:
             "skipped": "33",
             "inconclusive": "33",
             "not tested": "2",
+            "info": "2",
             "note": "33",
         }
         return self.paint(glyphs[result], colors[result])
@@ -258,7 +261,14 @@ class ScanView:
     def __init__(self, terminal: Terminal) -> None:
         self.terminal = terminal
         self._target = ""
-        self.counts = {"pass": 0, "fail": 0, "skipped": 0, "inconclusive": 0, "not tested": 0}
+        self.counts = {
+            "pass": 0,
+            "fail": 0,
+            "skipped": 0,
+            "inconclusive": 0,
+            "not tested": 0,
+            "info": 0,
+        }
 
     def __call__(self, event: Event) -> None:
         term = self.terminal
@@ -299,6 +309,7 @@ class ScanView:
             "skipped": "skipped",
             "inconclusive": "incomplete",
             "not tested": "not tested",
+            "info": "info",
         }[event.result]
         tint = {
             "pass": "32",
@@ -306,6 +317,7 @@ class ScanView:
             "skipped": "33",
             "inconclusive": "33",
             "not tested": "2",
+            "info": "2",
         }[event.result]
         right = event.detail or ", ".join(event.engines)
         timing = seconds_text(event.seconds) if event.seconds else ""
@@ -319,6 +331,8 @@ class ScanView:
     def totals(self) -> str:
         c = self.counts
         parts = [f"{c['pass']} passed", f"{c['fail']} failed"]
+        if c["info"]:
+            parts.append(f"{c['info']} info")
         if c["not tested"]:
             parts.append(f"{c['not tested']} not tested")
         if c["skipped"]:

@@ -100,6 +100,8 @@ class Attempt:
     # Files, manifests, or dependencies a repository check read. Not a payload total.
     counted: int = 0
     unit: str = ""
+    # A finished observation that is not a pass and not a finding. Banner gaps use this.
+    info: str = ""
 
 
 # Shared list so a worker thread can record a payload the scan thread totals.
@@ -248,6 +250,10 @@ def run(
         owned = tuple(hit for hit in hits if hit.family == spec.family)
         if owned and not _is_relay_shallow_note(untested):
             untested = ""
+        info = ""
+        if untested.startswith(_BANNER_GAP_MARK):
+            info = untested.removeprefix(_BANNER_GAP_MARK)
+            untested = ""
         sent = _request_count(target) - before
         return Attempt(
             hits,
@@ -257,6 +263,7 @@ def run(
             sent if sent > 0 else 0,
             counted,
             unit,
+            info,
         )
     finally:
         _probe_tally.reset(token)
@@ -583,6 +590,8 @@ def _handshake(host: str, port: int, version: ssl.TLSVersion) -> bool | None:
 
 # Versions with a well-known remote exploit or no upstream security fixes.
 # A banner that is not listed is not evidence that the server is current.
+# The prefix never reaches a report. run() lifts it onto Attempt.info.
+_BANNER_GAP_MARK = "banner-gap\n"
 _BANNERS: tuple[tuple[re.Pattern[str], Callable[[tuple[int, ...]], bool], str], ...] = (
     (re.compile(r"Apache/(\d+)\.(\d+)\.(\d+)"), lambda v: v == (2, 4, 49), "CVE-2021-41773"),
     (re.compile(r"Apache/(\d+)\.(\d+)\.(\d+)"), lambda v: v == (2, 4, 50), "CVE-2021-42013"),
@@ -601,6 +610,17 @@ _BANNERS: tuple[tuple[re.Pattern[str], Callable[[tuple[int, ...]], bool], str], 
     (re.compile(r"PHP/(\d+)\.(\d+)"), lambda v: v < (8, 1), "PHP before 8.1 is EOL"),
     (re.compile(r"Python/(\d+)\.(\d+)"), lambda v: v < (3, 9), "Python before 3.9 is EOL"),
 )
+
+
+def _banner_gap(banner: str) -> str:
+    """A recognised version the built-in list does not mark. This is not a pass."""
+    shown = " ".join(banner.split())
+    if len(shown) > 180:
+        shown = shown[:179].rstrip() + "…"
+    return (
+        f"{shown} identified; no match in the built-in list ({len(_BANNERS)} entries); "
+        "banner-based, low confidence; not a vulnerability assessment"
+    )
 
 
 def _paired_cve(
@@ -641,7 +661,7 @@ def _paired_cve(
         if vulnerable(version):
             evidence = f"{found.group(0)}: {label}"
             return [EngineHit("insidia-banner", "GET", banner, evidence)], "", ""
-    return [], "", f"no known-vulnerable version in {banner[:60]}"
+    return [], "", _BANNER_GAP_MARK + _banner_gap(banner)
 
 
 # A database error that is already on the baseline page is the app's normal reply.

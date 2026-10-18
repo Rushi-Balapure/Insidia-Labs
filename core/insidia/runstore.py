@@ -117,6 +117,7 @@ code { font-family: ui-monospace, monospace; word-break: break-all; }
 .sev-info, .bar-info { background: var(--info); color: #fff; }
 .res-fail { background: var(--high); color: #fff; }
 .res-pass { background: var(--pass); color: #fff; }
+.res-info { background: var(--info); color: #fff; }
 .res-nt { background: #E4E4EE; color: #454573; }
 details.finding {
   background: var(--card);
@@ -344,7 +345,9 @@ def write_run(
         payload.append(document)
     (staging / "findings.json").write_text(json.dumps(payload, indent=2) + "\n")
     (staging / "findings.csv").write_text(_findings_csv(findings, run_id, targets))
-    (staging / "results.sarif").write_text(json.dumps(_sarif(findings), indent=2) + "\n")
+    (staging / "results.sarif").write_text(
+        json.dumps(_sarif(findings, controls, targets), indent=2) + "\n"
+    )
     scores = score_frameworks(controls)
     benchmark = {
         "schema_version": SCHEMA_VERSION,
@@ -1539,6 +1542,7 @@ def _coverage_by_target(controls: list[dict[str, str | int]], skips: list[str]) 
             label, css = {
                 "fail": ("FAIL", "fail"),
                 "pass": ("PASS", "pass"),
+                "info": ("INFO", "info"),
                 "not tested": ("NOT TESTED", "nt"),
             }.get(result, (result.upper() or "NOT TESTED", "nt"))
             why = _coverage_why(control, skips)
@@ -1854,6 +1858,22 @@ def _sarif_rule(finding: Finding) -> dict[str, object]:
     return rule
 
 
+def _banner_warning(control: dict[str, str | int]) -> str:
+    """The low-confidence banner note, when this control is that case."""
+    result = _control_text(control, "result")
+    if result == "info":
+        text = _control_text(control, "detail").strip()
+    elif result == "pass" and control.get("assurance") == "low":
+        text = _control_text(control, "assurance_reason").strip()
+        if not text:
+            text = _control_text(control, "detail").strip()
+    else:
+        return ""
+    if "not a vulnerability assessment" not in text or "low confidence" not in text:
+        return ""
+    return text
+
+
 def _sarif_message(finding: Finding) -> str:
     """Name the finding and show masked evidence. A raw secret never reaches SARIF."""
     title = finding.title or finding.attack
@@ -1863,7 +1883,44 @@ def _sarif_message(finding: Finding) -> str:
     return f"{title} ({finding.target})"
 
 
-def _sarif(findings: list[Finding]) -> dict[str, object]:
+def _sarif_banner_note(
+    control: dict[str, str | int], endpoints: dict[str, str]
+) -> dict[str, object] | None:
+    warning = _banner_warning(control)
+    if not warning:
+        return None
+    target_name = _control_text(control, "target") or "target"
+    endpoint = endpoints.get(target_name, "") or target_name
+    return {
+        "ruleId": "insidia.infra.cve",
+        "level": "note",
+        "message": {"text": mask(warning)},
+        "properties": {
+            "engine": "insidia",
+            "severity": "info",
+            "confidence": "low",
+            "security-severity": "0.0",
+        },
+        "locations": [_endpoint_location(target_name, endpoint)],
+    }
+
+
+def _banner_rule(warning: str) -> dict[str, object]:
+    return {
+        "id": "insidia.infra.cve",
+        "name": "infra.cve",
+        "shortDescription": {"text": "Banner version is not a vulnerability assessment"},
+        "fullDescription": {"text": warning},
+        "help": {"text": warning, "markdown": warning},
+        "properties": {"security-severity": "0.0", "tags": ["security"]},
+    }
+
+
+def _sarif(
+    findings: list[Finding],
+    controls: list[dict[str, str | int]] | None = None,
+    targets: tuple[tuple[str, str, str], ...] = (),
+) -> dict[str, object]:
     rules = []
     seen: set[str] = set()
     results = []
@@ -1884,6 +1941,17 @@ def _sarif(findings: list[Finding]) -> dict[str, object]:
         }
         result["locations"] = [_sarif_result_location(finding)]
         results.append(result)
+    endpoints = {name: endpoint for name, _kind, endpoint in targets}
+    for control in controls or []:
+        warning = _banner_warning(control)
+        note = _sarif_banner_note(control, endpoints)
+        if not warning or note is None:
+            continue
+        rule_id = "insidia.infra.cve"
+        if rule_id not in seen:
+            seen.add(rule_id)
+            rules.append(_banner_rule(mask(warning)))
+        results.append(note)
     return {
         "version": "2.1.0",
         "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
