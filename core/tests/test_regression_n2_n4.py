@@ -208,6 +208,7 @@ def test_tc_n2_nfp2_identical_probes_are_not_plain_passes(
             problems.append(problem)
     problems.extend(_payload_did_not_land(ran, recorded))
     problems.extend(_no_users_pass(ran))
+    problems.extend(_users_route_bounds(recorded))
     assert not problems, "\n".join(problems)
 
 
@@ -412,6 +413,43 @@ def _payload_did_not_land(ran: ScanRun, recorded: list[str]) -> list[str]:
     if stray:
         problems.append(f"fixture recorded payload requests for /api/users/1: {stray!r}")
     return problems
+
+
+# Same cap as the inline ``<= 6`` in test_coverage_limits.py:181. That file
+# does not export a constant to import.
+_USERS_ROUTE_CAP = 6
+_USERS_PATH = "/api/users/1"
+
+
+def _request_target(line: str) -> str:
+    parts = line.split(" ")
+    return parts[1] if len(parts) >= 2 else line
+
+
+def _users_route_bounds(recorded: list[str]) -> list[str]:
+    """Requests to the configured users URL stay few and carry no payload.
+
+    The vendored target is ``GET /api/users/1`` with an empty query and no body.
+    A payload check embeds its marker in that request-target, so any query or
+    extra path means a payload landed.
+    """
+    hits = [line for line in recorded if _is_users_route(line)]
+    problems: list[str] = []
+    if len(hits) > _USERS_ROUTE_CAP:
+        problems.append(
+            f"{_USERS_PATH} was requested {len(hits)} times; cap is {_USERS_ROUTE_CAP} "
+            "(test_coverage_limits.py:181)"
+        )
+    for line in hits:
+        if _request_target(line) != _USERS_PATH:
+            problems.append(f"{_USERS_PATH} request carries a payload marker: {line!r}")
+    return problems
+
+
+def _is_users_route(line: str) -> bool:
+    target = _request_target(line)
+    path = target.split("?", 1)[0]
+    return path == _USERS_PATH or path.startswith(f"{_USERS_PATH}/")
 
 
 def _no_users_pass(ran: ScanRun) -> list[str]:
