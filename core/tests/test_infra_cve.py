@@ -113,10 +113,20 @@ def _control(latest: Path) -> dict[str, object]:
 
 
 def test_a_banner_with_no_cve_match_is_info(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     with _serve("nginx/1.25.3", _TOKEN) as (port, _seen):
-        code, latest = _scan(tmp_path, monkeypatch, port)
+        code, latest = _scan(tmp_path, monkeypatch, port, quiet=False)
+    err = capsys.readouterr().err
+    finished = [
+        line
+        for line in err.splitlines()
+        if "infra.cve" in line and not line.strip().startswith(("…", "..."))
+    ]
+    assert len(finished) == 1
+    cli = finished[0]
+    assert "info" in cli
+    assert "pass" not in cli
     # No other check can finish, so the info result leaves the scan inconclusive.
     assert code == 2
     benchmark = json.loads((latest / "benchmark.json").read_text(encoding="utf-8"))
@@ -173,9 +183,12 @@ def test_accept_banner_only_records_low_assurance(
         )
     err = capsys.readouterr().err
     cli = next(line for line in err.splitlines() if "infra.cve" in line and "pass" in line)
+    assert "pass (low assurance)" in cli
+    assert cli.split()[0] not in {"✔", "+"}
     assert "insidia" in cli
     assert "not a vulnerability assessment" in cli
     assert "low confidence" in cli
+    assert "1 passed (1 low assurance)" in err
     assert code == 0
     benchmark = json.loads((latest / "benchmark.json").read_text(encoding="utf-8"))
     assert benchmark["policy_verdict"] == "pass"

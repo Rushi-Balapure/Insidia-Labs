@@ -118,7 +118,7 @@ runs:
       run: |
         set -euo pipefail
         set +e
-        insidia scan --policy "$INSIDIA_POLICY" --yes
+        insidia --json scan --policy "$INSIDIA_POLICY" --yes > insidia-scan.json
         code=$?
         set -e
         printf '%s\n' "insidia scan exit code: ${code}"
@@ -152,30 +152,61 @@ runs:
         mkdir -p "$dest"
         found=false
         sarif=false
-        if [ -d .insidia/runs ]; then
-          latest="$(
-            find .insidia/runs -mindepth 1 -maxdepth 1 -type d -printf '%f\n' \
-              | grep -E '^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{6}$' \
-              | sort \
-              | tail -n 1
+        run_dir=""
+        if [ -f insidia-scan.json ]; then
+          run_dir="$(python3 - insidia-scan.json <<'PY'
+        import json
+        import os
+        import re
+        import sys
+        from pathlib import Path
+
+        pattern = re.compile(r"^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{6}$")
+        workspace = Path(os.environ["GITHUB_WORKSPACE"]).resolve()
+        try:
+            document = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            raise SystemExit(0)
+        if not isinstance(document, dict):
+            raise SystemExit(0)
+        raw = document.get("run_dir")
+        if not isinstance(raw, str) or raw == "":
+            raise SystemExit(0)
+        try:
+            candidate = Path(raw)
+            given = candidate if candidate.is_absolute() else workspace / candidate
+            if given.is_symlink():
+                raise SystemExit(0)
+            resolved = given.resolve(strict=True)
+            if resolved.is_symlink() or not resolved.is_dir():
+                raise SystemExit(0)
+            relative = resolved.relative_to(workspace)
+        except (OSError, ValueError):
+            raise SystemExit(0)
+        if relative.parts != (".insidia", "runs", resolved.name):
+            raise SystemExit(0)
+        if pattern.fullmatch(resolved.name) is None:
+            raise SystemExit(0)
+        text = str(resolved)
+        if "\n" in text or "\x00" in text:
+            raise SystemExit(0)
+        print(text)
+        PY
           )"
-          if [ -n "$latest" ]; then
-            latest=".insidia/runs/$latest"
+        fi
+        if [ -n "$run_dir" ]; then
+          copied=0
+          for name in results.sarif report.html findings.json; do
+            if [ -f "$run_dir/$name" ] && [ ! -L "$run_dir/$name" ]; then
+              cp -- "$run_dir/$name" "$dest/$name"
+              copied=$((copied + 1))
+            fi
+          done
+          if [ -f "$dest/results.sarif" ]; then
+            sarif=true
           fi
-          if [ -n "$latest" ]; then
-            copied=0
-            for name in results.sarif report.html findings.json; do
-              if [ -f "$latest/$name" ]; then
-                cp "$latest/$name" "$dest/$name"
-                copied=$((copied + 1))
-              fi
-            done
-            if [ -f "$dest/results.sarif" ]; then
-              sarif=true
-            fi
-            if [ "$copied" -eq 3 ]; then
-              found=true
-            fi
+          if [ "$copied" -eq 3 ]; then
+            found=true
           fi
         fi
         printf 'sarif=%s\n' "$sarif" >> "$GITHUB_OUTPUT"

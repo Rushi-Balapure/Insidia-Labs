@@ -37,6 +37,8 @@ class Event:
     # Files, manifests, or dependencies a repository check counted. Preferred over probes.
     counted: int | None = None
     unit: str = ""
+    # "low" on a pass that is not a full pass. Empty on every other row.
+    assurance: str = ""
 
 
 def wants_color(stream: TextIO, no_color: bool = False) -> bool:
@@ -116,6 +118,7 @@ class Terminal:
                 "info": "i",
                 "note": "!",
                 "ok": "✔",
+                "low": "~",
             }
             if self.unicode
             else {
@@ -127,6 +130,7 @@ class Terminal:
                 "info": "i",
                 "note": "!",
                 "ok": "+",
+                "low": "~",
             }
         )
         colors = {
@@ -138,6 +142,7 @@ class Terminal:
             "not tested": "2",
             "info": "2",
             "note": "33",
+            "low": "33",
         }
         return self.paint(glyphs[result], colors[result])
 
@@ -269,6 +274,7 @@ class ScanView:
             "not tested": 0,
             "info": 0,
         }
+        self.low_assurance = 0
 
     def __call__(self, event: Event) -> None:
         term = self.terminal
@@ -303,34 +309,43 @@ class ScanView:
     def _row(self, event: Event) -> None:
         term = self.terminal
         self.counts[event.result] += 1
+        low = event.result == "pass" and event.assurance == "low"
+        if low:
+            self.low_assurance += 1
+        status = "low" if low else event.result
         label = {
             "pass": "pass",
+            "low": "pass (low assurance)",
             "fail": "FAIL",
             "skipped": "skipped",
             "inconclusive": "incomplete",
             "not tested": "not tested",
             "info": "info",
-        }[event.result]
+        }[status]
         tint = {
             "pass": "32",
+            "low": "33",
             "fail": "1;31",
             "skipped": "33",
             "inconclusive": "33",
             "not tested": "2",
             "info": "2",
-        }[event.result]
+        }[status]
         right = event.detail or ", ".join(event.engines)
         timing = seconds_text(event.seconds) if event.seconds else ""
         count = _payload_count(event)
         timed = f"{count} · {timing}" if count and timing else count or timing
         term.line(
-            f"  {term.symbol(event.result)} {event.family:<30} "
+            f"  {term.symbol(status)} {event.family:<30} "
             f"{term.paint(f'{label:<10}', tint)} {term.dim(right)} {term.dim(timed)}".rstrip()
         )
 
     def totals(self) -> str:
         c = self.counts
-        parts = [f"{c['pass']} passed", f"{c['fail']} failed"]
+        passed = f"{c['pass']} passed"
+        if self.low_assurance:
+            passed = f"{passed} ({self.low_assurance} low assurance)"
+        parts = [passed, f"{c['fail']} failed"]
         if c["info"]:
             parts.append(f"{c['info']} info")
         if c["not tested"]:

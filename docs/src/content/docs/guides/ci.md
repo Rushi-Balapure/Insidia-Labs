@@ -19,7 +19,7 @@ Keep localhost as the initial scope. A non-local target needs `authorized: true`
 
 ## Use the scan action
 
-The repository ships a composite action at `actions/scan`. It installs one Insidia version, runs `insidia scan --policy <policy> --yes`, uploads `results.sarif` to GitHub code scanning, and uploads `report.html`, `findings.json`, and the SARIF file as a workflow artifact.
+The repository ships a composite action at `actions/scan`. It installs one Insidia version, runs `insidia --json scan --policy <policy> --yes`, and uploads `results.sarif` from the `run_dir` in that JSON to GitHub code scanning, plus `report.html`, `findings.json`, and the SARIF file as a workflow artifact.
 
 `version` is required. An empty or missing version fails the job before any scan. Pass the package version from the action checkout's `core/pyproject.toml`. The action installs `$INSIDIA_CORE` from the action checkout when its pyproject version matches. A mismatch or a missing core fails the job. It never installs `insidia` from PyPI.
 
@@ -47,7 +47,7 @@ permissions:
 
 `fail-on-inconclusive` controls exit code 2 only. Exit code 1 still fails the job. Exit code 0 passes. The default is `true`.
 
-The action installs `$INSIDIA_CORE` from the action checkout when its pyproject version matches. A mismatch or a missing core fails the job. It never installs `insidia` from PyPI. A directory under `.insidia/runs` is uploaded only when its name is a scan run id (`YYYYMMDDTHHMMSSZ-` plus six hex digits), so a planted folder cannot sort ahead of the scan.
+The action installs `$INSIDIA_CORE` from the action checkout when its pyproject version matches. A mismatch or a missing core fails the job. It never installs `insidia` from PyPI. The scan step writes stdout from `insidia --json scan` to `insidia-scan.json` before it returns the exit code, so a finished scan still records `run_dir` when the exit code is not 0. The action copies reports only from that `run_dir`. The path must be relative, or absolute and resolved inside the workspace. The final path must be a real directory, not a symlink, under `.insidia/runs`, and its basename must be a scan run id (`YYYYMMDDTHHMMSSZ-` plus six hex digits). If the JSON file is missing, `run_dir` is missing, or those checks fail, the action uploads nothing. It does not list `.insidia/runs` and it does not sort folder names, so a planted folder is not uploaded.
 
 The action reads `insidia.yaml` from the repository. It has no input for a host. `.github/workflows/insidia-scan.yml` is an example that starts a small Python server on `127.0.0.1` and scans only that fixture. It is safe to run on a pull request: it checks out the pull request commit, does not clone another repository, and does not scan a host other than `127.0.0.1`.
 
@@ -55,7 +55,7 @@ Code scanning must be enabled for the SARIF upload to succeed. The upload uses `
 
 ## Upload SARIF yourself
 
-You can keep the scan step in your own workflow and upload the files without the composite action. Check out the tag or commit SHA, install that checkout with `uv`, and run the scan. Pass the policy through the environment if it is an input. Do not expand `${{ inputs.* }}` or `${{ github.* }}` inside a `run` script.
+You can keep the scan step in your own workflow and upload the files without the composite action. Check out the tag or commit SHA, install that checkout with `uv`, and run the scan. Pass the policy through the environment if it is an input. Do not expand `${{ inputs.* }}` or `${{ github.* }}` inside a `run` script. Save stdout from `insidia --json scan` and copy reports from the `run_dir` in that JSON. Do not select a folder by sorting names under `.insidia/runs`.
 
 ```yaml
 permissions:
@@ -72,20 +72,69 @@ permissions:
   run: uv tool install --python 3.12 ./core
 
 - name: Scan with Insidia
-  run: insidia scan --policy L1 --yes
+  run: |
+    set -euo pipefail
+    set +e
+    insidia --json scan --policy L1 --yes > insidia-scan.json
+    code=$?
+    set -e
+    exit "$code"
 
 - name: Collect scan reports
   if: always()
   run: |
-    mkdir -p insidia-reports
-    latest="$(
-      find .insidia/runs -mindepth 1 -maxdepth 1 -type d -printf '%f\n' \
-        | grep -E '^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{6}$' \
-        | sort \
-        | tail -n 1
-    )"
-    if [ -n "$latest" ]; then
-      cp ".insidia/runs/$latest/results.sarif" ".insidia/runs/$latest/report.html" ".insidia/runs/$latest/findings.json" insidia-reports/
+    set -euo pipefail
+    dest="insidia-reports"
+    rm -rf "$dest"
+    mkdir -p "$dest"
+    run_dir=""
+    if [ -f insidia-scan.json ]; then
+      run_dir="$(python3 - insidia-scan.json <<'PY'
+    import json
+    import os
+    import re
+    import sys
+    from pathlib import Path
+
+    pattern = re.compile(r"^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{6}$")
+    workspace = Path(os.environ["GITHUB_WORKSPACE"]).resolve()
+    try:
+        document = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        raise SystemExit(0)
+    if not isinstance(document, dict):
+        raise SystemExit(0)
+    raw = document.get("run_dir")
+    if not isinstance(raw, str) or raw == "":
+        raise SystemExit(0)
+    try:
+        candidate = Path(raw)
+        given = candidate if candidate.is_absolute() else workspace / candidate
+        if given.is_symlink():
+            raise SystemExit(0)
+        resolved = given.resolve(strict=True)
+        if resolved.is_symlink() or not resolved.is_dir():
+            raise SystemExit(0)
+        relative = resolved.relative_to(workspace)
+    except (OSError, ValueError):
+        raise SystemExit(0)
+    if relative.parts != (".insidia", "runs", resolved.name):
+        raise SystemExit(0)
+    if pattern.fullmatch(resolved.name) is None:
+        raise SystemExit(0)
+    text = str(resolved)
+    if "\n" in text or "\x00" in text:
+        raise SystemExit(0)
+    print(text)
+    PY
+      )"
+    fi
+    if [ -n "$run_dir" ]; then
+      for name in results.sarif report.html findings.json; do
+        if [ -f "$run_dir/$name" ] && [ ! -L "$run_dir/$name" ]; then
+          cp -- "$run_dir/$name" "$dest/$name"
+        fi
+      done
     fi
 
 - name: Upload SARIF
@@ -105,7 +154,7 @@ permissions:
     retention-days: 14
 ```
 
-The copy step runs after a failed scan as well as a pass. Copy the run files out of `.insidia` before uploading them. A setup error before the scan writes a run may leave no artifacts.
+The copy step runs after a failed scan as well as a pass. The scan writes `insidia-scan.json` before it returns the exit code, so a finished scan still has a `run_dir`. Copy the run files out of that directory before uploading them. If the JSON file or `run_dir` is missing, or the directory is not a real run directory under `.insidia/runs`, copy nothing. A setup error before the scan writes a run may leave no artifacts.
 
 ## Interpret the result
 
