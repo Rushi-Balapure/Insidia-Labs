@@ -77,7 +77,7 @@ def _frameworks() -> tuple[Framework, ...]:
 
 
 def _load(filename: str) -> Framework:
-    loaded = yaml.safe_load((_MAP_DIR / filename).read_text())
+    loaded = yaml.safe_load((_MAP_DIR / filename).read_text(encoding="utf-8"))
     if not isinstance(loaded, dict):
         raise ValueError(f"{filename} must be a mapping")
     name = loaded.get("framework")

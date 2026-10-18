@@ -11,7 +11,7 @@ def build_id() -> str:
     here = Path(__file__).resolve().parent
     record = here / "BUILD"
     if record.is_file():
-        return record.read_text().strip()
+        return record.read_text(encoding="utf-8").strip()
     # Only this repository's checkout; an install inside another git project is not ours.
     if not (here.parent / "pyproject.toml").is_file() or not (here.parents[1] / ".git").exists():
         return ""
@@ -21,6 +21,8 @@ def build_id() -> str:
             cwd=here,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=5,
             check=True,
         )

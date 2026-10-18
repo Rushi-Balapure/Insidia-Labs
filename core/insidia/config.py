@@ -132,13 +132,13 @@ def init_config(
     path.parent.mkdir(parents=True, exist_ok=True)
     destination = path
     if url is None and kind is None:
-        destination.write_text(_INIT)
+        destination.write_text(_INIT, encoding="utf-8")
         return destination
     target_url = url or "http://127.0.0.1:8080/chat"
     if url is not None:
         prepare_init_url(target_url)
     target_kind = prepare_init_kind(target_url, kind)
-    destination.write_text(_starter(target_url, target_kind))
+    destination.write_text(_starter(target_url, target_kind), encoding="utf-8")
     return destination
 
 
@@ -207,7 +207,11 @@ def load_project(path: Path) -> Project:
     if not path.is_file():
         raise ConfigError(f"missing {path}")
     try:
-        loaded = yaml.safe_load(path.read_text())
+        text = path.read_text(encoding="utf-8")
+    except UnicodeError as exc:
+        raise ConfigError("insidia.yaml is not UTF-8") from exc
+    try:
+        loaded = yaml.safe_load(text)
     except yaml.YAMLError as exc:
         mark = getattr(exc, "problem_mark", None)
         where = f" at line {mark.line + 1}" if mark is not None else ""

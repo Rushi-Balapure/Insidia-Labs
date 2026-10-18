@@ -364,7 +364,7 @@ def test_a_limited_relay_is_not_credited_for_a_pass(
     assert "insidia, garak" not in line
     runs = tmp_path / ".insidia" / "runs"
     latest = max(runs.iterdir(), key=lambda path: path.name)
-    report = (latest / "report.html").read_text()
+    report = (latest / "report.html").read_text(encoding="utf-8")
     findings = json.loads((latest / "findings.json").read_text())
     benchmark = json.loads((latest / "benchmark.json").read_text())
     rows = _rows(benchmark, "ai.data_leakage")
@@ -401,7 +401,7 @@ def test_a_one_prompt_hit_does_not_credit_garak(
     assert "insidia, garak" not in line
     runs = tmp_path / ".insidia" / "runs"
     latest = max(runs.iterdir(), key=lambda path: path.name)
-    report = (latest / "report.html").read_text()
+    report = (latest / "report.html").read_text(encoding="utf-8")
     findings = json.loads((latest / "findings.json").read_text())
     benchmark = json.loads((latest / "benchmark.json").read_text())
     rows = _rows(benchmark, "ai.data_leakage")
@@ -841,7 +841,7 @@ targets:
     assert row["probes"] == len(logged)
     assert row["requests"] == len(logged)
     phrase = f"{row['probes']} payloads sent, none triggered."
-    html = (latest / "report.html").read_text()
+    html = (latest / "report.html").read_text(encoding="utf-8")
     assert phrase in html
     assert f"{row['probes']} payloads · " in err
     assert "web.cmdi" in err

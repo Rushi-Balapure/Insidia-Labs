@@ -397,7 +397,7 @@ def _repo_parser(engine: str) -> Callable[[Path, ProbeSpec], list[EngineHit]]:
 def _web_bodies(engine: str, report: Path) -> list[str]:
     if not report.is_file():
         raise EngineFailed("engine report is missing")
-    text = report.read_text(errors="replace")
+    text = report.read_text(encoding="utf-8", errors="replace")
     if not text.strip():
         if engine == "nuclei":
             return []
@@ -501,7 +501,7 @@ def _http_body(raw: str) -> str:
 def _load_json(report: Path) -> object:
     if not report.is_file():
         raise EngineFailed("engine report is missing")
-    text = report.read_text(errors="replace").strip()
+    text = report.read_text(encoding="utf-8", errors="replace").strip()
     if not text:
         raise EngineFailed("engine report is empty")
     loaded = _loads(text)

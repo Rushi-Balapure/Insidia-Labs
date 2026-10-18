@@ -196,3 +196,26 @@ models: {}
 """
     )
     assert load_project(config).attacker is None
+
+
+def test_load_project_reads_utf8_and_rejects_a_bad_byte(tmp_path: Path) -> None:
+    config = tmp_path / "insidia.yaml"
+    config.write_bytes(
+        """
+version: 1
+policy: L1
+coverage: standard
+scope:
+  - host: 127.0.0.1
+targets:
+  app:
+    kind: chat
+    url: http://127.0.0.1:9/chat
+# Á
+models: {}
+""".encode()
+    )
+    assert load_project(config).attacker is None
+    config.write_bytes(b"version: 1\n\x81\n")
+    with pytest.raises(ConfigError, match="not UTF-8"):
+        load_project(config)
