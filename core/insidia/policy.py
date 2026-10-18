@@ -452,6 +452,7 @@ _CONTROLS = (
         _WEB_API,
         "Remove the vulnerable server banner.",
         taxonomy=("owasp-web:A06",),
+        title="Server banner matches a known CVE",
     ),
     _control(
         "infra.tls",

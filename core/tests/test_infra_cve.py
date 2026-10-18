@@ -302,7 +302,9 @@ def test_a_cve_finding_and_a_banner_note_are_separate_sarif_rules(tmp_path: Path
     run = sarif["runs"][0]
     rules = {rule["id"]: rule for rule in run["tool"]["driver"]["rules"]}
     assert set(rules) == {"insidia.infra.cve", "insidia.infra.cve.banner"}
-    assert rules["insidia.infra.cve"]["shortDescription"]["text"] == "Cve"
+    assert rules["insidia.infra.cve"]["shortDescription"]["text"] == (
+        "Server banner matches a known CVE"
+    )
     assert rules["insidia.infra.cve"]["properties"]["security-severity"] == "7.5"
     assert rules["insidia.infra.cve.banner"]["properties"]["security-severity"] == "0.0"
     results = {item["ruleId"]: item for item in run["results"]}
@@ -315,4 +317,4 @@ def test_a_cve_finding_and_a_banner_note_are_separate_sarif_rules(tmp_path: Path
     assert "not a vulnerability assessment" in note["message"]["text"]
     assert cve["properties"]["security-severity"] == "7.5"
     assert "CVE-2021-41773" in cve["message"]["text"]
-    assert "Cve" in cve["message"]["text"]
+    assert "Server banner matches a known CVE" in cve["message"]["text"]
