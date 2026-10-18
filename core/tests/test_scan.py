@@ -16,7 +16,7 @@ from insidia.providers import build_provider
 from insidia.registry import Capability
 from insidia.scan import execute
 from insidia.scope import ScopeHost
-from insidia.transport import RateLimiter, exchange
+from insidia.transport import RateLimiter, exchange, fetch
 from insidia.ui import Event
 from tests.support import start_fixture, stop_fixture, target
 
@@ -218,8 +218,85 @@ def test_same_origin_redirect_is_followed(tmp_path: Path) -> None:
     assert body == "land"
 
 
+@pytest.mark.parametrize("location", ["a b", "/v1/127.0.0.1 && id"])
+def test_redirect_with_a_raw_space_returns_the_302(location: str) -> None:
+    seen: list[str] = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            seen.append(self.path)
+            self.send_response(302)
+            self.send_header("Location", location)
+            self.end_headers()
+
+        def log_message(self, fmt: str, *args: object) -> None:
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    port = server.server_address[1]
+    try:
+        status, headers, _body = fetch(
+            f"http://127.0.0.1:{port}/go",
+            (ScopeHost("127.0.0.1", False),),
+        )
+    finally:
+        server.shutdown()
+    assert status == 302
+    assert headers.get("location") == location
+    assert seen == ["/go"]
+
+
+def test_spaced_location_that_changes_port_is_not_contacted() -> None:
+    hit = {"followed": False}
+
+    class Other(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            hit["followed"] = True
+            self.send_response(200)
+            self.end_headers()
+
+        def log_message(self, fmt: str, *args: object) -> None:
+            return
+
+    other = ThreadingHTTPServer(("127.0.0.1", 0), Other)
+    other_port = other.server_address[1]
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            self.send_response(302)
+            self.send_header("Location", f"http://127.0.0.1:{other_port}/a b")
+            self.end_headers()
+
+        def log_message(self, fmt: str, *args: object) -> None:
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threads = [
+        threading.Thread(target=server.serve_forever, daemon=True),
+        threading.Thread(target=other.serve_forever, daemon=True),
+    ]
+    for thread in threads:
+        thread.start()
+    port = server.server_address[1]
+    try:
+        fetch(
+            f"http://127.0.0.1:{port}/go",
+            (ScopeHost("127.0.0.1", False),),
+        )
+    except ScopeError as exc:
+        assert "redirect changed port" in str(exc)
+        assert "closed the connection" not in str(exc)
+    else:
+        raise AssertionError("expected ScopeError")
+    finally:
+        server.shutdown()
+        other.shutdown()
+    assert hit["followed"] is False
+
+
 def test_scan_refuses_a_same_host_port_change(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     hit = {"followed": False}
 
@@ -272,8 +349,134 @@ targets:
         server.shutdown()
         other.shutdown()
     assert code == 2
-    assert "redirect changed port" in capsys.readouterr().out
     assert hit["followed"] is False
+    benchmark = json.loads(_latest(tmp_path, "benchmark.json").read_text())
+    text = json.dumps(benchmark)
+    hop = f"http://127.0.0.1:{other_port}/secret"
+    assert f"hop: refused redirect to {hop}" in text
+    assert "redirect changed port" in text
+    assert benchmark["execution_status"] == "incomplete"
+
+
+def test_a_refused_redirect_keeps_the_earlier_target(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    code, benchmark, findings, followed, hop = _scan_then_refuse_redirect(
+        tmp_path, monkeypatch, finding=False
+    )
+    assert code == 2
+    assert findings == []
+    assert followed == 0
+    assert benchmark["execution_status"] == "incomplete"
+    assert any(
+        row["target"] == "kept" and row["result"] == "pass" for row in benchmark["controls"]
+    )
+    refused = json.dumps([row for row in benchmark["controls"] if row["target"] == "second"])
+    assert f"second: refused redirect to {hop}" in refused
+    assert "redirect changed port" in refused
+
+
+def test_a_refused_redirect_keeps_an_earlier_finding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    code, benchmark, findings, followed, hop = _scan_then_refuse_redirect(
+        tmp_path, monkeypatch, finding=True
+    )
+    assert code == 1
+    assert followed == 0
+    assert any(
+        item["target"] == "kept" and item["attack"] == "web.open_redirect" for item in findings
+    )
+    refused = json.dumps(benchmark)
+    assert f"second: refused redirect to {hop}" in refused
+    assert "redirect changed port" in refused
+
+
+def _scan_then_refuse_redirect(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, finding: bool
+) -> tuple[int, dict[str, object], list[dict[str, object]], int, str]:
+    """Scan a finished target, then refuse a port-changing redirect on the next one."""
+    followed = {"n": 0}
+
+    class Other(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            followed["n"] += 1
+            self.send_response(200)
+            self.end_headers()
+
+        def log_message(self, fmt: str, *args: object) -> None:
+            return
+
+    other = ThreadingHTTPServer(("127.0.0.1", 0), Other)
+    other_port = int(other.server_address[1])
+    hop = f"http://127.0.0.1:{other_port}/secret"
+
+    class Kept(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            if finding and "insidia-redirect.invalid" in self.path:
+                self.send_response(302)
+                self.send_header("Location", "https://insidia-redirect.invalid/")
+                self.end_headers()
+                return
+            body = b"ok"
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, fmt: str, *args: object) -> None:
+            return
+
+    class Second(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            self.send_response(302)
+            self.send_header("Location", hop)
+            self.end_headers()
+
+        def log_message(self, fmt: str, *args: object) -> None:
+            return
+
+    kept = ThreadingHTTPServer(("127.0.0.1", 0), Kept)
+    second = ThreadingHTTPServer(("127.0.0.1", 0), Second)
+    for server in (other, kept, second):
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+    monkeypatch.setenv("INSIDIA_TOOLCHAIN", str(tmp_path / "toolchain"))
+    kept_port = int(kept.server_address[1])
+    second_port = int(second.server_address[1])
+    (tmp_path / "insidia.yaml").write_text(
+        f"""\
+version: 1
+scope:
+  - host: 127.0.0.1
+targets:
+  kept:
+    kind: web
+    url: http://127.0.0.1:{kept_port}/hello
+    method: GET
+    query:
+      q: "{{{{payload}}}}"
+    rate_limit:
+      rps: 100
+      concurrency: 1
+  second:
+    kind: web
+    url: http://127.0.0.1:{second_port}/go
+    method: GET
+    query:
+      q: "{{{{payload}}}}"
+    rate_limit:
+      rps: 100
+      concurrency: 1
+"""
+    )
+    try:
+        code = main(["scan", "--config", str(tmp_path / "insidia.yaml"), "--quiet"])
+    finally:
+        for server in (kept, second, other):
+            server.shutdown()
+    benchmark = json.loads(_latest(tmp_path, "benchmark.json").read_text())
+    findings = json.loads(_latest(tmp_path, "findings.json").read_text())
+    return code, benchmark, findings, followed["n"], hop
 
 
 def test_local_command_is_not_executed(tmp_path: Path) -> None:
@@ -297,42 +500,18 @@ targets:
     assert not marker.exists()
 
 
-def test_openai_provider_sends_the_prompt_and_returns_content() -> None:
-    seen: dict[str, object] = {}
-
-    class Handler(BaseHTTPRequestHandler):
-        def do_POST(self) -> None:  # noqa: N802
-            length = int(self.headers.get("Content-Length", "0"))
-            seen["body"] = json.loads(self.rfile.read(length))
-            seen["auth"] = self.headers.get("Authorization")
-            body = json.dumps({"choices": [{"message": {"content": "ok"}}]}).encode()
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-
-        def log_message(self, fmt: str, *args: object) -> None:
-            return
-
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    port = server.server_address[1]
-    try:
-        role = ModelRole(
-            "attacker",
-            "openai-compatible",
-            f"http://127.0.0.1:{port}/v1",
-            "qwen",
-            None,
-        )
-        provider = build_provider(role, (ScopeHost("127.0.0.1", False),))
-        assert provider.complete("hello") == "ok"
-        assert seen["body"] == {"model": "qwen", "messages": [{"role": "user", "content": "hello"}]}
-        assert seen["auth"] is None
-    finally:
-        server.shutdown()
+def test_provider_scope_check_does_not_connect() -> None:
+    outside = ModelRole(
+        "attacker",
+        "openai-compatible",
+        "http://qa-out-of-scope.invalid/v1",
+        "qwen",
+        None,
+    )
+    with pytest.raises(ScopeError, match="qa-out-of-scope.invalid is not in scope"):
+        build_provider(outside, (ScopeHost("127.0.0.1", False),))
+    local = ModelRole("judge", "openai-compatible", "http://127.0.0.1:9/v1", "qwen", None)
+    build_provider(local, (ScopeHost("127.0.0.1", False),))
 
 
 def test_scan_finds_the_sandbox_plants_and_passes_a_clean_target(tmp_path: Path) -> None:
@@ -455,15 +634,25 @@ def test_trivy_and_osv_scanner_are_named_in_the_scan_output(
 
     monkeypatch.setattr("insidia.scan.select", fake_select)  # type: ignore[attr-defined]
     monkeypatch.setattr("insidia.scan.run", fake_run)  # type: ignore[attr-defined]
+    monkeypatch.delenv("INSIDIA_VULN_DB", raising=False)  # type: ignore[attr-defined]
     events: list[Event] = []
     outcome = execute(
         load_project(tmp_path / "insidia.yaml"), tmp_path, progress=events.append
     )
-    assert outcome.notes == (
-        "trivy downloads a vulnerability database from the internet when it runs",
-        "osv-scanner downloads a vulnerability database from the internet when it runs",
+    assert outcome.notes == ()
+    assert [event.detail for event in events if event.kind == "note"] == []
+    monkeypatch.setenv("INSIDIA_VULN_DB", "1")  # type: ignore[attr-defined]
+    opted: list[Event] = []
+    opted_in = execute(
+        load_project(tmp_path / "insidia.yaml"), tmp_path, progress=opted.append
     )
-    assert [event.detail for event in events if event.kind == "note"] == list(outcome.notes)
+    assert opted_in.notes == (
+        "trivy downloads a vulnerability database from mirror.gcr.io and ghcr.io "
+        "because INSIDIA_VULN_DB=1",
+        "osv-scanner downloads a vulnerability database from api.osv.dev "
+        "because INSIDIA_VULN_DB=1",
+    )
+    assert [event.detail for event in opted if event.kind == "note"] == list(opted_in.notes)
 
 
 def _latest(root: Path, name: str) -> Path:

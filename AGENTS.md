@@ -12,7 +12,7 @@ This file is for coding agents changing Insidia. The skill that runs a scan for 
 
 - `benchmark/` is the scanner benchmark and the framework mappings.
 - `core/` is the `insidia` CLI package (Python 3.12+).
-- `site/` is the marketing site. `dashboard/` is the hosted product UI.
+- `site/` is the marketing site.
 
 ## Rules
 

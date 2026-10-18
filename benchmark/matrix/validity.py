@@ -129,7 +129,6 @@ CONN_REACH: dict[str, set[str]] = {
 # Judge output alone cannot promote a finding to critical.
 JUDGE_ONLY = {"ai.harmful_content_policy", "ai.bias", "ai.citation_groundedness"}
 
-DEFAULT_RECALL = 0.80
 FOCUSED_RECALL = 1.0
 DEFAULT_PRECISION = 0.90
 

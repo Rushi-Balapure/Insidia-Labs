@@ -2,20 +2,25 @@
 
 from __future__ import annotations
 
+import csv
 import hashlib
+import io
 import json
 import re
 import secrets
 import time
-from dataclasses import asdict, replace
+from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 from urllib.parse import urlparse
+
+import yaml  # type: ignore[import-untyped]
 
 from insidia import __version__, version_text
 from insidia.errors import CliError
 from insidia.findings import Finding, prepare_findings
-from insidia.mask import SECRET_PATTERNS
+from insidia.mask import SECRET_PATTERNS, mask
 from insidia.results import SCHEMA_VERSION, legacy_passed
 from insidia.score import Score, coverage, score_frameworks, severity_rank
 
@@ -131,6 +136,38 @@ summary.bar {
 }
 .pid { font-family: ui-monospace, monospace; }
 .right { margin-left: auto; font-size: 0.85rem; }
+.by-target { position: relative; margin: 0.2rem 0 0.8rem; }
+.by-target input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.by-target label {
+  display: inline-block;
+  margin: 0 0.4rem 0.4rem 0;
+  padding: 0.15rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  cursor: pointer;
+  font-weight: 600;
+}
+.by-target input:checked + label {
+  background: #101028;
+  color: #fff;
+  border-color: #101028;
+}
+.by-target input:focus-visible + label {
+  outline: 2px solid var(--info);
+  outline-offset: 2px;
+}
+ul.locations { margin: 0.7rem 1rem 0.2rem; padding-left: 1.2rem; }
+ul.locations li { margin: 0.2rem 0; }
 .body { padding: 0.2rem 1rem 1rem; }
 pre {
   white-space: pre-wrap;
@@ -147,7 +184,13 @@ footer {
 }
 @media (prefers-color-scheme: dark) {
   body { color: #F6F6FB; background: #101028; }
-  nav, .status, table, details.finding { background: #181839; color: #F6F6FB; }
+  nav, .status, table, details.finding, .by-target label { background: #181839; color: #F6F6FB; }
+  .by-target label { border-color: #2E2E56; }
+  .by-target input:checked + label {
+    background: var(--info);
+    color: #fff;
+    border-color: var(--info);
+  }
   nav a, h2 { color: #F6F6FB; }
   h2, header { border-color: #2E2E56; }
   .note, .muted, th, footer { color: #B2B2D1; }
@@ -184,8 +227,28 @@ footer {
   pre, code, td { overflow-wrap: anywhere; }
   body { overflow-x: hidden; }
 }
+@media (max-width:390px) {
+  nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 1.1rem;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  nav a { margin-right: 0; white-space: nowrap; }
+  table td[data-l], table.scan th, table.scan td {
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 0;
+    max-width: 100%;
+  }
+  table td[data-l]::before { flex: none; }
+}
 @media print {
   nav { display: none; }
+  .by-target input, .by-target label { display: none; }
+  .by-target .finding { display: block !important; }
+  .by-target .loc { display: list-item !important; }
   details, details.finding { break-inside: avoid; }
   details > summary { list-style: none; }
   details > *:not(summary) { display: block !important; }
@@ -239,7 +302,7 @@ def write_run(
     policy: str,
     passed: bool,
     findings: list[Finding],
-    controls: list[dict[str, str]],
+    controls: list[dict[str, str | int]],
     skips: list[str],
     execution_status: str = "complete",
     policy_verdict: str | None = None,
@@ -249,6 +312,10 @@ def write_run(
     targets: tuple[tuple[str, str, str], ...] = (),
     started_epoch: float | None = None,
     scope_hosts: tuple[str, ...] = (),
+    engines: tuple[str, ...] | None = None,
+    judge: str = "none",
+    rate_limits: tuple[tuple[str, float, int], ...] = (),
+    rerun_of: str = "",
 ) -> Path:
     runs = root / ".insidia" / "runs"
     staging = runs / f".{run_id}.partial"
@@ -259,8 +326,24 @@ def write_run(
     verdict = policy_verdict or ("pass" if passed else "fail")
     passed = legacy_passed(execution_status, verdict)
     findings = _stamp_targets(prepare_findings(findings), targets)
-    payload = [finding.as_json() for finding in findings]
+    if config_text is not None:
+        config_digest = hashlib.sha256(config_text).hexdigest()
+    baseline_id, baseline_dir = _select_baseline(
+        runs,
+        run_id,
+        config_digest,
+        frozenset(_target_names(findings, controls, targets)),
+        rerun_of,
+    )
+    tracked, fixed = _compare_findings(run_id, findings, baseline_id, baseline_dir)
+    payload = []
+    for finding, item in zip(findings, tracked, strict=True):
+        document = finding.as_json()
+        document["state"] = item.state
+        document["first_seen_run"] = item.first_seen_run
+        payload.append(document)
     (staging / "findings.json").write_text(json.dumps(payload, indent=2) + "\n")
+    (staging / "findings.csv").write_text(_findings_csv(findings, run_id, targets))
     (staging / "results.sarif").write_text(json.dumps(_sarif(findings), indent=2) + "\n")
     scores = score_frameworks(controls)
     benchmark = {
@@ -274,15 +357,7 @@ def write_run(
         "scores": [asdict(score) for score in scores],
     }
     (staging / "benchmark.json").write_text(json.dumps(benchmark, indent=2) + "\n")
-    headline = verdict_text(
-        policy,
-        passed,
-        len(findings),
-        execution_status=execution_status,
-        policy_verdict=verdict,
-        untested=not_tested(controls),
-    )
-    names = ["findings.json", "results.sarif", "benchmark.json", "report.html"]
+    names = ["findings.json", "findings.csv", "results.sarif", "benchmark.json", "report.html"]
     if config_text is not None:
         (staging / "insidia.yaml").write_bytes(config_text)
         names.append("insidia.yaml")
@@ -290,21 +365,30 @@ def write_run(
     finished_epoch = time.time()
     if started_epoch is None:
         duration_s = 0.0
+        started_at = local_time(run_id)
     else:
         duration_s = round(max(0.0, finished_epoch - started_epoch), 3)
+        started_at = _format_epoch(started_epoch)
     finished_at = _format_epoch(finished_epoch)
     version = version_text()
+    ran = _engine_names(findings, engines)
+    limits = _limit_rows(rate_limits)
+    # report.html is hashed after it is written, because the page lists these digests.
+    artefacts = {
+        name: hashlib.sha256((staging / name).read_bytes()).hexdigest()
+        for name in names
+        if name != "report.html"
+    }
     html = _render(
         run_id=run_id,
         policy=policy,
-        headline=headline,
         passed=passed,
         findings=findings,
         controls=controls,
         skips=skips,
         scores=scores,
         targets=targets,
-        started_at=local_time(run_id),
+        started_at=started_at,
         finished_at=finished_at,
         duration_s=duration_s,
         version=version,
@@ -313,12 +397,23 @@ def write_run(
         coverage_name=coverage,
         scope_hosts=scope_hosts,
         config_digest=config_digest,
+        judge=judge,
+        rate_limits=limits,
+        engines=tuple(ran),
+        artefacts=tuple(artefacts.items()),
+        baseline_id=baseline_id,
+        fixed=fixed,
+        new_count=sum(1 for item in tracked if item.state == "new"),
+        still_open_count=sum(1 for item in tracked if item.state == "still_open"),
+        fixed_count=len(fixed),
     )
     (staging / "report.html").write_text(html)
+    artefacts["report.html"] = hashlib.sha256((staging / "report.html").read_bytes()).hexdigest()
+    artefacts = {name: artefacts[name] for name in names}
     manifest = {
         "schema_version": SCHEMA_VERSION,
         "run_id": run_id,
-        "started_at": local_time(run_id),
+        "started_at": started_at,
         "finished_at": finished_at,
         "duration_s": duration_s,
         "insidia_version": version,
@@ -327,17 +422,278 @@ def write_run(
         "policy_verdict": verdict,
         "config_digest": config_digest,
         "coverage": coverage,
-        "files": {
-            name: hashlib.sha256((staging / name).read_bytes()).hexdigest()
-            for name in names
-        },
+        "models": {"judge": judge},
+        "rate_limits": limits,
+        "engines": ran,
+        "skips": skips,
+        "files": artefacts,
     }
+    if rerun_of:
+        manifest["rerun_of"] = rerun_of
     (staging / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     staging.rename(directory)
     return directory
 
 
-def not_tested(controls: list[dict[str, str]]) -> int:
+@dataclass(frozen=True)
+class _Tracked:
+    state: str
+    first_seen_run: str
+
+
+@dataclass(frozen=True)
+class _FixedFinding:
+    title: str
+    target: str
+    evidence_hash: str
+
+
+def _select_baseline(
+    runs: Path,
+    run_id: str,
+    config_digest: str,
+    target_names: frozenset[str],
+    rerun_of: str,
+) -> tuple[str, Path | None]:
+    """The run this one is compared with, and its directory when that directory is readable."""
+    if rerun_of:
+        return rerun_of, _contained_child(runs, rerun_of)
+    earlier = _earlier_run_dirs(runs, run_id)
+    for path in earlier:
+        manifest = _loose_object(path / "manifest.json")
+        digest = manifest.get("config_digest") if manifest is not None else None
+        if isinstance(digest, str) and digest == config_digest:
+            return path.name, path
+    for path in earlier:
+        if _stored_target_names(path) == target_names:
+            return path.name, path
+    return "", None
+
+
+def _compare_findings(
+    run_id: str,
+    findings: list[Finding],
+    baseline_id: str,
+    baseline_dir: Path | None,
+) -> tuple[tuple[_Tracked, ...], tuple[_FixedFinding, ...]]:
+    """Mark each current finding new or still open, and list baseline hashes that are gone."""
+    if not baseline_id:
+        return tuple(_Tracked("new", run_id) for _finding in findings), ()
+    previous = _object_list(baseline_dir / "findings.json") if baseline_dir is not None else []
+    origin: dict[str, str] = {}
+    for item in previous:
+        digest = item.get("evidence_hash")
+        if not isinstance(digest, str) or digest in origin:
+            continue
+        first = item.get("first_seen_run")
+        origin[digest] = first if isinstance(first, str) and first else baseline_id
+    current = {finding.evidence_hash for finding in findings}
+    fixed: list[_FixedFinding] = []
+    for item in previous:
+        digest = item.get("evidence_hash")
+        if not isinstance(digest, str) or digest in current:
+            continue
+        title = item.get("title")
+        target = item.get("target")
+        fixed.append(
+            _FixedFinding(
+                title if isinstance(title, str) else "",
+                target if isinstance(target, str) else "",
+                digest,
+            )
+        )
+    tracked = tuple(
+        _Tracked("still_open", origin[finding.evidence_hash])
+        if finding.evidence_hash in origin
+        else _Tracked("new", run_id)
+        for finding in findings
+    )
+    return tracked, tuple(fixed)
+
+
+def _earlier_run_dirs(runs: Path, run_id: str) -> list[Path]:
+    """Finalized runs whose ids sort before this one. Names starting with '.' are skipped."""
+    if runs.is_symlink() or not runs.is_dir():
+        return []
+    found: list[Path] = []
+    try:
+        children = list(runs.iterdir())
+    except OSError:
+        return []
+    for path in children:
+        name = path.name
+        if name.startswith(".") or name >= run_id:
+            continue
+        if path.is_symlink() or not path.is_dir() or not _stays_inside(runs, path):
+            continue
+        found.append(path)
+    found.sort(key=lambda item: item.name, reverse=True)
+    return found
+
+
+def _contained_child(runs: Path, name: str) -> Path | None:
+    if not name or name.startswith(".") or "/" in name or "\\" in name:
+        return None
+    if runs.is_symlink() or not runs.is_dir():
+        return None
+    path = runs / name
+    if path.is_symlink() or not path.is_dir() or not _stays_inside(runs, path):
+        return None
+    return path
+
+
+def _stays_inside(root: Path, path: Path) -> bool:
+    try:
+        resolved = path.resolve()
+        parent = root.resolve()
+    except OSError:
+        return False
+    return parent == resolved or parent in resolved.parents
+
+
+def _stored_target_names(directory: Path) -> frozenset[str]:
+    names: list[str] = []
+    snapshot = _yaml_target_names(directory)
+    if snapshot is not None:
+        names.extend(snapshot)
+    benchmark = _loose_object(directory / "benchmark.json")
+    controls = benchmark.get("controls") if benchmark is not None else None
+    if isinstance(controls, list):
+        for item in controls:
+            if not isinstance(item, dict):
+                continue
+            target = item.get("target")
+            if isinstance(target, str) and target and target not in names:
+                names.append(target)
+    for item in _object_list(directory / "findings.json"):
+        target = item.get("target")
+        if isinstance(target, str) and target and target not in names:
+            names.append(target)
+    return frozenset(names)
+
+
+def _yaml_target_names(directory: Path) -> tuple[str, ...] | None:
+    path = directory / "insidia.yaml"
+    if path.is_symlink() or not path.is_file():
+        return None
+    try:
+        loaded = yaml.safe_load(path.read_text())
+    except (OSError, UnicodeError, yaml.YAMLError):
+        return None
+    if not isinstance(loaded, dict):
+        return None
+    targets = loaded.get("targets")
+    if not isinstance(targets, dict):
+        return ()
+    return tuple(key for key in targets if isinstance(key, str) and key)
+
+
+def _loose_object(path: Path) -> dict[str, object] | None:
+    loaded = _loose_json(path)
+    if not isinstance(loaded, dict):
+        return None
+    return cast(dict[str, object], loaded)
+
+
+def _object_list(path: Path) -> list[dict[str, object]]:
+    loaded = _loose_json(path)
+    if not isinstance(loaded, list):
+        return []
+    return [cast(dict[str, object], item) for item in loaded if isinstance(item, dict)]
+
+
+def _loose_json(path: Path) -> object | None:
+    if path.is_symlink() or not path.is_file():
+        return None
+    try:
+        return cast(object, json.loads(path.read_text()))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None
+
+
+_CSV_COLUMNS = (
+    "check_id",
+    "title",
+    "severity",
+    "risk_score",
+    "target",
+    "target_kind",
+    "endpoint",
+    "cve",
+    "taxonomy",
+    "synopsis",
+    "solution",
+    "evidence",
+    "evidence_hash",
+    "engines",
+    "run_id",
+)
+_CSV_EVIDENCE_CAP = 500
+_CSV_TRIM_NOTE = " truncated to 500 characters"
+_CSV_FORMULA = ("=", "+", "-", "@")
+
+
+def _findings_csv(
+    findings: list[Finding],
+    run_id: str,
+    targets: tuple[tuple[str, str, str], ...],
+) -> str:
+    """One header, then one row per finding. Cells are masked and formula-safe."""
+    kinds = {name: kind for name, kind, _endpoint in targets}
+    buffer = io.StringIO(newline="")
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(_CSV_COLUMNS)
+    for finding in findings:
+        writer.writerow(
+            [
+                _csv_cell(finding.check_id),
+                _csv_cell(finding.title),
+                _csv_cell(finding.severity),
+                _csv_cell(json.dumps(finding.risk_score)),
+                _csv_cell(finding.target),
+                _csv_cell(kinds.get(finding.target, "")),
+                _csv_cell(finding.endpoint or finding.location),
+                _csv_cell("; ".join(finding.cve)),
+                _csv_cell("; ".join(finding.taxonomy)),
+                _csv_cell(finding.synopsis),
+                _csv_cell(finding.remediation),
+                _csv_evidence(finding),
+                _csv_cell(finding.evidence_hash),
+                _csv_cell("; ".join(finding.engines)),
+                _csv_cell(run_id),
+            ]
+        )
+    return buffer.getvalue()
+
+
+def _finding_evidence(finding: Finding) -> str:
+    """Observation evidence, or the response when no observation stored any."""
+    parts = [item.evidence for item in finding.observations if item.evidence]
+    if parts:
+        return "\n".join(parts)
+    return finding.response
+
+
+def _csv_evidence(finding: Finding) -> str:
+    """Mask evidence, then keep at most 500 characters."""
+    text = mask(_finding_evidence(finding))
+    if len(text) > _CSV_EVIDENCE_CAP:
+        text = text[:_CSV_EVIDENCE_CAP] + _CSV_TRIM_NOTE
+    return _formula_safe(text)
+
+
+def _csv_cell(value: str) -> str:
+    return _formula_safe(mask(value))
+
+
+def _formula_safe(value: str) -> str:
+    """A leading spreadsheet formula is text. Applied after masking and trimming."""
+    if value.startswith(_CSV_FORMULA):
+        return f"'{value}"
+    return value
+
+
+def not_tested(controls: list[dict[str, str | int]]) -> int:
     return sum(1 for control in controls if control.get("result") == "not tested")
 
 
@@ -382,7 +738,11 @@ def _mark() -> str:
 def read_manifest(directory: Path) -> dict[str, object] | None:
     """Check a finalized manifest. A legacy run with no manifest is left unchanged."""
 
+    if directory.is_symlink():
+        raise CliError(f"run {directory.name} manifest escapes the run directory")
     path = directory / "manifest.json"
+    if path.is_symlink():
+        raise CliError(f"run {directory.name} manifest escapes the run directory")
     if not path.is_file():
         return None
     try:
@@ -398,7 +758,10 @@ def read_manifest(directory: Path) -> dict[str, object] | None:
     for name, digest in files.items():
         if not isinstance(name, str) or not isinstance(digest, str) or "/" in name:
             raise CliError(f"run {directory.name} manifest has an invalid file entry")
-        artifact = (directory / name).resolve()
+        artifact_path = directory / name
+        if artifact_path.is_symlink():
+            raise CliError(f"run {directory.name} manifest escapes the run directory")
+        artifact = artifact_path.resolve()
         if root != artifact and root not in artifact.parents:
             raise CliError(f"run {directory.name} manifest escapes the run directory")
         if not artifact.is_file():
@@ -409,16 +772,38 @@ def read_manifest(directory: Path) -> dict[str, object] | None:
     return loaded
 
 
+def is_contained_run(root: Path, path: Path) -> bool:
+    """True when path is a real directory inside root/.insidia/runs."""
+
+    insidia = root / ".insidia"
+    runs = insidia / "runs"
+    if insidia.is_symlink() or runs.is_symlink() or path.is_symlink() or not path.is_dir():
+        return False
+    try:
+        resolved = path.resolve()
+    except OSError:
+        return False
+    return runs.resolve() in resolved.parents
+
+
 def latest_run(root: Path) -> Path | None:
-    runs = root / ".insidia" / "runs"
-    if not runs.is_dir():
+    insidia = root / ".insidia"
+    runs = insidia / "runs"
+    if insidia.is_symlink() or runs.is_symlink() or not runs.is_dir():
         return None
     names = sorted(
-        path.name for path in runs.iterdir() if path.is_dir() and not path.name.startswith(".")
+        path.name
+        for path in runs.iterdir()
+        if not path.name.startswith(".") and is_contained_run(root, path)
     )
     if not names:
         return None
     return runs / names[-1]
+
+
+def _passed_text(passed: int, low: int) -> str:
+    """How many passes, and how many of those have assurance low."""
+    return f"{passed} passed ({low} low assurance)"
 
 
 def _score_rows(scores: tuple[Score, ...]) -> str:
@@ -428,14 +813,14 @@ def _score_rows(scores: tuple[Score, ...]) -> str:
             "<tr>"
             f'<td data-l="Framework">{_escape(score.title)}</td>'
             f'<td data-l="Failed">{score.failed}</td>'
-            f'<td data-l="Passed">{score.passed}</td>'
+            f'<td data-l="Passed">{_escape(_passed_text(score.passed, score.low_assurance))}</td>'
             f'<td data-l="Not tested">{score.not_tested}</td>'
             "</tr>"
         )
     return "\n".join(lines)
 
 
-def _coverage_rows(controls: list[dict[str, str]]) -> str:
+def _coverage_rows(controls: list[dict[str, str | int]]) -> str:
     lines = []
     labels = ("Control", "Title", "Result")
     for row in coverage(controls):
@@ -476,10 +861,9 @@ def _render(
     *,
     run_id: str,
     policy: str,
-    headline: str,
     passed: bool,
     findings: list[Finding],
-    controls: list[dict[str, str]],
+    controls: list[dict[str, str | int]],
     skips: list[str],
     scores: tuple[Score, ...],
     targets: tuple[tuple[str, str, str], ...],
@@ -492,12 +876,34 @@ def _render(
     coverage_name: str,
     scope_hosts: tuple[str, ...],
     config_digest: str,
+    judge: str,
+    rate_limits: list[dict[str, object]],
+    engines: tuple[str, ...],
+    artefacts: tuple[tuple[str, str], ...],
+    baseline_id: str = "",
+    fixed: tuple[_FixedFinding, ...] = (),
+    new_count: int = 0,
+    still_open_count: int = 0,
+    fixed_count: int = 0,
 ) -> str:
     names = _target_names(findings, controls, targets)
     title = "Security scan report"
     if names:
         title = f"{title}: {', '.join(names)}"
     status = "pass" if passed else "fail"
+    summary = _executive_summary(
+        run_id=run_id,
+        policy=policy,
+        findings=findings,
+        controls=controls,
+        targets=targets,
+        execution_status=execution_status,
+        verdict=verdict,
+        baseline_id=baseline_id,
+        new_count=new_count,
+        still_open_count=still_open_count,
+        fixed_count=fixed_count,
+    )
     tiles = _tiles(findings)
     nav = (
         '<nav><a href="#summary">Summary</a><a href="#targets">Targets</a>'
@@ -530,18 +936,13 @@ def _render(
         nav,
         "<main>",
         '<h2 id="summary">Executive summary</h2>',
-        f'<p class="status {status}">{_escape(headline)}</p>',
+        f'<p class="status {status}">{_escape(summary)}</p>',
         tiles,
-        (
-            '<p class="note">This report is test evidence mapped to framework ids. '
-            "It is not a certification. A pass means our probes did not trigger, "
-            "not that the risk is absent. Checks that were not tested are not "
-            "evidence that those risks are absent.</p>"
-        ),
         '<h2 id="targets">Targets</h2>',
         _targets_table(findings, controls, targets),
         '<h2 id="findings">Findings by severity</h2>',
-        _finding_cards(findings, run_id),
+        _finding_cards(findings, run_id, names),
+        _fixed_section(baseline_id, fixed),
         '<h2 id="remediation">Remediation summary</h2>',
         _remediation_table(findings),
         '<h2 id="coverage">Coverage by target</h2>',
@@ -573,14 +974,18 @@ def _render(
             execution_status,
             verdict,
             scope_hosts,
-            findings,
             skips,
             config_digest,
+            judge,
+            rate_limits,
+            engines,
+            artefacts,
         ),
         "<footer>",
         (
-            "<p>Artefacts: findings.json, results.sarif, benchmark.json, "
-            "manifest.json, report.html</p>"
+            "<p>Artefacts: findings.json, "
+            '<a href="findings.csv">findings.csv</a>, '
+            "results.sarif, benchmark.json, manifest.json, report.html</p>"
         ),
         f"<p><code>insidia rerun {_escape(run_id)}</code></p>",
         "</footer>",
@@ -588,12 +993,12 @@ def _render(
         "</body>",
         "</html>",
     ]
-    return "\n".join(parts) + "\n"
+    return "\n".join(part for part in parts if part) + "\n"
 
 
 def _target_names(
     findings: list[Finding],
-    controls: list[dict[str, str]],
+    controls: list[dict[str, str | int]],
     targets: tuple[tuple[str, str, str], ...],
 ) -> list[str]:
     names: list[str] = []
@@ -608,6 +1013,103 @@ def _target_names(
         if finding.target and finding.target not in names:
             names.append(finding.target)
     return names
+
+
+def _executive_summary(
+    *,
+    run_id: str,
+    policy: str,
+    findings: list[Finding],
+    controls: list[dict[str, str | int]],
+    targets: tuple[tuple[str, str, str], ...],
+    execution_status: str,
+    verdict: str,
+    baseline_id: str = "",
+    new_count: int = 0,
+    still_open_count: int = 0,
+    fixed_count: int = 0,
+) -> str:
+    """Fail, pass, and incomplete summaries share one shape and one ending."""
+
+    names = _target_names(findings, controls, targets)
+    total = len(controls)
+    untested = not_tested(controls)
+    tested = total - untested
+    weak = sum(1 for control in controls if control.get("assurance") == "low")
+    target_count = len(names)
+    target_word = "target" if target_count == 1 else "targets"
+    if names:
+        target_clause = f"{target_count} {target_word} ({', '.join(names)})"
+    else:
+        target_clause = f"{target_count} {target_word}"
+    counts = {bucket: 0 for bucket in _BUCKETS}
+    for finding in findings:
+        counts[_bucket(finding.severity)] += 1
+    severity_counts = ", ".join(
+        f"{counts[bucket]} {_BUCKET_LABEL[bucket].lower()}" for bucket in _BUCKETS
+    )
+    finding_word = "finding" if len(findings) == 1 else "findings"
+    if verdict == "pass":
+        outcome = f"Policy {policy} passed"
+    elif verdict == "fail":
+        outcome = f"Policy {policy} did not pass"
+    else:
+        outcome = f"Policy {policy} is inconclusive"
+    outcome_sentence = f"{outcome}: {len(findings)} {finding_word} ({severity_counts})."
+    if execution_status != "complete":
+        outcome_sentence = f"The scan did not finish: {execution_status}. {outcome_sentence}"
+    if findings:
+        top = findings[0]
+        title = top.title or top.attack
+        serious = (
+            f"The most serious finding is {title}, severity {top.severity}, "
+            f"score {top.risk_score:.1f}, target {top.target}."
+        )
+    else:
+        serious = "The most serious finding is none."
+    if weak == 1:
+        weak_clause = "1 passed check has low assurance"
+    else:
+        weak_clause = f"{weak} passed checks have low assurance"
+    if untested == 1:
+        untested_clause = "1 check was not tested"
+    else:
+        untested_clause = f"{untested} checks were not tested"
+    sentences = [
+        f"Insidia ran {tested} of {total} checks against {target_clause}.",
+        outcome_sentence,
+        serious,
+        (
+            f"{weak_clause} and {untested_clause}. "
+            "Checks that were not tested are not evidence that those risks are absent."
+        ),
+    ]
+    if execution_status != "complete":
+        sentences.append(f"Results below cover {tested} checks only.")
+        sentences.append(f"Re-run with `insidia rerun {run_id}`.")
+    if baseline_id:
+        shown = mask(baseline_id)
+        sentences.append(
+            f"{new_count} new, {still_open_count} still open, and {fixed_count} fixed "
+            f"since {shown}."
+        )
+    sentences.append("This report is test evidence, not a certification.")
+    return " ".join(sentences)
+
+
+def _fixed_section(baseline_id: str, fixed: tuple[_FixedFinding, ...]) -> str:
+    """Baseline findings whose evidence hash is absent. Evidence text is not printed."""
+    if not baseline_id:
+        return ""
+    rows = []
+    for item in fixed:
+        title = _escape(mask(item.title))
+        target = _escape(mask(item.target))
+        fingerprint = _escape(mask(item.evidence_hash))
+        rows.append(f"<li>{title} · {target} · <code>{fingerprint}</code></li>")
+    body = "<ul>" + "".join(rows) + "</ul>"
+    heading = _escape(mask(baseline_id))
+    return f'<h2 id="fixed">Fixed since {heading}</h2>\n{body}'
 
 
 def _tiles(findings: list[Finding]) -> str:
@@ -626,7 +1128,7 @@ def _tiles(findings: list[Finding]) -> str:
 
 def _targets_table(
     findings: list[Finding],
-    controls: list[dict[str, str]],
+    controls: list[dict[str, str | int]],
     targets: tuple[tuple[str, str, str], ...],
 ) -> str:
     meta = {name: (kind, endpoint) for name, kind, endpoint in targets}
@@ -645,17 +1147,21 @@ def _targets_table(
             if finding.target == name:
                 counts[_bucket(finding.severity)] += 1
         tallies = {"fail": 0, "pass": 0, "not tested": 0}
+        low = 0
         for control in controls:
-            if control.get("target") == name:
-                result = control.get("result", "")
-                if result in tallies:
-                    tallies[result] += 1
+            if control.get("target") != name:
+                continue
+            result = control.get("result", "")
+            if result in tallies:
+                tallies[result] += 1
+            if result == "pass" and control.get("assurance") == "low":
+                low += 1
         chips = "".join(
             f'<td data-l="{_BUCKET_LABEL[bucket]}">{counts[bucket]}</td>' for bucket in _BUCKETS
         )
         summary = (
-            f'{tallies["fail"]} fail · {tallies["pass"]} pass · '
-            f'0 weak · {tallies["not tested"]} not tested'
+            f'{tallies["fail"]} fail · {_passed_text(tallies["pass"], low)} · '
+            f'{tallies["not tested"]} not tested'
         )
         rows.append(
             "<tr>"
@@ -674,27 +1180,134 @@ def _targets_table(
     return f"<table class=\"targets\"><thead>{head}</thead><tbody>{''.join(rows)}</tbody></table>"
 
 
-def _finding_cards(findings: list[Finding], run_id: str) -> str:
+# A check with three or fewer hits stays a flat card. More than three share one header.
+_GROUP_AFTER = 3
+_PACKAGE_PIN = re.compile(
+    r"(?<![A-Za-z0-9_])(@?[A-Za-z0-9_][\w.-]{0,60}==[A-Za-z0-9][\w.+-]{0,40})"
+)
+_CVE_ID = re.compile(r"CVE-\d{4}-\d{4,7}")
+
+
+def _finding_cards(findings: list[Finding], run_id: str, target_names: list[str]) -> str:
+    """Cards for each hit. A busy check collapses, and two targets can be filtered."""
     if not findings:
         return '<p class="note">No findings.</p>'
-    return "\n".join(
-        _finding_card(finding, index, run_id) for index, finding in enumerate(findings)
-    )
+    names = list(target_names)
+    for finding in findings:
+        if finding.target and finding.target not in names:
+            names.append(finding.target)
+    tokens = {name: f"t{index}" for index, name in enumerate(names)} if len(names) >= 2 else {}
+    cards = _render_finding_cards(findings, run_id, tokens)
+    if not tokens:
+        return "\n".join(cards)
+    return _by_target_filter(cards, names)
 
 
-def _finding_card(finding: Finding, index: int, run_id: str) -> str:
+def _render_finding_cards(
+    findings: list[Finding], run_id: str, tokens: dict[str, str]
+) -> list[str]:
+    buckets: dict[str, list[Finding]] = {}
+    order: list[str] = []
+    for finding in findings:
+        key = _check_key(finding)
+        if key not in buckets:
+            order.append(key)
+            buckets[key] = []
+        buckets[key].append(finding)
+    cards: list[str] = []
+    index = 0
+    for key in order:
+        items = buckets[key]
+        if len(items) > _GROUP_AFTER:
+            cards.append(_grouped_finding_card(items, index, run_id, tokens))
+            index += 1
+            continue
+        for finding in items:
+            cards.append(_finding_card(finding, index, run_id, tokens.get(finding.target, "")))
+            index += 1
+    return cards
+
+
+def _check_key(finding: Finding) -> str:
+    return finding.check_id or finding.probe or finding.attack
+
+
+def _finding_card(finding: Finding, index: int, run_id: str, token: str = "") -> str:
     bucket = _bucket(finding.severity)
     css = _BUCKET_CLASS[bucket]
     label = _BUCKET_LABEL[bucket].upper()
     opened = " open" if index < 2 else ""
     title = finding.title or finding.attack
-    check = finding.check_id or finding.probe
+    check = _check_key(finding)
+    target_attr = f' data-target="{token}"' if token else ""
+    right = f"{finding.target} · {label} {finding.risk_score:.1f}"
+    return (
+        f'<details class="finding"{target_attr}{opened}>'
+        f"{_finding_summary(css, check, title, right)}"
+        f"<dl>{_finding_body(finding, run_id)}</dl></details>"
+    )
+
+
+def _grouped_finding_card(
+    items: list[Finding], index: int, run_id: str, tokens: dict[str, str]
+) -> str:
+    """One header for a check, then every hit's file, package, and CVE."""
+    worst = items[0]
+    bucket = _bucket(worst.severity)
+    css = _BUCKET_CLASS[bucket]
+    label = _BUCKET_LABEL[bucket].upper()
+    opened = " open" if index < 2 else ""
+    title = worst.title or worst.attack
+    check = _check_key(worst)
+    targets = list(dict.fromkeys(item.target for item in items if item.target))
+    if len(targets) == 1:
+        where = targets[0]
+        token = tokens.get(where, "")
+        target_attr = f' data-target="{token}"' if token else ""
+    else:
+        where = f"{len(targets)} targets" if targets else (worst.target or "unspecified")
+        target_attr = ""
+    noun = "location" if len(items) == 1 else "locations"
+    right = f"{where} · {len(items)} {noun} · {label} {worst.risk_score:.1f}"
+    show_target = bool(tokens)
+    rows = "".join(
+        _location_row(item, tokens.get(item.target, ""), show_target=show_target) for item in items
+    )
+    return (
+        f'<details class="finding"{target_attr}{opened}>'
+        f"{_finding_summary(css, check, title, right)}"
+        f'<ul class="locations">{rows}</ul>'
+        f"<dl>{_finding_body(worst, run_id)}</dl></details>"
+    )
+
+
+def _finding_summary(css: str, check: str, title: str, right: str) -> str:
+    return (
+        f'<summary class="bar bar-{css}">'
+        f'<span class="pid">{_escape(check)}</span> {_escape(title)}'
+        f'<span class="right">{_escape(right)}</span>'
+        f"</summary>"
+    )
+
+
+def _finding_body(finding: Finding, run_id: str) -> str:
+    bucket = _bucket(finding.severity)
+    css = _BUCKET_CLASS[bucket]
+    label = _BUCKET_LABEL[bucket].upper()
     factors = "; ".join(finding.risk_factors) or "base score"
+    reported = len(finding.engines) or 1
+    engine_word = "engine" if reported == 1 else "engines"
+    corroborated = "cross-validated" if finding.cross_validated else "not cross-validated"
+    risk_factor = (
+        f'<span class="sev sev-{css}">{label}</span>'
+        f" · confidence {_escape(finding.confidence)}"
+        f" · reported by {reported} {engine_word} ({corroborated})"
+    )
     fields = (
         ("Synopsis", _escape(finding.synopsis or finding.remediation)),
         ("Description", _escape(finding.description or finding.remediation)),
         ("Solution", _escape(finding.remediation)),
-        ("Risk factor", f'<span class="sev sev-{css}">{label}</span>'),
+        ("Risk factor", risk_factor),
         (
             "Insidia Risk Score",
             _escape(f"{finding.risk_score:.1f}/10 ({factors})"),
@@ -704,14 +1317,89 @@ def _finding_card(finding: Finding, index: int, run_id: str) -> str:
         ("Plugin output", _plugin_output(finding)),
         ("Re-run", f"<code>insidia rerun {_escape(run_id)}</code>"),
     )
-    body = "".join(f"<dt>{name}</dt><dd>{value}</dd>" for name, value in fields)
-    return (
-        f'<details class="finding"{opened}>'
-        f'<summary class="bar bar-{css}">'
-        f'<span class="pid">{_escape(check)}</span> {_escape(title)}'
-        f'<span class="right">{_escape(finding.target)} · {label} {finding.risk_score:.1f}</span>'
-        f"</summary><dl>{body}</dl></details>"
-    )
+    return "".join(f"<dt>{name}</dt><dd>{value}</dd>" for name, value in fields)
+
+
+def _location_row(finding: Finding, token: str, *, show_target: bool) -> str:
+    attr = f' data-target="{token}"' if token else ""
+    return f'<li class="loc"{attr}>{_location_html(finding, show_target=show_target)}</li>'
+
+
+def _location_html(finding: Finding, *, show_target: bool) -> str:
+    file_line = _file_line_text(finding.location)
+    pins = _package_pins(finding)
+    cves = _cve_ids(finding)
+    chunks: list[str] = []
+    if show_target and finding.target:
+        chunks.append(_escape(finding.target))
+    if file_line:
+        chunks.append(f"<code>{_escape(file_line)}</code>")
+    chunks.extend(f"<code>{_escape(pin)}</code>" for pin in pins)
+    chunks.extend(_escape(cve) for cve in cves)
+    if not file_line and not pins and not cves:
+        fallback = finding.endpoint or finding.location
+        if fallback:
+            chunks.append(f"<code>{_escape(fallback)}</code>")
+        elif not chunks:
+            chunks.append(_escape(finding.target or "unspecified"))
+    return " · ".join(chunks)
+
+
+def _file_line_text(location: str) -> str:
+    if not location or "://" in location or "==" in location:
+        return ""
+    path, separator, line = location.rpartition(":")
+    if separator and line.isdigit() and path:
+        return f"{path}:{line}"
+    return ""
+
+
+def _package_pins(finding: Finding) -> list[str]:
+    found: list[str] = []
+    for pin in _PACKAGE_PIN.findall(_location_source(finding)):
+        if pin not in found:
+            found.append(pin)
+    return found
+
+
+def _cve_ids(finding: Finding) -> list[str]:
+    if finding.cve:
+        return list(dict.fromkeys(finding.cve))
+    found: list[str] = []
+    for cve in _CVE_ID.findall(_location_source(finding)):
+        if cve not in found:
+            found.append(cve)
+    return found
+
+
+def _location_source(finding: Finding) -> str:
+    parts = [finding.location, finding.response]
+    parts.extend(item.evidence for item in finding.observations)
+    return "\n".join(parts)
+
+
+def _by_target_filter(cards: list[str], names: list[str]) -> str:
+    """All targets stays selected. Choosing a target hides the other findings."""
+    controls = [
+        '<input type="radio" name="by-target" id="flt-all" checked>',
+        '<label for="flt-all">All targets</label>',
+    ]
+    rules: list[str] = []
+    for index, name in enumerate(names):
+        token = f"t{index}"
+        controls.append(f'<input type="radio" name="by-target" id="flt-{index}">')
+        controls.append(f'<label for="flt-{index}">{_escape(name)}</label>')
+        rules.append(
+            f"#flt-{index}:checked ~ .finding"
+            f':not([data-target="{token}"]):not(:has([data-target="{token}"]))'
+            "{display:none}"
+        )
+        rules.append(
+            f'#flt-{index}:checked ~ .finding .loc:not([data-target="{token}"])'
+            "{display:none}"
+        )
+    style = "<style>" + " ".join(rules) + "</style>"
+    return '<div class="by-target">' + "".join(controls) + style + "\n".join(cards) + "</div>"
 
 
 def _reference_text(taxonomy: tuple[str, ...]) -> str:
@@ -747,30 +1435,54 @@ def _see_also(urls: tuple[str, ...]) -> str:
     return "<br>".join(links) or "None"
 
 
+# One card shows this many characters of plugin output. A longer body keeps
+# its start, and the card names this cap when that body was cut.
+_PLUGIN_OUTPUT_CAP = 500
+
+
 def _plugin_output(finding: Finding) -> str:
     """Masked evidence as text. Counts and the endpoint or file:line sit with it."""
-    counts: dict[str, int] = {}
-    for item in finding.observations:
-        if item.evidence:
-            counts[item.evidence] = counts.get(item.evidence, 0) + 1
-    observed = "\n".join(f"[{count}x] {text}" for text, count in counts.items())
+    excerpt, truncated = _capped_plugin_excerpt(finding)
     if finding.location and "://" not in finding.location:
         affected = finding.location
     else:
         affected = finding.endpoint or finding.location or finding.target
     kind = f" · {finding.target_kind}" if finding.target_kind else ""
+    cap = f" · truncated to {_PLUGIN_OUTPUT_CAP} characters" if truncated else ""
     lines = [
-        f"<pre>{_escape(finding.response)}</pre>",
+        f"<pre>{_escape(excerpt)}</pre>",
         (
             f"<p>{len(finding.observations)} observations"
             f" · probe <code>{_escape(finding.probe)}</code>"
-            f" · engine {_escape(finding.engine)}</p>"
+            f" · engine {_escape(finding.engine)}{cap}</p>"
         ),
-        f"<pre>{_escape(observed)}</pre>" if observed else "",
         f"<p>evidence_hash <code>{_escape(finding.evidence_hash)}</code></p>",
         f"<p>Affected {_escape(finding.target)}{kind} · <code>{_escape(affected)}</code></p>",
     ]
     return "".join(lines)
+
+
+def _capped_plugin_excerpt(finding: Finding) -> tuple[str, bool]:
+    """One excerpt. Observations that already hold the response are not copied again."""
+    text = _plugin_source(finding)
+    if len(text) <= _PLUGIN_OUTPUT_CAP:
+        return text, False
+    first, _, _rest = text.partition("\n")
+    excerpt = first if first.strip() else text[:_PLUGIN_OUTPUT_CAP]
+    if len(excerpt) > _PLUGIN_OUTPUT_CAP:
+        excerpt = excerpt[:_PLUGIN_OUTPUT_CAP]
+    return excerpt, True
+
+
+def _plugin_source(finding: Finding) -> str:
+    chunks: list[str] = []
+    for item in finding.observations:
+        if item.evidence and item.evidence not in chunks:
+            chunks.append(item.evidence)
+    response = finding.response
+    if response and not any(response in chunk for chunk in chunks):
+        chunks.append(response)
+    return "\n".join(chunks)
 
 
 def _remediation_table(findings: list[Finding]) -> str:
@@ -807,17 +1519,23 @@ def _remediation_table(findings: list[Finding]) -> str:
     )
 
 
-def _coverage_by_target(controls: list[dict[str, str]], skips: list[str]) -> str:
+def _coverage_by_target(controls: list[dict[str, str | int]], skips: list[str]) -> str:
     if not controls:
         return '<p class="note">No checks were recorded.</p>'
-    by_target: dict[str, list[dict[str, str]]] = {}
+    by_target: dict[str, list[dict[str, str | int]]] = {}
     for control in controls:
         by_target.setdefault(str(control.get("target", "")), []).append(control)
     blocks = []
     for name, rows in by_target.items():
+        passed = sum(1 for control in rows if control.get("result") == "pass")
+        low = sum(
+            1
+            for control in rows
+            if control.get("result") == "pass" and control.get("assurance") == "low"
+        )
         body = []
         for control in rows:
-            result = control.get("result", "")
+            result = _control_text(control, "result")
             label, css = {
                 "fail": ("FAIL", "fail"),
                 "pass": ("PASS", "pass"),
@@ -833,6 +1551,7 @@ def _coverage_by_target(controls: list[dict[str, str]], skips: list[str]) -> str
             )
         blocks.append(
             f"<h3>{_escape(name)}</h3>"
+            f'<p class="note">{_escape(_passed_text(passed, low))}</p>'
             '<table class="coverage"><thead><tr>'
             "<th>Check</th><th>Result</th><th>Why</th></tr></thead>"
             f"<tbody>{''.join(body)}</tbody></table>"
@@ -848,13 +1567,38 @@ _JUDGE_WHY = {
 }
 
 
-def _coverage_why(control: dict[str, str], skips: list[str]) -> str:
-    detail = control.get("detail", "").strip()
+def _control_text(control: dict[str, str | int], key: str) -> str:
+    value = control.get(key, "")
+    return value if isinstance(value, str) else ""
+
+
+def _sent_clause(control: dict[str, str | int]) -> str:
+    value = control.get("probes", 0)
+    count = value if isinstance(value, int) else 0
+    noun = "prompt" if _control_text(control, "id").startswith("ai.") else "payload"
+    if count != 1:
+        noun += "s"
+    return f"{count} {noun} sent"
+
+
+def _coverage_why(control: dict[str, str | int], skips: list[str]) -> str:
+    if _control_text(control, "assurance") == "low":
+        reason = _control_text(control, "assurance_reason").strip()
+        if reason:
+            return reason
+    detail = _control_text(control, "detail").strip()
+    result = _control_text(control, "result")
+    if result in {"pass", "fail"} and "probes" in control:
+        sent = _sent_clause(control)
+        if detail:
+            return f"{sent}. {detail}"
+        if result == "pass":
+            return f"{sent}, none triggered."
+        return f"{sent}. A probe reported this check."
     if detail:
         return detail
-    result = control.get("result", "")
-    family = str(control.get("id", ""))
-    target = str(control.get("target", ""))
+    family = _control_text(control, "id")
+    target = _control_text(control, "target")
     if result == "fail":
         return "A probe reported this check."
     if result == "pass":
@@ -871,6 +1615,47 @@ def _coverage_why(control: dict[str, str], skips: list[str]) -> str:
     return "No check id was recorded for this row."
 
 
+def _engine_names(findings: list[Finding], engines: tuple[str, ...] | None) -> list[str]:
+    """Engines the scan recorded. Without that list, use engines that produced findings."""
+    if engines is None:
+        names: list[str] = []
+        for finding in findings:
+            for name in finding.engines or (finding.engine,):
+                if name and name not in names:
+                    names.append(name)
+        names.sort()
+        return names
+    return sorted({name for name in engines if name})
+
+
+def _limit_rows(rate_limits: tuple[tuple[str, float, int], ...]) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for name, rps, concurrency in rate_limits:
+        shown: int | float = int(rps) if float(rps).is_integer() else rps
+        rows.append({"target": name, "rps": shown, "concurrency": concurrency})
+    return rows
+
+
+def _rate_limits_text(rate_limits: list[dict[str, object]]) -> str:
+    if not rate_limits:
+        return "none"
+    parts: list[str] = []
+    for row in rate_limits:
+        parts.append(f"{row['target']}: {row['rps']} rps, concurrency {row['concurrency']}")
+    return "; ".join(parts)
+
+
+def _skips_text(skips: list[str]) -> str:
+    count = len(skips)
+    if count == 0:
+        return "0"
+    return f"{count}: {'; '.join(skips)}"
+
+
+def _artefacts_text(artefacts: tuple[tuple[str, str], ...]) -> str:
+    return ", ".join(f"{name} {digest}" for name, digest in artefacts)
+
+
 def _scan_table(
     run_id: str,
     started_at: str,
@@ -882,17 +1667,13 @@ def _scan_table(
     execution_status: str,
     verdict: str,
     scope_hosts: tuple[str, ...],
-    findings: list[Finding],
     skips: list[str],
     config_digest: str,
+    judge: str,
+    rate_limits: list[dict[str, object]],
+    engines: tuple[str, ...],
+    artefacts: tuple[tuple[str, str], ...],
 ) -> str:
-    engines: list[str] = []
-    for finding in findings:
-        names = finding.engines or (finding.engine,)
-        for name in names:
-            if name and name not in engines:
-                engines.append(name)
-    engines.sort()
     rows = (
         ("Run id", run_id),
         ("Started", started_at),
@@ -904,9 +1685,12 @@ def _scan_table(
         ("Execution status", execution_status),
         ("Verdict", verdict),
         ("Scope hosts", ", ".join(scope_hosts)),
+        ("models/judge", judge),
+        ("Rate limits", _rate_limits_text(rate_limits)),
         ("Engines", ", ".join(engines)),
-        ("Skips", str(len(skips))),
+        ("Skips", _skips_text(skips)),
         ("Config digest", config_digest),
+        ("Artefacts", _artefacts_text(artefacts)),
     )
     body = "".join(
         f"<tr><th>{_escape(label)}</th><td>{_escape(value)}</td></tr>" for label, value in rows
@@ -1015,6 +1799,54 @@ def _escape(value: str) -> str:
     return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def _sarif_tags(taxonomy: tuple[str, ...]) -> list[str]:
+    """security, then each taxonomy id. cwe:CWE-200 is emitted as CWE-200."""
+    tags = ["security"]
+    for item in taxonomy:
+        prefix, separator, rest = item.partition(":")
+        tag = rest if separator and prefix == "cwe" and rest else item
+        if tag and tag not in tags:
+            tags.append(tag)
+    return tags
+
+
+def _sarif_help(finding: Finding) -> str:
+    """Remediation, then each reference on its own line."""
+    refs = [item for item in finding.references if item]
+    if not finding.remediation:
+        return "\n".join(refs)
+    if not refs:
+        return finding.remediation
+    return f"{finding.remediation}\n\n" + "\n".join(refs)
+
+
+def _sarif_rule(finding: Finding) -> dict[str, object]:
+    help_text = _sarif_help(finding)
+    rule: dict[str, object] = {
+        "id": finding.probe,
+        "name": finding.attack,
+        "shortDescription": {"text": finding.title or finding.attack},
+        "fullDescription": {"text": finding.synopsis or finding.description or finding.remediation},
+        "help": {"text": help_text, "markdown": help_text},
+        "properties": {
+            "security-severity": f"{finding.risk_score:.1f}",
+            "tags": _sarif_tags(finding.taxonomy),
+        },
+    }
+    if finding.references:
+        rule["helpUri"] = finding.references[0]
+    return rule
+
+
+def _sarif_message(finding: Finding) -> str:
+    """Name the finding and show masked evidence. A raw secret never reaches SARIF."""
+    title = finding.title or finding.attack
+    evidence = mask(finding.response).strip()
+    if evidence:
+        return f"{title} ({finding.target}): {evidence}"
+    return f"{title} ({finding.target})"
+
+
 def _sarif(findings: list[Finding]) -> dict[str, object]:
     rules = []
     seen: set[str] = set()
@@ -1022,20 +1854,15 @@ def _sarif(findings: list[Finding]) -> dict[str, object]:
     for finding in findings:
         if finding.probe not in seen:
             seen.add(finding.probe)
-            rules.append(
-                {
-                    "id": finding.probe,
-                    "name": finding.attack,
-                    "properties": {"security-severity": f"{finding.risk_score:.1f}"},
-                }
-            )
+            rules.append(_sarif_rule(finding))
         result: dict[str, object] = {
             "ruleId": finding.probe,
             "level": _sarif_level(finding.severity),
-            "message": {"text": f"{finding.engine}: {finding.attack} on {finding.target}"},
+            "message": {"text": _sarif_message(finding)},
             "properties": {
                 "engine": finding.engine,
                 "severity": finding.severity,
+                "confidence": finding.confidence,
                 "security-severity": f"{finding.risk_score:.1f}",
             },
         }

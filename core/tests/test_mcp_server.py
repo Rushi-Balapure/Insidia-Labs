@@ -1,8 +1,10 @@
+import hashlib
 import json
 from io import BytesIO
 from pathlib import Path
 
 from insidia.mcp import _MAX_MESSAGE, PROTOCOLS, dispatch, serve
+from insidia.runstore import latest_run
 from insidia.scan import ScanOutcome
 from insidia.scope import ScopeHost
 
@@ -191,7 +193,10 @@ def test_corrupt_findings_is_an_error_and_the_next_call_is_answered(
     monkeypatch.chdir(tmp_path)  # type: ignore[attr-defined]
     run = tmp_path / ".insidia" / "runs" / "r1"
     run.mkdir(parents=True)
-    (run / "findings.json").write_text("{bad")
+    raw = b"{bad"
+    (run / "findings.json").write_bytes(raw)
+    digest = hashlib.sha256(raw).hexdigest()
+    (run / "manifest.json").write_text(json.dumps({"files": {"findings.json": digest}}))
     crash = (
         '{"jsonrpc":"2.0","id":1,"method":"tools/call",'
         '"params":{"name":"findings","arguments":{"run_id":"r1"}}}\n'
@@ -240,6 +245,77 @@ def test_an_oversized_content_length_is_skipped() -> None:
     header, payload = rest.split(b"\r\n\r\n", 1)
     assert header.startswith(b"Content-Length:")
     assert json.loads(payload)["id"] == 9
+
+
+def test_symlinked_run_dir_and_findings_are_refused(
+    tmp_path: Path, monkeypatch: object
+) -> None:
+    """A later symlink must not win, and a linked findings file must not be read."""
+    monkeypatch.chdir(tmp_path)  # type: ignore[attr-defined]
+    runs = tmp_path / ".insidia" / "runs"
+    runs.mkdir(parents=True)
+    outside = tmp_path / "outside-store"
+    outside.mkdir()
+    marker = "planted-marker-not-a-secret"
+    (outside / "findings.json").write_text(json.dumps([{"detail": marker}]))
+    (outside / "report.html").write_text(marker)
+
+    link = runs / "20990101T000000Z-link"
+    link.symlink_to(outside, target_is_directory=True)
+    assert latest_run(tmp_path) is None
+    for name, arguments in (
+        ("findings", {}),
+        ("findings", {"run_id": link.name}),
+        ("report", {"run_id": link.name}),
+    ):
+        refused = _tool(name, arguments)
+        assert refused is not None
+        assert refused["result"]["isError"] is True
+        blob = json.dumps(refused)
+        assert marker not in blob
+        assert "outside-store" not in blob
+
+    real = runs / "20260101T000000Z-real"
+    real.mkdir()
+    (real / "findings.json").write_text(json.dumps([{"id": "kept"}]))
+    _seal(real)
+    assert latest_run(tmp_path) == real
+    latest = _tool("findings", {})
+    assert latest is not None
+    assert latest["result"]["isError"] is False
+    body = json.loads(latest["result"]["content"][0]["text"])
+    assert body["run_id"] == real.name
+    assert body["findings"] == [{"id": "kept"}]
+    assert marker not in json.dumps(latest)
+
+    stolen = runs / "20260102T000000Z-file"
+    stolen.mkdir()
+    (stolen / "findings.json").symlink_to(outside / "findings.json")
+    (stolen / "manifest.json").write_text(
+        json.dumps({"files": {"findings.json": "0" * 64}})
+    )
+    file_link = _tool("findings", {"run_id": stolen.name})
+    assert file_link is not None
+    assert file_link["result"]["isError"] is True
+    assert marker not in json.dumps(file_link)
+    assert "outside-store" not in json.dumps(file_link)
+
+
+def _tool(name: str, arguments: dict[str, object]) -> dict[str, object] | None:
+    return dispatch(
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {"name": name, "arguments": arguments},
+        }
+    )
+
+
+def _seal(directory: Path) -> None:
+    raw = (directory / "findings.json").read_bytes()
+    digest = hashlib.sha256(raw).hexdigest()
+    (directory / "manifest.json").write_text(json.dumps({"files": {"findings.json": digest}}))
 
 
 def test_stdio_round_trip() -> None:

@@ -110,6 +110,10 @@ def normalize(hits: list[ProbeHit]) -> list[Finding]:
                     mask(hit.evidence) if hit.evidence else "",
                 ),
             ),
+            check_id=hit.check_id,
+            title=hit.title,
+            synopsis=hit.synopsis,
+            description=hit.description,
         )
         key = (finding.target, finding.attack, finding.location, finding.evidence_hash)
         if key not in grouped:

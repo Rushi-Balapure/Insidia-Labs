@@ -6,7 +6,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
-from insidia.adapters import arithmetic_echo
+from insidia.adapters import FIXTURE_ONLY, ORACLES, arithmetic_echo
 from insidia.catalog import SPECS
 from insidia.cli import main
 from insidia.errors import EngineFailed
@@ -32,6 +32,10 @@ def test_every_current_capability_has_a_disposition() -> None:
     unsupported = {row.name for row in rows if row.readiness == "unsupported"}
     assert set(UNSCHEDULED_FAMILIES) <= unsupported
     assert set(ABSENT_CAPABILITIES) <= unsupported
+    fixture_only = {row.name for row in rows if row.readiness == "fixture-only"}
+    assert fixture_only == set(FIXTURE_ONLY)
+    implemented = {row.name for row in rows if row.readiness == "implemented"}
+    assert implemented == set(ORACLES) - set(FIXTURE_ONLY)
 
 
 def test_a_failed_engine_keeps_the_other_engines_finding(

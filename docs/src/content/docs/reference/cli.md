@@ -41,6 +41,8 @@ insidia engines install --docker
 
 A downloaded engine binary is checked against a pinned SHA-256 for that engine, version, and platform before it is unpacked. If the bytes do not match, the install stops. If this platform has no pin, the install stops unless you pass `--allow-unverified`.
 
+`INSIDIA_ENGINE_MIRROR` is an optional `http` or `https` base URL, such as `http://127.0.0.1:8765`. It replaces only the `https://github.com` prefix of an engine download. The SHA-256 pin still names the canonical GitHub URL, so a file from the mirror that does not match that pin is not installed. A value that is not `http` or `https` is refused, and so is a download that is not on `https://github.com`. A localhost mirror is an install override and does not need `authorized: true`.
+
 ## policy
 
 ```bash
@@ -64,6 +66,8 @@ insidia scan --policy L1 --coverage standard --yes --json
 | `--open` | Open the report in a browser when the scan finishes. Without it, the scan only prints the report path, so it is safe in CI, over SSH, and from an agent. |
 
 Exit codes: **0** for a completed pass, **1** when any check found a problem, **2** for an incomplete run with no finding or an error, and **130** for cancellation. A finding exits 1 even when another target or check did not finish, so a CI gate on 1 never misses it. JSON includes `execution_status` and `policy_verdict`; review both. A scan never opens a browser unless you pass `--open`. Progress is printed while each control runs.
+
+`INSIDIA_VULN_DB=1` is the only opt-in for Trivy and osv-scanner vulnerability database downloads. Any other value, including an unset variable, keeps those downloads off. Trivy then uses `--skip-db-update` and `--skip-java-db-update`. osv-scanner uses `--offline`. With the variable set to `1`, Trivy contacts `mirror.gcr.io` and `ghcr.io`, and osv-scanner contacts `api.osv.dev` and may contact `api.deps.dev`. Those hosts are outside `scope`. The variable does not let a scan contact an arbitrary target.
 
 ## report
 

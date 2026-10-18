@@ -42,6 +42,7 @@ def test_init_doctor_and_policy(tmp_path: Path, monkeypatch: object) -> None:
     assert project.policy == "L1"
     assert project.scope[0].host == "localhost"
     assert main(["init"]) == 2
+    monkeypatch.setattr("insidia.doctor.read_url", lambda *_args, **_kwargs: "ok")  # type: ignore[attr-defined]
     assert main(["doctor"]) == 0
     assert main(["policy", "list"]) == 0
     assert main(["policy", "validate"]) == 0
@@ -99,6 +100,9 @@ def test_scan_opens_the_report_only_when_asked(
     run_id = "20261015T174011Z-371e29"
     stamped = scan_message("L1", True, 0, "report.html", False, run_id=run_id)
     assert stamped.startswith(f"Run {run_id} (started {local_time(run_id)})")
+    chosen = "2023-11-14 05:13:20 UTC"
+    explicit = scan_message("L1", True, 0, "report.html", False, run_id=run_id, started=chosen)
+    assert explicit.startswith(f"Run {run_id} (started {chosen})")
 
 
 def test_global_options_work_before_the_command(
@@ -246,6 +250,14 @@ targets:
     assert seen
     assert all(item.startswith("chat ") for item in seen)
     assert all("example.com" not in item for item in seen)
+    assert "rerun_of" not in manifest
+    rerun_dirs = [
+        path for path in (tmp_path / ".insidia" / "runs").iterdir() if path != run_dir
+    ]
+    assert len(rerun_dirs) == 1
+    rerun_manifest = read_manifest(rerun_dirs[0])
+    assert rerun_manifest is not None
+    assert rerun_manifest["rerun_of"] == run_dir.name
 
 
 def test_rerun_yes_does_not_approve_a_new_non_local_host(
@@ -332,9 +344,11 @@ targets:
     posture = captured.err.index("ai.agent_posture")
     assert header < posture
     assert "ai.agent_posture" not in captured.err[:header]
-    run_id = next((tmp_path / ".insidia" / "runs").iterdir()).name
-    started = local_time(run_id)
-    assert f"Run {run_id} (started {started})" in captured.out
+    run_dir = next((tmp_path / ".insidia" / "runs").iterdir())
+    manifest = json.loads((run_dir / "manifest.json").read_text())
+    started = manifest["started_at"]
+    assert isinstance(started, str) and started
+    assert f"Run {run_dir.name} (started {started})" in captured.out
     assert code == 1
 
 

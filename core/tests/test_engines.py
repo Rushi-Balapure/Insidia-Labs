@@ -3,11 +3,17 @@ import io
 import json
 import platform
 import socket
+import subprocess
 import sys
+import threading
 import time
 import types
+import urllib.parse
 import urllib.request
 import zipfile
+from collections.abc import Iterator
+from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
@@ -20,13 +26,20 @@ from insidia.adapters import (
     RepoPath,
     ScopedUrl,
 )
-from insidia.catalog import SPECS
+from insidia.catalog import SPECS, STATIC_PROMPT
 from insidia.config import Project, load_project
-from insidia.engines import _github, _publish, install
+from insidia.engines import (
+    PINNED_SHA256,
+    _download,
+    _github,
+    _mirrored_download_url,
+    _publish,
+    install,
+)
 from insidia.errors import CliError, EngineFailed
 from insidia.policy import get_policy
 from insidia.probes import run
-from insidia.process import _argv_for, child_env, launch_installed
+from insidia.process import _argv_for, child_env, launch_installed, run_command
 from insidia.registry import capabilities, select
 from insidia.scope import ScopeHost
 from tests.support import start_fixture, stop_fixture, target
@@ -317,6 +330,8 @@ def test_garak_raises_parallel_requests(tmp_path: Path) -> None:
     )
     assert invocation.args[invocation.args.index("--parallel_requests") + 1] == "8"
     assert '"parallel_requests": 8' in (tmp_path / "generator.json").read_text()
+    prompts = json.loads((tmp_path / "probe.json").read_text())["test"]["Blank"]["prompts"]
+    assert prompts == [STATIC_PROMPT]
 
 
 def test_promptfoo_disables_remote_generation_and_telemetry(tmp_path: Path) -> None:
@@ -496,7 +511,61 @@ def test_web_engines_receive_the_query_template(tmp_path: Path) -> None:
         assert "fn=ssti" in blob
 
 
-def test_repo_engines_are_pointed_at_the_repo(tmp_path: Path) -> None:
+# Flags that tell the tool to follow a redirect onto another host.
+_OFF_SCOPE_REDIRECT = {
+    "httpx": ("-fr", "-follow-redirects"),
+    "dalfox": ("-F", "--follow-redirects"),
+    "nuclei": ("-fr", "-follow-redirects", "-fhr", "-follow-host-redirects"),
+}
+
+
+def test_crawlers_do_not_follow_redirects_off_scope(tmp_path: Path) -> None:
+    view = ScopedUrl("http://127.0.0.1:8080/call", QUERY)
+    for name, banned in _OFF_SCOPE_REDIRECT.items():
+        workspace = tmp_path / name
+        workspace.mkdir()
+        adapter = _engine(name)
+        invocation = adapter.prepare(adapter.probes[0], view, workspace)  # type: ignore[arg-type]
+        for flag in banned:
+            assert flag not in invocation.args
+        if name == "nuclei":
+            assert "-dr" in invocation.args
+    katana_dir = tmp_path / "katana"
+    katana_dir.mkdir()
+    katana = _engine("katana").prepare(_engine("katana").probes[0], view, katana_dir)  # type: ignore[attr-defined]
+    assert "-dr" in katana.args
+    assert katana.args[katana.args.index("-fs") + 1] == "fqdn"
+    scope = katana.args[katana.args.index("-cs") + 1]
+    assert scope.startswith(r"^http://127\.0\.0\.1:8080")
+    zap_dir = tmp_path / "zap"
+    zap_dir.mkdir()
+    zap = _engine("zap").prepare(_engine("zap").probes[0], view, zap_dir)  # type: ignore[attr-defined]
+    plan = (zap_dir / "plan.yaml").read_text()
+    assert "contexts:" in plan
+    assert "proxy:" not in plan
+    assert "proxy" not in zap.args
+
+
+def test_projectdiscovery_engines_disable_update_checks(tmp_path: Path) -> None:
+    view = ScopedUrl("http://127.0.0.1:8080/call", QUERY)
+    names = {
+        spec.name
+        for spec in SPECS
+        if any(f"/projectdiscovery/{spec.name}/" in url for url in PINNED_SHA256)
+    }
+    assert names == {"nuclei", "katana", "httpx"}
+    for name in sorted(names):
+        workspace = tmp_path / name
+        workspace.mkdir()
+        adapter = _engine(name)
+        invocation = adapter.prepare(adapter.probes[0], view, workspace)  # type: ignore[arg-type]
+        assert "-disable-update-check" in invocation.args
+
+
+def test_repo_engines_are_pointed_at_the_repo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("INSIDIA_VULN_DB", raising=False)
     repo = tmp_path / "repo"
     repo.mkdir()
     for name in REPO:
@@ -507,7 +576,43 @@ def test_repo_engines_are_pointed_at_the_repo(tmp_path: Path) -> None:
         assert any(str(repo) in arg for arg in invocation.args)
         if name == "trivy":
             assert "--skip-version-check" in invocation.args
-            assert "--skip-db-update" not in invocation.args
+            assert "--skip-db-update" in invocation.args
+            assert "--skip-java-db-update" in invocation.args
+        if name == "osv-scanner":
+            assert "--offline" in invocation.args
+
+
+def test_vuln_db_engines_stay_offline_unless_opted_in(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.delenv("INSIDIA_VULN_DB", raising=False)
+    for name, offline in (("trivy", "--skip-db-update"), ("osv-scanner", "--offline")):
+        workspace = tmp_path / f"default-{name}"
+        workspace.mkdir()
+        adapter = _engine(name)
+        invocation = adapter.prepare(adapter.probes[0], RepoPath(repo), workspace)  # type: ignore[arg-type]
+        assert offline in invocation.args
+        if name == "trivy":
+            assert "--skip-java-db-update" in invocation.args
+    for value in ("", "true", "yes", "0"):
+        monkeypatch.setenv("INSIDIA_VULN_DB", value)
+        workspace = tmp_path / f"rejected-{value or 'empty'}"
+        workspace.mkdir()
+        adapter = _engine("osv-scanner")
+        invocation = adapter.prepare(adapter.probes[0], RepoPath(repo), workspace)  # type: ignore[arg-type]
+        assert "--offline" in invocation.args
+    monkeypatch.setenv("INSIDIA_VULN_DB", "1")
+    for name, offline in (("trivy", "--skip-db-update"), ("osv-scanner", "--offline")):
+        workspace = tmp_path / f"opt-in-{name}"
+        workspace.mkdir()
+        adapter = _engine(name)
+        invocation = adapter.prepare(adapter.probes[0], RepoPath(repo), workspace)  # type: ignore[arg-type]
+        assert offline not in invocation.args
+        if name == "trivy":
+            assert "--skip-java-db-update" not in invocation.args
+            assert "--skip-version-check" in invocation.args
 
 
 def test_echoed_payload_with_a_timestamp_is_not_ssti(tmp_path: Path) -> None:
@@ -640,6 +745,29 @@ def test_named_install_with_a_receipt_does_not_restage(
     )
     assert install(("nuclei",)) == "nuclei 3.11.1 is already installed"
     assert not (tmp_path / ".nuclei.staging").exists()
+
+
+def test_run_command_starts_the_engine_with_stdin_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: dict[str, object] = {}
+
+    class _Process:
+        returncode = 0
+
+        def communicate(self, timeout: float | None = None) -> tuple[bytes, bytes]:
+            return b"", b""
+
+    def _popen(argv: list[str], **kwargs: object) -> _Process:
+        seen.update(kwargs)
+        seen["argv"] = argv
+        return _Process()
+
+    monkeypatch.setattr("insidia.process.subprocess.Popen", _popen)
+    code, detail = run_command(["katana", "-u", "http://127.0.0.1"], None, {}, 30, name="katana")
+    assert code == 0
+    assert detail == ""
+    assert seen["stdin"] is subprocess.DEVNULL
 
 
 def test_child_process_drops_proxies_and_secrets(
@@ -819,6 +947,184 @@ def test_a_missing_pin_needs_allow_unverified(
     assert install(("nuclei",), allow_unverified=True).startswith("installed nuclei")
 
 
+def _linux_amd64(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(platform, "machine", lambda: "x86_64")
+
+
+def _refuse_off_loopback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fail the test before a bug can fetch a real engine binary."""
+    real_build = urllib.request.build_opener
+
+    def build(*handlers: urllib.request.BaseHandler) -> urllib.request.OpenerDirector:
+        opener = real_build(*handlers)
+        original = opener.open
+
+        def open_url(
+            fullurl: object,
+            data: object = None,
+            timeout: float | None = None,
+        ) -> object:
+            raw = fullurl.full_url if isinstance(fullurl, urllib.request.Request) else str(fullurl)
+            host = urllib.parse.urlsplit(raw).hostname
+            if host != "127.0.0.1":
+                raise AssertionError(f"refusing non-loopback engine download: {raw}")
+            if timeout is None:
+                return original(fullurl, data=data)
+            return original(fullurl, data=data, timeout=timeout)
+
+        opener.open = open_url  # type: ignore[method-assign]
+        return opener
+
+    monkeypatch.setattr(urllib.request, "build_opener", build)
+
+
+@contextmanager
+def _local_mirror(payload: bytes) -> Iterator[tuple[str, list[str]]]:
+    requested: list[str] = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            requested.append(self.path)
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def log_message(self, format: str, *args: object) -> None:
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    port = server.server_address[1]
+    assert isinstance(port, int)
+    try:
+        yield f"http://127.0.0.1:{port}", requested
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_github_urls_stay_canonical_without_a_mirror(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("INSIDIA_ENGINE_MIRROR", raising=False)
+    _linux_amd64(monkeypatch)
+    seen = 0
+    for spec in SPECS:
+        try:
+            url = _github(spec)
+        except CliError:
+            continue
+        seen += 1
+        assert url.startswith("https://github.com/")
+    assert seen >= 9
+
+
+def test_a_mirror_rewrites_only_the_github_prefix(monkeypatch: pytest.MonkeyPatch) -> None:
+    canonical = "https://github.com/org/name/releases/download/v1/file.zip"
+    monkeypatch.delenv("INSIDIA_ENGINE_MIRROR", raising=False)
+    assert _mirrored_download_url(canonical) == canonical
+    monkeypatch.setenv("INSIDIA_ENGINE_MIRROR", "http://127.0.0.1:9/")
+    assert _mirrored_download_url(canonical) == (
+        "http://127.0.0.1:9/org/name/releases/download/v1/file.zip"
+    )
+    monkeypatch.setenv("INSIDIA_ENGINE_MIRROR", "ftp://127.0.0.1/engines")
+    with pytest.raises(CliError, match="http or https"):
+        _mirrored_download_url(canonical)
+    monkeypatch.setenv("INSIDIA_ENGINE_MIRROR", "http://127.0.0.1:9")
+    with pytest.raises(CliError, match="https://github.com"):
+        _mirrored_download_url("https://download.pytorch.org/whl/cpu/torch.whl")
+    with pytest.raises(CliError, match="https://github.com"):
+        _mirrored_download_url("https://github.com.evil/nuclei.zip")
+
+
+def test_a_non_http_mirror_is_refused_before_download(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("INSIDIA_TOOLCHAIN", str(tmp_path))
+    monkeypatch.setenv("INSIDIA_ENGINE_MIRROR", "file:///tmp/engines")
+    _linux_amd64(monkeypatch)
+
+    def fail_open(*args: object, **kwargs: object) -> object:
+        raise AssertionError("download started")
+
+    monkeypatch.setattr(urllib.request.OpenerDirector, "open", fail_open)
+    with pytest.raises(CliError, match="http or https"):
+        install(("nuclei",))
+    assert not (tmp_path / "nuclei").exists()
+    assert not (tmp_path / ".nuclei.staging").exists()
+
+
+def test_a_mirror_does_not_fetch_a_non_github_url(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("INSIDIA_ENGINE_MIRROR", "http://127.0.0.1:9")
+
+    def fail_open(*args: object, **kwargs: object) -> object:
+        raise AssertionError("download started")
+
+    monkeypatch.setattr(urllib.request.OpenerDirector, "open", fail_open)
+    with pytest.raises(CliError, match="https://github.com"):
+        _download("https://download.pytorch.org/whl/cpu/torch.whl", tmp_path / "torch")
+    assert not (tmp_path / "torch").exists()
+
+
+def test_a_tampered_mirror_archive_fails_sha256(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("INSIDIA_TOOLCHAIN", str(tmp_path))
+    monkeypatch.delenv("INSIDIA_ENGINE_MIRROR", raising=False)
+    _linux_amd64(monkeypatch)
+    _refuse_off_loopback(monkeypatch)
+    spec = next(item for item in SPECS if item.name == "nuclei")
+    canonical = _github(spec)
+    payload = _nuclei_zip()
+    monkeypatch.setattr(
+        "insidia.engines.PINNED_SHA256",
+        {canonical: hashlib.sha256(payload).hexdigest()},
+    )
+
+    def fail_extract(*args: object, **kwargs: object) -> None:
+        raise AssertionError("archive was extracted")
+
+    monkeypatch.setattr("insidia.engines._extract", fail_extract)
+    with _local_mirror(b"tampered-archive") as (mirror, requested):
+        monkeypatch.setenv("INSIDIA_ENGINE_MIRROR", mirror)
+        assert _github(spec) == canonical
+        with pytest.raises(CliError, match="failed SHA-256 verification"):
+            install(("nuclei",), allow_unverified=True)
+    assert requested
+    assert all(path.startswith("/projectdiscovery/nuclei/") for path in requested)
+    assert not (tmp_path / "nuclei").exists()
+    assert not (tmp_path / ".nuclei.staging").exists()
+
+
+def test_a_mirror_archive_matching_the_pin_installs(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("INSIDIA_TOOLCHAIN", str(tmp_path))
+    monkeypatch.delenv("INSIDIA_ENGINE_MIRROR", raising=False)
+    _linux_amd64(monkeypatch)
+    _refuse_off_loopback(monkeypatch)
+    spec = next(item for item in SPECS if item.name == "nuclei")
+    canonical = _github(spec)
+    payload = _nuclei_zip()
+    monkeypatch.setattr(
+        "insidia.engines.PINNED_SHA256",
+        {canonical: hashlib.sha256(payload).hexdigest()},
+    )
+    with _local_mirror(payload) as (mirror, requested):
+        monkeypatch.setenv("INSIDIA_ENGINE_MIRROR", mirror)
+        assert _github(spec) == canonical
+        assert install(("nuclei",)).startswith("installed nuclei")
+    assert requested
+    assert all(path.startswith("/projectdiscovery/nuclei/") for path in requested)
+    program = tmp_path / "nuclei" / "bin" / "nuclei"
+    assert program.is_file()
+    assert program.stat().st_mode & 0o111
+
+
 @pytest.mark.parametrize("machine", ["x86_64", "aarch64"])
 def test_every_linux_download_has_a_pin(monkeypatch: pytest.MonkeyPatch, machine: str) -> None:
     from insidia.engines import PINNED_SHA256
@@ -873,10 +1179,17 @@ def test_thorough_scan_cross_validates_without_a_model(tmp_path: Path) -> None:
     document = json.loads((outcome.run_dir / "findings.json").read_text())
     leak = next(item for item in document if item["attack"] == "ai.data_leakage")
     web = next(item for item in document if item["attack"] == "web.ssti")
+    benchmark = json.loads((outcome.run_dir / "benchmark.json").read_text())
+    leak_rows = [
+        row
+        for row in benchmark["controls"]
+        if row.get("id") == "ai.data_leakage" and row.get("target") == "sandbox-chat"
+    ]
     assert leak["engine"] == "insidia"
     assert leak["cross_validated"] is False, outcome.skips
-    assert leak["reported_by"] >= 2, outcome.skips
-    assert set(leak["engines"]) >= {"insidia", "garak", "promptfoo"}, outcome.skips
+    assert leak["engines"] == ["insidia"], outcome.skips
+    assert leak["reported_by"] == 1, outcome.skips
+    assert any("garak sent only 1 prompt" in row.get("detail", "") for row in leak_rows)
     assert web["engine"] == "insidia"
     assert web["cross_validated"] is False, outcome.skips
     assert web["reported_by"] >= 2, outcome.skips

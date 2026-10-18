@@ -1,13 +1,16 @@
-"""What the current CLI can claim. Fixture checks are not verified detectors.
+"""What the current CLI can claim.
 
 Phase 1F records a disposition for every policy family, catalog engine, and
-review finding. Promoting a row to verified is a later package, not a rename.
+review finding. A family in ``insidia.adapters.FIXTURE_ONLY`` matches the
+benchmark app. A family whose oracle judges a real target is implemented.
+Promoting a row to verified is a later package.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+from insidia.adapters import FIXTURE_ONLY, ORACLES
 from insidia.catalog import SPECS
 from insidia.policy import POLICIES
 
@@ -59,20 +62,37 @@ REVIEW: tuple[ReviewItem, ...] = (
 )
 
 
+def _family(family: str) -> Disposition:
+    """One L1 family, classified by the oracle that actually runs."""
+    if family in FIXTURE_ONLY:
+        return Disposition(
+            family,
+            "family",
+            "fixture-only",
+            "F08",
+            "Built-in oracle matches Insidia's benchmark app.",
+        )
+    if family in ORACLES:
+        return Disposition(
+            family,
+            "family",
+            "implemented",
+            "F08",
+            "Built-in check runs an oracle on the target.",
+        )
+    return Disposition(
+        family,
+        "family",
+        "experimental",
+        "F08",
+        "No built-in oracle. An external engine may cover this family.",
+    )
+
+
 def inventory() -> tuple[Disposition, ...]:
     """Every current family and engine. Nothing is dropped by omission."""
 
-    rows: list[Disposition] = []
-    for control in POLICIES["L1"].controls:
-        rows.append(
-            Disposition(
-                control.family,
-                "family",
-                "fixture-only",
-                "F08",
-                "Built-in oracle or upstream adapter. Not an independent detector.",
-            )
-        )
+    rows: list[Disposition] = [_family(control.family) for control in POLICIES["L1"].controls]
     for family in UNSCHEDULED_FAMILIES:
         rows.append(
             Disposition(

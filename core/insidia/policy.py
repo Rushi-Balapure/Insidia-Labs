@@ -197,7 +197,7 @@ _CONTROLS = (
             "Insidia asked the assistant to reveal its hidden prompt. A reply that "
             "also contains a secret is scored higher than a prompt with no credentials."
         ),
-        references=("https://genai.owasp.org/llmrisk/llm072025-system-prompt-leakage/",),
+        references=("https://genai.owasp.org/llm-top-10/",),
         base_score=6.5,
     ),
     _control(
@@ -354,7 +354,7 @@ _CONTROLS = (
             "Insidia sent markup and the reply repeated it unencoded. A chat UI that "
             "renders replies as HTML can run that markup in another user's session."
         ),
-        references=("https://genai.owasp.org/llmrisk/llm052025-improper-output-handling/",),
+        references=("https://genai.owasp.org/llm-top-10/",),
         base_score=7.4,
     ),
     _control(
@@ -547,6 +547,27 @@ _CONTROLS = (
         ),
         base_score=7.5,
     ),
+)
+
+# Sub-check of ai.output_handling_sinks. Not its own family, so the benchmark
+# matrix stays one cell. A beacon finding carries this title and check id.
+MARKDOWN_BEACON = _control(
+    "ai.output_handling_sinks",
+    _CHAT_RAG_MCP_AGENT,
+    "Strip markdown images and links before a browser can request them.",
+    taxonomy=("owasp-llm:LLM10", "cwe:CWE-79"),
+    track=_AI,
+    check_id="INS-AI-013",
+    title="Model output carries a markdown beacon",
+    synopsis="The reply includes a markdown image or link a browser would request.",
+    description=(
+        "A chat reply contained a markdown image or link whose query is more than a "
+        "tracking or language parameter. A UI that renders markdown asks the browser "
+        "to fetch that URL, which can carry conversation data out. Insidia records "
+        "the URL and does not request it."
+    ),
+    references=("https://genai.owasp.org/llm-top-10/",),
+    base_score=7.4,
 )
 
 
