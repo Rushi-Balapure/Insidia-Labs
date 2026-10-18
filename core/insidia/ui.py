@@ -34,6 +34,9 @@ class Event:
     sent: Callable[[], int] | None = None
     # Payloads or prompts for a finished check. None when this row has no count.
     probes: int | None = None
+    # Files, manifests, or dependencies a repository check counted. Preferred over probes.
+    counted: int | None = None
+    unit: str = ""
 
 
 def wants_color(stream: TextIO, no_color: bool = False) -> bool:
@@ -206,15 +209,33 @@ class Terminal:
             self._draw(0)
 
 
-def _payload_count(event: Event) -> str:
-    """Payloads or prompts on a pass or fail line, for example `8 payloads`."""
-    count = event.probes
-    if count is None or event.result not in {"pass", "fail"}:
-        return ""
-    noun = "prompt" if event.family.startswith("ai.") else "payload"
+_REAL_UNITS = frozenset({"file", "manifest", "dependency"})
+
+
+def _count_text(count: int, noun: str) -> str:
+    if noun == "dependency" and count != 1:
+        return f"{count} dependencies"
     if count != 1:
         noun += "s"
     return f"{count} {noun}"
+
+
+def _payload_count(event: Event) -> str:
+    """Count on a pass or fail line, for example `8 payloads` or `2 files`.
+
+    A repository check prefers the unit it actually counted. A zero total is omitted,
+    so a row never says `0 payloads` or `0 prompts`.
+    """
+    if event.result not in {"pass", "fail"}:
+        return ""
+    counted = event.counted
+    if counted is not None and counted > 0 and event.unit in _REAL_UNITS:
+        return _count_text(counted, event.unit)
+    count = event.probes
+    if count is None or count <= 0:
+        return ""
+    noun = "prompt" if event.family.startswith("ai.") else "payload"
+    return _count_text(count, noun)
 
 
 def _requests(event: Event) -> Callable[[], str] | None:

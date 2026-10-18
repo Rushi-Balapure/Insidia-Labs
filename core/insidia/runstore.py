@@ -1575,6 +1575,8 @@ def _control_text(control: dict[str, str | int], key: str) -> str:
 def _sent_clause(control: dict[str, str | int]) -> str:
     value = control.get("probes", 0)
     count = value if isinstance(value, int) else 0
+    if count <= 0:
+        return ""
     noun = "prompt" if _control_text(control, "id").startswith("ai.") else "payload"
     if count != 1:
         noun += "s"
@@ -1582,19 +1584,33 @@ def _sent_clause(control: dict[str, str | int]) -> str:
 
 
 def _coverage_why(control: dict[str, str | int], skips: list[str]) -> str:
+    reason = ""
     if _control_text(control, "assurance") == "low":
         reason = _control_text(control, "assurance_reason").strip()
-        if reason:
-            return reason
     detail = _control_text(control, "detail").strip()
     result = _control_text(control, "result")
+    # Low assurance stays a pass. A non-pass keeps the reason and gains no sent clause.
+    if reason and result != "pass":
+        return reason
     if result in {"pass", "fail"} and "probes" in control:
         sent = _sent_clause(control)
-        if detail:
+        if result == "pass" and reason:
+            if sent:
+                return f"{sent}, none triggered. {reason}"
+            return reason
+        if sent and detail:
             return f"{sent}. {detail}"
+        if detail:
+            return detail
         if result == "pass":
-            return f"{sent}, none triggered."
-        return f"{sent}. A probe reported this check."
+            if sent:
+                return f"{sent}, none triggered."
+            return "none triggered."
+        if sent:
+            return f"{sent}. A probe reported this check."
+        return "A probe reported this check."
+    if reason:
+        return reason
     if detail:
         return detail
     family = _control_text(control, "id")

@@ -97,6 +97,9 @@ class Attempt:
     # Payloads or prompts handed to the target, and HTTP requests made for them.
     probes: int = 0
     requests: int = 0
+    # Files, manifests, or dependencies a repository check read. Not a payload total.
+    counted: int = 0
+    unit: str = ""
 
 
 # Shared list so a worker thread can record a payload the scan thread totals.
@@ -222,7 +225,12 @@ def run(
     before = _request_count(target)
     try:
         untested = ""
+        counted = 0
+        unit = ""
         match adapter:
+            case BuiltIn() if target.kind == "repo":
+                found, untested, counted, unit = _judge_repo(spec, target, root)
+                error = ""
             case BuiltIn():
                 found, error, untested = _judge(adapter, spec, target, project.scope, root)
             case RelayAdapter():
@@ -241,7 +249,15 @@ def run(
         if owned and not _is_relay_shallow_note(untested):
             untested = ""
         sent = _request_count(target) - before
-        return Attempt(hits, error, untested, bucket[0], sent if sent > 0 else 0)
+        return Attempt(
+            hits,
+            error,
+            untested,
+            bucket[0],
+            sent if sent > 0 else 0,
+            counted,
+            unit,
+        )
     finally:
         _probe_tally.reset(token)
 
@@ -309,7 +325,7 @@ def _judge(
 ) -> tuple[list[EngineHit], str, str]:
     """Hits, an error if the check did not finish, and why nothing could be tested."""
     if target.kind == "repo":
-        hits, untested = _judge_repo(spec, target, root)
+        hits, untested, _counted, _unit = _judge_repo(spec, target, root)
         return hits, "", untested
     paired = _PAIRED.get(spec.family)
     if paired is not None:
@@ -799,14 +815,16 @@ _PAIRED: dict[
 }
 
 
-def _judge_repo(spec: ProbeSpec, target: Target, root: Path) -> tuple[list[EngineHit], str]:
-    """Hits across the repository's files, and why nothing could be tested."""
+def _judge_repo(
+    spec: ProbeSpec, target: Target, root: Path
+) -> tuple[list[EngineHit], str, int, str]:
+    """Hits across the repository's files, why nothing could be tested, and the real total."""
     result = _REPO_CHECKS[spec.family](repo_path(target, root))
     hits = [
         EngineHit(f"insidia-{hit.rule}", hit.rule, hit.line, hit.evidence, hit.location)
         for hit in result.hits
     ]
-    return hits, result.untested
+    return hits, result.untested, result.counted, result.unit
 
 
 def _report[View: (ScopedUrl, RepoPath)](

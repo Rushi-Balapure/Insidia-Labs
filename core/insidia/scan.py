@@ -268,6 +268,8 @@ def _scan_targets(
             reasons: list[str] = []
             probe_count = 0
             request_count = 0
+            counted = 0
+            unit = ""
             for capability in chosen:
                 note = _NETWORK_DB.get(capability.engine)
                 if os.environ.get("INSIDIA_VULN_DB") != "1":
@@ -295,6 +297,13 @@ def _scan_targets(
                     untested = attempt.untested
                     probe_count += attempt.probes
                     request_count += attempt.requests
+                    if (
+                        attempt.counted > 0
+                        and attempt.unit in {"file", "manifest", "dependency"}
+                        and unit in {"", attempt.unit}
+                    ):
+                        counted += attempt.counted
+                        unit = attempt.unit
                 # A beacon observed on this reply belongs to output handling.
                 # It is still recorded, and it does not count as this family's finding.
                 owned = tuple(hit for hit in attempt_hits if hit.family == family)
@@ -377,6 +386,8 @@ def _scan_targets(
                     shown,
                     time.monotonic() - began,
                     probes=probe_count if result in {"pass", "fail"} else None,
+                    counted=counted if result in {"pass", "fail"} and counted > 0 else None,
+                    unit=unit if result in {"pass", "fail"} and counted > 0 else "",
                 ),
             )
     _attribute_markdown_beacons(hits, records, controls)
