@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import asdict, dataclass, replace
+from urllib.parse import urlparse
 
 from insidia.mask import mask
-from insidia.policy import fallback_check_id
+from insidia.policy import MARKDOWN_BEACON, fallback_check_id
 from insidia.probes import ProbeHit
 from insidia.score import control_for, risk_assessment, severity_rank
 
@@ -97,7 +98,7 @@ def normalize(hits: list[ProbeHit]) -> list[Finding]:
             hit.target,
             hit.taxonomy,
             hit.remediation,
-            _evidence_hash(mask(hit.evidence) if hit.evidence else response),
+            _evidence_hash(_evidence_key(hit, response)),
             False,
             hit.target,
             location=hit.location,
@@ -205,6 +206,29 @@ def _around(text: str, needle: str) -> str:
         return text[:500]
     start = max(0, at - 80)
     return text[start : start + 500]
+
+
+def _evidence_key(hit: ProbeHit, response: str) -> str:
+    """What makes two hits the same finding.
+
+    A markdown beacon is one finding per target and host+path. The query string
+    is not part of that identity, so echoed prompts do not multiply it.
+    """
+    evidence = mask(hit.evidence) if hit.evidence else ""
+    if hit.check_id == MARKDOWN_BEACON.check_id and evidence:
+        identity = _beacon_host_path(evidence)
+        if identity:
+            return identity
+    return evidence or response
+
+
+def _beacon_host_path(url: str) -> str:
+    """Host and path of a beacon URL. The query string is ignored."""
+    parsed = urlparse(url.strip())
+    host = (parsed.hostname or "").rstrip(".").lower()
+    if not host:
+        return ""
+    return f"{host}{parsed.path}"
 
 
 def _evidence_hash(text: str) -> str:

@@ -96,6 +96,25 @@ REPO = (
 )
 LOCAL = (ScopeHost("127.0.0.1", False),)
 QUERY = (("module", "web"), ("fn", "ssti"), ("q", "{{payload}}"))
+_LOOPBACK = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
+@pytest.fixture(autouse=True)
+def _no_off_loopback_connections(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Default engine tests stay on loopback. A live download has to opt in."""
+    real = socket.create_connection
+
+    def create_connection(
+        address: tuple[str, int] | tuple[str, int, int, int],
+        *args: object,
+        **kwargs: object,
+    ) -> socket.socket:
+        host = address[0]
+        if host not in _LOOPBACK:
+            raise AssertionError(f"refusing non-loopback connection to {host}")
+        return real(address, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(socket, "create_connection", create_connection)
 
 
 def _engine(name: str) -> Adapter:
@@ -710,7 +729,11 @@ def test_availability_follows_a_receipt_written_in_this_process(
     assert [item.engine for item in chosen] == ["insidia", "nuclei"]
 
 
-def test_zap_install_warns_when_java_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_zap_install_warns_when_java_is_missing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("INSIDIA_TOOLCHAIN", str(tmp_path / "toolchain"))
+
     def already(name: str, allow_unverified: bool = False) -> str:
         del allow_unverified
         return f"installed {name} 2.17.0"
@@ -895,29 +918,26 @@ def _nuclei_zip() -> bytes:
     return buffer.getvalue()
 
 
-def _pin_fake_nuclei(monkeypatch: pytest.MonkeyPatch, payload: bytes) -> str:
-    monkeypatch.setattr(sys, "platform", "linux")
-    monkeypatch.setattr(platform, "machine", lambda: "x86_64")
-    spec = next(item for item in SPECS if item.name == "nuclei")
-    url = _github(spec)
-
-    def fake_download(download_url: str, destination: Path) -> None:
-        assert download_url == url
-        destination.write_bytes(payload)
-
-    monkeypatch.setattr("insidia.engines._download", fake_download)
-    return url
-
-
 def test_a_pinned_digest_is_checked_before_extract(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv("INSIDIA_TOOLCHAIN", str(tmp_path))
+    monkeypatch.delenv("INSIDIA_ENGINE_MIRROR", raising=False)
+    _linux_amd64(monkeypatch)
+    _refuse_off_loopback(monkeypatch)
+    spec = next(item for item in SPECS if item.name == "nuclei")
+    canonical = _github(spec)
     payload = _nuclei_zip()
-    url = _pin_fake_nuclei(monkeypatch, payload)
-    digest = hashlib.sha256(payload).hexdigest()
-    monkeypatch.setattr("insidia.engines.PINNED_SHA256", {url: digest})
-    assert install(("nuclei",)).startswith("installed nuclei")
+    monkeypatch.setattr(
+        "insidia.engines.PINNED_SHA256",
+        {canonical: hashlib.sha256(payload).hexdigest()},
+    )
+    with _local_mirror(payload) as (mirror, requested):
+        monkeypatch.setenv("INSIDIA_ENGINE_MIRROR", mirror)
+        assert urllib.parse.urlsplit(mirror).hostname == "127.0.0.1"
+        assert install(("nuclei",)).startswith("installed nuclei")
+    assert requested
+    assert all(path.startswith("/projectdiscovery/nuclei/") for path in requested)
     program = tmp_path / "nuclei" / "bin" / "nuclei"
     assert program.is_file()
     assert program.stat().st_mode & 0o111
@@ -927,10 +947,18 @@ def test_a_digest_mismatch_is_not_installed(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv("INSIDIA_TOOLCHAIN", str(tmp_path))
-    url = _pin_fake_nuclei(monkeypatch, _nuclei_zip())
-    monkeypatch.setattr("insidia.engines.PINNED_SHA256", {url: "0" * 64})
-    with pytest.raises(CliError, match="failed SHA-256 verification"):
-        install(("nuclei",), allow_unverified=True)
+    monkeypatch.delenv("INSIDIA_ENGINE_MIRROR", raising=False)
+    _linux_amd64(monkeypatch)
+    _refuse_off_loopback(monkeypatch)
+    spec = next(item for item in SPECS if item.name == "nuclei")
+    canonical = _github(spec)
+    monkeypatch.setattr("insidia.engines.PINNED_SHA256", {canonical: "0" * 64})
+    with _local_mirror(_nuclei_zip()) as (mirror, requested):
+        monkeypatch.setenv("INSIDIA_ENGINE_MIRROR", mirror)
+        with pytest.raises(CliError, match="failed SHA-256 verification"):
+            install(("nuclei",), allow_unverified=True)
+    assert requested
+    assert all(path.startswith("/projectdiscovery/nuclei/") for path in requested)
     assert not (tmp_path / "nuclei").exists()
     assert not (tmp_path / ".nuclei.staging").exists()
 
@@ -939,12 +967,22 @@ def test_a_missing_pin_needs_allow_unverified(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv("INSIDIA_TOOLCHAIN", str(tmp_path))
-    _pin_fake_nuclei(monkeypatch, _nuclei_zip())
+    monkeypatch.delenv("INSIDIA_ENGINE_MIRROR", raising=False)
+    _linux_amd64(monkeypatch)
+    _refuse_off_loopback(monkeypatch)
     monkeypatch.setattr("insidia.engines.PINNED_SHA256", {})
-    with pytest.raises(CliError, match="--allow-unverified"):
-        install(("nuclei",))
-    assert not (tmp_path / "nuclei").exists()
-    assert install(("nuclei",), allow_unverified=True).startswith("installed nuclei")
+    with _local_mirror(_nuclei_zip()) as (mirror, requested):
+        monkeypatch.setenv("INSIDIA_ENGINE_MIRROR", mirror)
+        with pytest.raises(CliError, match="--allow-unverified"):
+            install(("nuclei",))
+        assert not (tmp_path / "nuclei").exists()
+        assert urllib.parse.urlsplit(mirror).hostname == "127.0.0.1"
+        assert install(("nuclei",), allow_unverified=True).startswith("installed nuclei")
+    assert requested
+    assert all(path.startswith("/projectdiscovery/nuclei/") for path in requested)
+    program = tmp_path / "nuclei" / "bin" / "nuclei"
+    assert program.is_file()
+    assert program.stat().st_mode & 0o111
 
 
 def _linux_amd64(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1164,8 +1202,101 @@ def test_nuclei_archive_follows_the_host(monkeypatch: pytest.MonkeyPatch) -> Non
     assert _github(spec).endswith("nuclei_3.11.1_windows_amd64.zip")
 
 
-def test_thorough_scan_cross_validates_without_a_model(tmp_path: Path) -> None:
-    install(("garak", "promptfoo", "nuclei"), allow_unverified=True)
+_GARAK_STUB = """\
+#!/usr/bin/env python3
+import json
+import sys
+import urllib.request
+from urllib.parse import urlsplit
+
+
+def _flag(name: str) -> str:
+    return sys.argv[sys.argv.index(name) + 1]
+
+
+generator = json.loads(open(_flag("--generator_option_file"), encoding="utf-8").read())
+probe = json.loads(open(_flag("--probe_option_file"), encoding="utf-8").read())
+rest = generator["rest"]["RestGenerator"]
+prompts = probe["test"]["Blank"]["prompts"]
+if len(prompts) != 1:
+    raise SystemExit("garak fixture relays one prompt")
+host = urlsplit(str(rest["uri"])).hostname
+if host not in {"127.0.0.1", "localhost", "::1"}:
+    raise SystemExit("garak fixture refuses a non-loopback relay")
+headers = {
+    str(key): value
+    for key, value in rest["headers"].items()
+    if isinstance(value, str)
+}
+body = json.dumps({"prompt": prompts[0]}).encode()
+request = urllib.request.Request(str(rest["uri"]), data=body, headers=headers, method="POST")
+with urllib.request.urlopen(request, timeout=30) as response:
+    response.read()
+"""
+
+_PROMPTFOO_STUB = """\
+#!/usr/bin/env python3
+import json
+import os
+import urllib.request
+from pathlib import Path
+from urllib.parse import urlsplit
+
+url = os.environ["INSIDIA_RELAY_URL"]
+host = urlsplit(url).hostname
+if host not in {"127.0.0.1", "localhost", "::1"}:
+    raise SystemExit("promptfoo fixture refuses a non-loopback relay")
+prompts = [line for line in Path("prompt.txt").read_text(encoding="utf-8").splitlines() if line]
+if len(prompts) != 1:
+    raise SystemExit("promptfoo fixture relays one prompt")
+body = json.dumps({"prompt": prompts[0]}).encode()
+request = urllib.request.Request(
+    url,
+    data=body,
+    headers={
+        "Authorization": "Bearer " + os.environ["INSIDIA_RELAY_TOKEN"],
+        "Content-Type": "application/json",
+    },
+    method="POST",
+)
+with urllib.request.urlopen(request, timeout=30) as response:
+    response.read()
+"""
+
+_NUCLEI_STUB = """\
+#!/usr/bin/env python3
+import json
+import sys
+from pathlib import Path
+
+args = sys.argv[1:]
+destination = Path(args[args.index("-o") + 1])
+raw = "HTTP/1.1 200 OK" + chr(13) + chr(10) + chr(13) + chr(10) + "49"
+destination.write_text(json.dumps({"response": raw}) + chr(10), encoding="utf-8")
+"""
+
+
+def _stage_engine(root: Path, name: str, relative: str, script: str) -> None:
+    binary = root / name / relative
+    binary.parent.mkdir(parents=True)
+    text = script.replace("#!/usr/bin/env python3\n", f"#!{sys.executable}\n", 1)
+    binary.write_text(text)
+    binary.chmod(0o755)
+    (root / name / "receipt.json").write_text(
+        json.dumps({"name": name, "version": PINS[name], "program": relative}) + "\n"
+    )
+
+
+def test_thorough_scan_cross_validates_without_a_model(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    tools = tmp_path / "toolchain"
+    monkeypatch.setenv("INSIDIA_TOOLCHAIN", str(tools))
+    monkeypatch.delenv("INSIDIA_ENGINE_MIRROR", raising=False)
+    _stage_engine(tools, "garak", "bin/garak", _GARAK_STUB)
+    _stage_engine(tools, "promptfoo", "bin/promptfoo", _PROMPTFOO_STUB)
+    _stage_engine(tools, "nuclei", "bin/nuclei", _NUCLEI_STUB)
+    assert tools.is_relative_to(tmp_path)
     port = _free_port()
     process = start_fixture(port)
     try:

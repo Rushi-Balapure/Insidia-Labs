@@ -201,6 +201,14 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="open the report in a browser when the scan finishes (default: print its path)",
     )
+    scan.add_argument(
+        "--accept-banner-only",
+        action="store_true",
+        help=(
+            "count a recognised server banner with no built-in CVE match as a "
+            "low-assurance pass (default: report it as info)"
+        ),
+    )
 
     report = subcommands.add_parser(
         "report",
@@ -364,6 +372,7 @@ def _finish_scan(
         assume_yes=args.yes,
         progress=view,
         rerun_of=rerun_of,
+        accept_banner_only=bool(getattr(args, "accept_banner_only", False)),
     )
     terminal.line(terminal.dim(view.totals()))
     report_path = outcome.run_dir / "report.html"

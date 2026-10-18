@@ -4,6 +4,7 @@ from insidia.results import (
     CANCELLED,
     COMPLETE,
     ERROR,
+    INFO,
     NOT_APPLICABLE,
     CheckRecord,
     aggregate,
@@ -52,6 +53,30 @@ def test_findings_survive_a_failed_engine() -> None:
 def test_no_applicable_check_is_inconclusive() -> None:
     status, verdict = aggregate([CheckRecord("app", "chat", "", NOT_APPLICABLE, "no controls")])
     assert (status, verdict, exit_for(status, verdict)) == ("incomplete", "inconclusive", 2)
+
+
+def test_info_alone_is_inconclusive() -> None:
+    status, verdict = aggregate([CheckRecord("app", "infra.cve", "insidia", INFO)])
+    assert (status, verdict, exit_for(status, verdict)) == ("complete", "inconclusive", 2)
+    assert legacy_passed(status, verdict) is False
+
+
+def test_info_beside_a_finished_pass_stays_a_pass() -> None:
+    records = [
+        CheckRecord("app", "web.ssti", "insidia", COMPLETE),
+        CheckRecord("app", "infra.cve", "insidia", INFO),
+    ]
+    status, verdict = aggregate(records)
+    assert (status, verdict, exit_for(status, verdict)) == ("complete", "pass", 0)
+
+
+def test_a_finding_still_fails_beside_info() -> None:
+    records = [
+        CheckRecord("app", "web.ssti", "insidia", COMPLETE, finding_count=1),
+        CheckRecord("app", "infra.cve", "insidia", INFO),
+    ]
+    status, verdict = aggregate(records)
+    assert (status, verdict, exit_for(status, verdict)) == ("complete", "fail", 1)
 
 
 def test_cancellation_exits_130() -> None:

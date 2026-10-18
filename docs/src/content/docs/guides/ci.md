@@ -1,6 +1,6 @@
 ---
 title: Run in CI
-description: Run L1 in GitHub Actions, preserve reports, and distinguish policy failures from incomplete scans.
+description: Run L1 from a pinned GitHub Action, or upload SARIF yourself, and tell a policy failure from an incomplete scan.
 ---
 
 First, get a [local scan](/docs/start/quickstart/) working. Check in the reviewed `insidia.yaml` so CI runs the same targets and scope.
@@ -9,54 +9,103 @@ First, get a [local scan](/docs/start/quickstart/) working. Check in the reviewe
 
 The CLI reads `insidia.yaml` at the repository root. Before running a scan:
 
-1. Check out your repository.
+1. Check out the git tag or full commit SHA you intend to test. Do not check out a branch name.
 2. Set up Python 3.12 or newer.
 3. Install your app's dependencies, start it on localhost, and wait until it is ready. A repository-only target does not need a server.
 4. Install any optional engines your configuration needs on that runner. A fresh runner does not inherit the tools installed on your laptop.
 5. Provide credentials through CI environment variables referenced by `secret_ref`, if your target needs them.
 
-Keep localhost as the initial scope. A non-local target needs explicit authorization in your configuration and `--yes` on the scan command.
+Keep localhost as the initial scope. A non-local target needs `authorized: true` in `insidia.yaml`. `insidia scan --yes` confirms that you meant to scan a non-local host. It does not bypass the scope check.
 
-## Add the scan step
+## Use the scan action
 
-Grant the job permission to check out your repository:
+The repository ships a composite action at `actions/scan`. It installs one Insidia version, runs `insidia scan --policy <policy> --yes`, uploads `results.sarif` to GitHub code scanning, and uploads `report.html`, `findings.json`, and the SARIF file as a workflow artifact.
+
+`version` is required. An empty or missing version fails the job before any scan. Pass the package version from `core/pyproject.toml` at the tag or commit SHA the workflow checked out. The action installs that version from PyPI when it is published. When it is not on PyPI, it installs the `core/` directory from that checkout with `uv`. It does not install from a URL.
+
+The calling workflow must check out that tag or commit SHA itself, and it must grant only these permissions:
 
 ```yaml
 permissions:
   contents: read
+  security-events: write
 ```
 
-Add these steps **after your app is ready**, inside the job's `steps` list:
+```yaml
+- uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+  with:
+    ref: ${{ github.sha }}
+
+- uses: ./actions/scan
+  with:
+    version: "0.1.0"
+    policy: L1
+    fail-on-inconclusive: "true"
+```
+
+`github.sha` is the full commit for that workflow run. For a release, run the workflow on the tag or SHA you named and pass the `core/pyproject.toml` version from that commit. `0.1.0` above is the current package version; use the version in the checkout you are testing.
+
+`fail-on-inconclusive` controls exit code 2 only. Exit code 1 still fails the job. Exit code 0 passes. The default is `true`.
+
+When the checked-out `core/pyproject.toml` version matches `version`, the action installs that checkout. It tries PyPI only when the checkout does not match. A directory under `.insidia/runs` is uploaded only when its name is a scan run id (`YYYYMMDDTHHMMSSZ-` plus six hex digits), so a planted folder cannot sort ahead of the scan.
+
+The action reads `insidia.yaml` from the repository. It has no input for a host. `.github/workflows/insidia-scan.yml` is an example that starts a small Python server on `127.0.0.1` and scans only that fixture. It is safe to run on a pull request: it checks out the pull request commit, does not clone another repository, and does not scan a host other than `127.0.0.1`.
+
+Code scanning must be enabled for the SARIF upload to succeed. The upload uses `github/codeql-action/upload-sarif` pinned to commit `6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee` (`v4.39.0`). The artifact upload uses `actions/upload-artifact` pinned to commit `cf430e030ddbb5b0abf93d22962f4752f3646cd9` (`v7.0.2`).
+
+## Upload SARIF yourself
+
+You can keep the scan step in your own workflow and upload the files without the composite action. Check out the tag or commit SHA, install that checkout with `uv`, and run the scan. Pass the policy through the environment if it is an input. Do not expand `${{ inputs.* }}` or `${{ github.* }}` inside a `run` script.
 
 ```yaml
-- uses: astral-sh/setup-uv@v6
+permissions:
+  contents: read
+  security-events: write
 
-- uses: actions/setup-python@v5
+- uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
   with:
-    python-version: "3.12"
+    ref: ${{ github.sha }}
 
-- name: Install Insidia
-  run: uv tool install "git+https://github.com/Rushi-Balapure/Insidia-Labs@main#subdirectory=core"
+- uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+
+- name: Install Insidia from this checkout
+  run: uv tool install --python 3.12 ./core
 
 - name: Scan with Insidia
-  run: insidia scan --policy L1 --json
+  run: insidia scan --policy L1 --yes
+
+- name: Collect scan reports
+  if: always()
+  run: |
+    mkdir -p insidia-reports
+    latest="$(
+      find .insidia/runs -mindepth 1 -maxdepth 1 -type d -printf '%f\n' \
+        | grep -E '^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{6}$' \
+        | sort \
+        | tail -n 1
+    )"
+    if [ -n "$latest" ]; then
+      cp ".insidia/runs/$latest/results.sarif" ".insidia/runs/$latest/report.html" ".insidia/runs/$latest/findings.json" insidia-reports/
+    fi
+
+- name: Upload SARIF
+  if: always()
+  uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+  with:
+    sarif_file: insidia-reports/results.sarif
 
 - name: Save scan reports
   if: always()
-  uses: actions/upload-artifact@v4
+  uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
   with:
     name: insidia-reports
-    path: .insidia/runs/
-    include-hidden-files: true
+    path: insidia-reports/
     if-no-files-found: warn
+    include-hidden-files: true
     retention-days: 14
 ```
 
-`@main` follows development changes. Replace it in the install URL with a tested commit SHA for a repeatable CI gate, and pin the setup and artifact actions to tested revisions too.
-
-The artifact step runs after a failed scan as well as a pass. `include-hidden-files` is needed because `.insidia` is a hidden directory; limit the upload to the run artifacts as shown. See the [upload-artifact documentation](https://github.com/actions/upload-artifact#uploading-hidden-files).
-
-The archived run includes `results.sarif`, the HTML report, and other run files whenever the scan produced them. To publish SARIF to GitHub code scanning, add a separate upload step and grant `security-events: write`. A setup error before the scan writes a run may leave no artifacts.
+The copy step runs after a failed scan as well as a pass. Copy the run files out of `.insidia` before uploading them. A setup error before the scan writes a run may leave no artifacts.
 
 ## Interpret the result
 
@@ -67,13 +116,13 @@ The archived run includes `results.sarif`, the HTML report, and other run files 
 | `2` | Execution was incomplete with no finding, or an error stopped the scan. Resolve the error or missing coverage. |
 | `130` | Execution was cancelled. |
 
-The scan step returns the CLI's exit code. Keep failures visible in the job; `continue-on-error` would let a policy failure or incomplete run proceed without failing that step.
+The scan step returns the CLI's exit code. Keep failures visible in the job; `continue-on-error` would let a policy failure or incomplete run proceed without failing that step. With the scan action, set `fail-on-inconclusive` to `false` only when exit code 2 should not fail the job. Exit code 1 still fails.
 
 Use `execution_status` and `policy_verdict` together when consuming JSON from a shell command. A failed verdict can appear in an incomplete run, and an empty findings list does not establish a pass.
 
 ## Use a different CI system
 
-Install the CLI from a tested revision using the [installation guide](/docs/start/install/), start the target, and run:
+Install the CLI from a tested tag or commit SHA using the [installation guide](/docs/start/install/), start the target, and run:
 
 ```bash
 insidia scan --policy L1 --json

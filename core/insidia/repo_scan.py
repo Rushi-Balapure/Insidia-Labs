@@ -48,6 +48,9 @@ class RepoHit:
 class RepoResult:
     hits: tuple[RepoHit, ...]
     untested: str
+    # Files, manifests, or dependencies this check actually read. Zero means no total.
+    counted: int = 0
+    unit: str = ""
 
 
 def _files(root: Path) -> Iterator[Path]:
@@ -104,8 +107,10 @@ def secrets(root: Path) -> RepoResult:
                 kind, value = found
                 hits.append(RepoHit(kind.lower(), line.strip(), value, _where(root, path, number)))
                 if len(hits) >= _MAX_HITS:
-                    return RepoResult(tuple(hits), "")
-    return RepoResult(tuple(hits), "" if scanned else "the repository has no text files")
+                    return RepoResult(tuple(hits), "", scanned, "file")
+    if not scanned:
+        return RepoResult((), "the repository has no text files")
+    return RepoResult(tuple(hits), "", scanned, "file")
 
 
 _NOT_A_METHOD = r"(?<![.\w])"
@@ -154,10 +159,10 @@ def sinks(root: Path) -> RepoResult:
                     hits.append(RepoHit(rule, code, found.group(0), _where(root, path, number)))
                     break
             if len(hits) >= _MAX_HITS:
-                return RepoResult(tuple(hits), "")
+                return RepoResult(tuple(hits), "", scanned, "file")
     if not scanned:
         return RepoResult((), "no Python, JavaScript, TypeScript or PHP source in the repository")
-    return RepoResult(tuple(hits), "")
+    return RepoResult(tuple(hits), "", scanned, "file")
 
 
 class _Ver(NamedTuple):
@@ -634,14 +639,26 @@ def dependencies(root: Path) -> RepoResult:
                     continue
                 evidence = f"{label} is below {span.fixed_text} ({advisory.cve})"
                 hits.append(RepoHit(advisory.cve, label, evidence, _where(root, path, number)))
+    count, unit = _dependency_total(manifests, pins)
     if hits:
-        return RepoResult(tuple(hits), "")
+        return RepoResult(tuple(hits), "", count, unit)
     if not manifests:
         return RepoResult((), _NO_MANIFEST)
     if not pins:
-        return RepoResult((), "no exact version pins to compare")
+        return RepoResult((), "no exact version pins to compare", count, unit)
     return RepoResult(
         (),
         f"{pins} pinned packages checked against a short built-in list; "
         "install osv-scanner for every advisory",
+        count,
+        unit,
     )
+
+
+def _dependency_total(manifests: int, pins: int) -> tuple[int, str]:
+    """Pins compared, or manifest files opened when nothing was pinned."""
+    if pins > 0:
+        return pins, "dependency"
+    if manifests > 0:
+        return manifests, "manifest"
+    return 0, ""

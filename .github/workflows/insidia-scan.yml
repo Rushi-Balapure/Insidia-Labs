@@ -1,0 +1,96 @@
+name: Insidia scan
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+# The composite action cannot apply token permissions. These are the only
+# permissions this job grants.
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      # Check out the commit for this pull request. github.sha is that full
+      # commit SHA, not a branch. For a release, run this workflow on the tag
+      # or SHA you named and pass the core/pyproject.toml version from it.
+      - name: Check out the tagged commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Start a local fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/insidia-fixture.py" <<'PY'
+          from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+          from urllib.parse import parse_qs, urlparse
+
+          class Handler(BaseHTTPRequestHandler):
+              def do_GET(self) -> None:
+                  parsed = urlparse(self.path)
+                  if parsed.path != "/hello":
+                      self.send_response(404)
+                      self.end_headers()
+                      return
+                  name = parse_qs(parsed.query).get("name", [""])[0]
+                  if any(token in name for token in ("<", ">", "'", '"', ";", "|", "`")):
+                      body = b"bad name"
+                      status = 400
+                  else:
+                      body = f"Hello {name}".encode()
+                      status = 200
+                  self.send_response(status)
+                  self.send_header("Content-Length", str(len(body)))
+                  self.end_headers()
+                  self.wfile.write(body)
+
+              def log_message(self, fmt: str, *args: object) -> None:
+                  return
+
+          ThreadingHTTPServer(("127.0.0.1", 8765), Handler).serve_forever()
+          PY
+          setsid python3 "$RUNNER_TEMP/insidia-fixture.py" >/tmp/insidia-fixture.log 2>&1 < /dev/null &
+          ready=0
+          for _ in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -fsS "http://127.0.0.1:8765/hello?name=ada" >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 0.2
+          done
+          if [ "$ready" -ne 1 ]; then
+            printf '%s\n' "error: local fixture on 127.0.0.1:8765 did not start" >&2
+            exit 1
+          fi
+
+      - name: Write a local insidia.yaml
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > insidia.yaml <<'EOF'
+          version: 1
+          policy: L1
+          coverage: standard
+          scope:
+            - host: 127.0.0.1
+          targets:
+            local:
+              kind: web
+              url: http://127.0.0.1:8765/hello
+              method: GET
+              query:
+                name: "{{payload}}"
+          EOF
+
+      - name: Scan with Insidia
+        uses: ./actions/scan
+        with:
+          version: "0.1.0"
+          policy: L1
+          # A toy fixture can leave checks incomplete. Exit 1 still fails the job.
+          fail-on-inconclusive: "false"
