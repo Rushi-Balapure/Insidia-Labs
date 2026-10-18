@@ -1,8 +1,8 @@
 """TC-F1 checks for the scan action. Static files and local runs only.
 
-TC-F1-P1, TC-F1-P2, and TC-F1-N7 need a real GitHub Actions run and are not
-executed here. TC-F1-N4 and the SARIF shape check are local proxies, not those
-Actions runs.
+TC-F1-P1, TC-F1-P2, TC-F1-P6, and TC-F1-N7 need a real GitHub Actions run
+and are not executed here. TC-F1-N4 and the SARIF shape check are local
+proxies, not those Actions runs.
 
 Set TC_F1_ROOT to point the file checks at a copy of the tree.
 """
@@ -68,6 +68,22 @@ _N7_REASON = (
     "insidia==<version>`, `pip install insidia`, or `pipx install insidia`. "
     "Save `gh run view <id> --log`. test_tc_f1_n6_missing_or_mismatched_core_does_not_call_uv "
     "is the local replay. It is not TC-F1-N7."
+)
+
+_P6_REASON = (
+    "NOT AUTOMATABLE. TC-F1-P6 needs a real GitHub Actions run on "
+    "Rushi-Balapure/Insidia-Labs, not a local shell replay. On a pull request, "
+    "commit .insidia/runs/99991231T235959Z-ffffff containing decoy "
+    "results.sarif, report.html, and findings.json with a marker string. "
+    "Trigger .github/workflows/insidia-scan.yml from the pull request or "
+    "workflow_dispatch so ./actions/scan runs against the 127.0.0.1 fixture. "
+    "The scan must write insidia-scan.json whose run_dir is the scan's own "
+    "run folder, not the planted name. Save `gh run view <id> --log` and "
+    "`gh run download <id>`. The insidia-reports artifact must contain that "
+    "scan's three files, and the marker must not appear in them. The log must "
+    "not show `find .insidia/runs` or `sort | tail`. "
+    "test_tc_f1_n9_collect_ignores_a_later_planted_folder is the local replay. "
+    "It is not TC-F1-P6."
 )
 
 _P2_REASON = (
@@ -224,7 +240,7 @@ def _require_bash() -> str:
 
 def _offline_dirs(store: Path) -> None:
     for name in ("home", "engines", "uv-cache", "uv-tools", "xdg"):
-        (store / name).mkdir(parents=True)
+        (store / name).mkdir(parents=True, exist_ok=True)
 
 
 def _offline_env(store: Path, path_prefix: Path | None = None) -> dict[str, str]:
@@ -742,12 +758,13 @@ def test_tc_f1_p5_matching_version_installs_the_action_core(tmp_path: Path) -> N
     _assert_nothing_fetched(work / "empty")
 
 
-_REAL_RUN = "20200101T000000Z-aaaaaa"
-_DECOY_RUN = "20990101T000000Z-ffffff"
-_REAL_MARKER = "REAL-RUN-I66"
-_DECOY_MARKER = "DECOY-MARKER-I66"
+_REAL_RUN = "20260101T120000Z-abcdef"
+_PLANTED_RUN = "99991231T235959Z-ffffff"
+_REAL_MARKER = "REAL-RUN-N9"
+_PLANTED_MARKER = "PLANTED-MARKER-N9"
+_OUTSIDE_MARKER = "OUTSIDE-MARKER-N10"
 _REPORT_NAMES = ("results.sarif", "report.html", "findings.json")
-_SORT_TAIL = re.compile(r"sort\s*\\?\s*\|\s*\\?\s*tail\s+-n\s+1")
+_FIND_SORT_TAIL = re.compile(r"find\b.*\|\s*sort\b.*\|\s*tail\b")
 
 
 def _collect_step(document: dict[str, Any]) -> dict[str, Any]:
@@ -758,57 +775,10 @@ def _collect_step(document: dict[str, Any]) -> dict[str, Any]:
     raise AssertionError("action has no report collection step")
 
 
-def _plant_decoy(work: Path) -> Path:
-    decoy = work / ".insidia" / "runs" / _DECOY_RUN
-    decoy.mkdir(parents=True)
+def _fill_reports(directory: Path, marker: str) -> None:
+    directory.mkdir(parents=True, exist_ok=True)
     for name in _REPORT_NAMES:
-        (decoy / name).write_text(_DECOY_MARKER + "\n")
-    return decoy
-
-
-def _scan_cli_stub(directory: Path, work: Path, run_id: str | None) -> None:
-    """A stand-in for `insidia --json scan` that reports run_dir on stdout."""
-    directory.mkdir(parents=True)
-    if run_id is None:
-        script = "#!/bin/sh\nprintf '%s\\n' '{\"schema_version\":\"2.0\"}'\nexit 0\n"
-    else:
-        run_dir = work / ".insidia" / "runs" / run_id
-        quoted = shlex.quote(str(run_dir))
-        payload = json.dumps(
-            {"schema_version": "2.0", "run_id": run_id, "run_dir": str(run_dir)}
-        )
-        script = (
-            "#!/bin/sh\n"
-            f"mkdir -p {quoted}\n"
-            + "".join(
-                f"printf '%s\\n' {_REAL_MARKER!r} > {quoted}/{name}\n" for name in _REPORT_NAMES
-            )
-            + f"printf '%s\\n' {shlex.quote(payload)}\n"
-            "exit 0\n"
-        )
-    _write_executable(directory / "insidia", script)
-
-
-def _replay_reported_run(
-    bash: str, work: Path, *, run_id: str | None
-) -> subprocess.CompletedProcess[str]:
-    work.mkdir()
-    _plant_decoy(work)
-    store = work / "empty"
-    bin_dir = work / "bin"
-    _scan_cli_stub(bin_dir, work, run_id)
-    scan = _scan_step(_action())
-    inputs = {"policy": "L1", "fail-on-inconclusive": "true"}
-    env = _offline_env(store, bin_dir)
-    env.update(_env_from_step(scan, inputs))
-    env["GITHUB_WORKSPACE"] = str(work.resolve())
-    env["GITHUB_OUTPUT"] = str(work / "github-output.txt")
-    (work / "github-output.txt").write_text("")
-    scanned = _bash(bash, _expand_run(str(scan["run"]), inputs), env, work)
-    if scanned.returncode != 0:
-        raise AssertionError(f"scan stub did not finish\n{_blob(scanned)}")
-    collected = _bash(bash, str(_collect_step(_action())["run"]), env, work)
-    return collected
+        (directory / name).write_text(f"{marker}\n")
 
 
 def _collected_text(work: Path) -> str:
@@ -817,99 +787,186 @@ def _collected_text(work: Path) -> str:
         return ""
     parts: list[str] = []
     for path in sorted(dest.rglob("*")):
-        if path.is_file():
+        if path.is_file() and not path.is_symlink():
             parts.append(path.read_text())
     return "\n".join(parts)
 
 
-def test_tc_f1_i66_collects_the_reported_run_folder(tmp_path: Path) -> None:
-    """TC-F1-I66. Collection follows the scan's run_dir, not the latest name.
+def _run_collect(bash: str, work: Path) -> subprocess.CompletedProcess[str]:
+    store = work / "empty"
+    env = _offline_env(store)
+    env["GITHUB_WORKSPACE"] = str(work.resolve())
+    env["GITHUB_OUTPUT"] = str(work / "github-output.txt")
+    (work / "github-output.txt").write_text("")
+    return _bash(bash, str(_collect_step(_action())["run"]), env, work)
 
-    A planted run-id folder sorts after the real one and holds a decoy marker.
-    The stub CLI writes the real folder and reports it the way `insidia --json`
-    reports run_dir. The collected files are that folder, and the marker is absent.
+
+def _folded(text: str) -> str:
+    return " ".join(text.split())
+
+
+def test_tc_f1_n8_run_folder_comes_only_from_run_dir() -> None:
+    """TC-F1-N8. The action and the CI guide select a run only by run_dir.
+
+    There is no find | sort | tail in action.yml or guides/ci.md. The action
+    paragraph and the manual example both use run_dir. The claim that a
+    planted folder cannot sort ahead is absent.
     """
-    bash = _require_bash()
-    work = tmp_path / "planted"
-    result = _replay_reported_run(bash, work, run_id=_REAL_RUN)
-    blob = _blob(result)
-    collected = _collected_text(work)
-    if _DECOY_MARKER in collected:
-        raise AssertionError(f"decoy was selected\n{blob}\n{collected}")
-    dest = work / "insidia-reports"
-    real = work / ".insidia" / "runs" / _REAL_RUN
-    for name in _REPORT_NAMES:
-        copied = dest / name
-        source = real / name
-        if not copied.is_file():
-            raise AssertionError(f"collected set is missing {name} from the scan run\n{blob}")
-        if copied.read_text() != source.read_text():
-            raise AssertionError(f"collected {name} is not the scan run folder\n{blob}")
-    assert result.returncode == 0, blob
-    _assert_nothing_fetched(work / "empty")
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Possible #66 gap on 1509c9a: when insidia-scan.json has no run_dir, "
-        "the collect step exits 0 with empty stdout and stderr and does not "
-        "copy the planted folder. The case requires a non-zero exit and a "
-        "clear error. AssertionError: no run folder was a success; exit=0."
-    ),
-)
-def test_tc_f1_i66_missing_run_dir_fails_closed(tmp_path: Path) -> None:
-    """TC-F1-I66. No reported run folder fails closed instead of picking one.
-
-    The stub CLI writes JSON with no run_dir. A planted folder is present.
-    The collection step must exit non-zero with a clear error and must not
-    copy that folder.
-    """
-    bash = _require_bash()
-    work = tmp_path / "unreported"
-    result = _replay_reported_run(bash, work, run_id=None)
-    blob = _blob(result)
-    collected = _collected_text(work)
-    if _DECOY_MARKER in collected:
-        raise AssertionError(f"decoy was selected\n{blob}\n{collected}")
-    if result.returncode == 0:
-        raise AssertionError(f"no run folder was a success\n{blob}")
-    if not result.stderr.strip() or "error" not in result.stderr.lower():
-        raise AssertionError(f"no run folder produced no clear error\n{blob}")
-    _assert_nothing_fetched(work / "empty")
-
-
-def test_tc_f1_i66_docs_agree_with_the_reported_run() -> None:
-    """TC-F1-I66. The CI guide matches how the action chooses a run folder.
-
-    A claim that a planted folder cannot sort ahead is kept only when the
-    action does not select by sort. The manual example does not use
-    `sort | tail -n 1`.
-    """
-    text = _guide_path().read_text()
-    if "## Upload SARIF yourself" not in text:
-        raise AssertionError("guides/ci.md has no manual SARIF section")
-    action_part, manual = text.split("## Upload SARIF yourself", 1)
+    action_text = _action_path().read_text()
+    guide = _guide_path().read_text()
     script = str(_collect_step(_action())["run"])
-    selects_by_sort = _SORT_TAIL.search(script) is not None
-    reports_run_dir = "insidia-scan.json" in script and "run_dir" in script
+    folded_action = _folded(action_text)
+    folded_guide = _folded(guide)
+    folded_script = _folded(script)
     problems: list[str] = []
-    if _SORT_TAIL.search(manual):
-        problems.append("manual example selects a run folder with sort | tail -n 1")
-    if "cannot sort ahead" in action_part and selects_by_sort:
-        problems.append(
-            "docs claim a planted folder cannot sort ahead, "
-            "but the action selects with sort | tail"
-        )
-    if selects_by_sort and "does not sort" in action_part:
-        problems.append("docs say the action does not sort, but it selects with sort | tail")
-    if reports_run_dir and not selects_by_sort:
+    if "insidia-scan.json" not in script or "run_dir" not in script:
+        problems.append("action does not take the run folder from run_dir in insidia-scan.json")
+    lists = "find .insidia/runs" in folded_script or "| sort" in folded_script
+    if lists or "tail -n 1" in folded_script:
+        problems.append("action lists or sorts .insidia/runs")
+    if _FIND_SORT_TAIL.search(folded_action) or _FIND_SORT_TAIL.search(folded_guide):
+        problems.append("find | sort | tail appears in action.yml or guides/ci.md")
+    if "cannot sort ahead" in guide:
+        problems.append("docs claim a planted folder cannot sort ahead")
+    if "## Upload SARIF yourself" not in guide:
+        problems.append("guides/ci.md has no manual SARIF section")
+    else:
+        action_part, manual = guide.split("## Upload SARIF yourself", 1)
         if "run_dir" not in action_part:
-            problems.append("docs do not describe the action's run_dir selection")
-        if "does not sort" not in action_part:
-            problems.append("docs do not agree that the action does not sort run folder names")
+            problems.append("guides/ci.md action section does not use run_dir")
+        if "run_dir" not in manual:
+            problems.append("guides/ci.md manual example does not use run_dir")
     if problems:
         raise AssertionError("\n\n".join(problems))
+
+
+def test_tc_f1_n9_collect_ignores_a_later_planted_folder(tmp_path: Path) -> None:
+    """TC-F1-N9. Collect copies the reported run, not a later planted name.
+
+    99991231T235959Z-ffffff sorts after the real run and holds marker files.
+    Those markers must not appear in the collected set.
+    """
+    bash = _require_bash()
+    work = tmp_path / "workspace"
+    real = work / ".insidia" / "runs" / _REAL_RUN
+    planted = work / ".insidia" / "runs" / _PLANTED_RUN
+    _fill_reports(real, _REAL_MARKER)
+    _fill_reports(planted, _PLANTED_MARKER)
+    (work / "insidia-scan.json").write_text(
+        json.dumps({"run_dir": f".insidia/runs/{_REAL_RUN}"}) + "\n"
+    )
+    result = _run_collect(bash, work)
+    blob = _blob(result)
+    collected = _collected_text(work)
+    if _PLANTED_MARKER in collected:
+        raise AssertionError(f"planted files were copied\n{blob}\n{collected}")
+    dest = work / "insidia-reports"
+    for name in _REPORT_NAMES:
+        copied = dest / name
+        if not copied.is_file() or copied.read_text() != (real / name).read_text():
+            raise AssertionError(f"collected {name} is not the reported run\n{blob}\n{collected}")
+    _assert_nothing_fetched(work / "empty")
+
+
+def test_tc_f1_p7_uploads_relative_and_absolute_run_dir(tmp_path: Path) -> None:
+    """TC-F1-P7. A relative run_dir and an absolute run_dir both upload that run."""
+    bash = _require_bash()
+    work = tmp_path / "workspace"
+    real = work / ".insidia" / "runs" / _REAL_RUN
+    _fill_reports(real, _REAL_MARKER)
+    _fill_reports(work / ".insidia" / "runs" / _PLANTED_RUN, _PLANTED_MARKER)
+    reported = (f".insidia/runs/{_REAL_RUN}", str(real.resolve()))
+    for run_dir in reported:
+        (work / "insidia-scan.json").write_text(json.dumps({"run_dir": run_dir}) + "\n")
+        result = _run_collect(bash, work)
+        blob = _blob(result)
+        collected = _collected_text(work)
+        if _PLANTED_MARKER in collected:
+            raise AssertionError(f"planted files were copied for {run_dir}\n{blob}\n{collected}")
+        for name in _REPORT_NAMES:
+            copied = work / "insidia-reports" / name
+            if not copied.is_file() or copied.read_text() != (real / name).read_text():
+                raise AssertionError(f"{run_dir} did not upload {name}\n{blob}\n{collected}")
+    _assert_nothing_fetched(work / "empty")
+
+
+def _n10_workspace(tmp_path: Path, case: str) -> tuple[Path, str | None, bool]:
+    """Return workspace, run_dir value, and whether insidia-scan.json exists."""
+    work = tmp_path / "workspace"
+    real = work / ".insidia" / "runs" / _REAL_RUN
+    planted = work / ".insidia" / "runs" / _PLANTED_RUN
+    _fill_reports(real, _REAL_MARKER)
+    _fill_reports(planted, _PLANTED_MARKER)
+    outside = tmp_path / "outside"
+    _fill_reports(outside, _OUTSIDE_MARKER)
+    if case == "no-json":
+        return work, None, False
+    if case == "missing-key":
+        return work, None, True
+    if case == "outside-workspace":
+        return work, str(outside.resolve()), True
+    if case == "dotdot-traversal":
+        escaped = f".insidia/runs/{_REAL_RUN}/../../../../outside"
+        assert ".." in escaped
+        return work, escaped, True
+    if case == "symlinked-folder":
+        link = work / ".insidia" / "runs" / "20260102T120000Z-abcdef"
+        link.symlink_to(planted, target_is_directory=True)
+        return work, f".insidia/runs/{link.name}", True
+    if case == "bad-run-id":
+        _fill_reports(work / ".insidia" / "runs" / "not-a-run", _PLANTED_MARKER)
+        return work, ".insidia/runs/not-a-run", True
+    if case == "symlinked-file":
+        target = planted / "results.sarif"
+        sarif = real / "results.sarif"
+        sarif.unlink()
+        sarif.symlink_to(target)
+        return work, f".insidia/runs/{_REAL_RUN}", True
+    if case == "empty-run-dir":
+        return work, "", True
+    raise AssertionError(f"unknown N10 case {case}")
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "no-json",
+        "missing-key",
+        "outside-workspace",
+        "dotdot-traversal",
+        "symlinked-folder",
+        "bad-run-id",
+        "symlinked-file",
+        "empty-run-dir",
+    ],
+)
+def test_tc_f1_n10_unsafe_run_dir_is_not_copied(tmp_path: Path, case: str) -> None:
+    """TC-F1-N10. An unsafe or missing run_dir copies nothing planted or outside.
+
+    The collect step must not list .insidia/runs when run_dir is unusable.
+    The empty-string case is the stand-in for the plan's eighth variant.
+    """
+    bash = _require_bash()
+    work, run_dir, write_json = _n10_workspace(tmp_path, case)
+    scan_json = work / "insidia-scan.json"
+    if not write_json:
+        scan_json.unlink(missing_ok=True)
+    elif run_dir is None:
+        scan_json.write_text(json.dumps({"schema_version": "2.0"}) + "\n")
+    else:
+        scan_json.write_text(json.dumps({"schema_version": "2.0", "run_dir": run_dir}) + "\n")
+    result = _run_collect(bash, work)
+    blob = _blob(result)
+    collected = _collected_text(work)
+    if _PLANTED_MARKER in collected or _OUTSIDE_MARKER in collected:
+        raise AssertionError(f"{case}: fell back to listing or copied outside\n{blob}\n{collected}")
+    if case != "symlinked-file" and collected.strip():
+        raise AssertionError(f"{case}: copied files without a safe run_dir\n{blob}\n{collected}")
+    if case == "symlinked-file":
+        copied_sarif = work / "insidia-reports" / "results.sarif"
+        if copied_sarif.exists():
+            raise AssertionError(f"{case}: followed a symlinked report\n{blob}\n{collected}")
+    _assert_nothing_fetched(work / "empty")
 
 
 def test_tc_f1_n3_uses_are_pinned_and_scan_workflow_permissions_are_minimal() -> None:
@@ -1118,6 +1175,12 @@ def test_tc_f1_p2_live_code_scanning_not_automated() -> None:
 def test_tc_f1_n7_version_mismatch_on_actions_runner_not_automated() -> None:
     """TC-F1-N7 is a version mismatch on a real Actions runner. Do not fake it."""
     raise AssertionError("TC-F1-N7 must not be faked locally")
+
+
+@pytest.mark.skip(reason=_P6_REASON)
+def test_tc_f1_p6_planted_folder_on_actions_runner_not_automated() -> None:
+    """TC-F1-P6 is a planted run folder on a real Actions runner. Do not fake it."""
+    raise AssertionError("TC-F1-P6 must not be faked locally")
 
 
 @contextmanager
