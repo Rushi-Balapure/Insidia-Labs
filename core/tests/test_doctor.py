@@ -372,11 +372,11 @@ targets:
 models: {}
 """
     )
-    assert main(["--config", str(allowed), "doctor"]) == 2
+    assert main(["--config", str(allowed), "doctor"]) == 0
     remote = capsys.readouterr().out
     assert contacted == []
-    assert "✘ target.app:" in remote
-    assert "is not local" in remote
+    assert "authorized non-local host, not probed by doctor" in remote
+    assert "is not local" not in remote
 
 
 def test_repo_target_checks_the_path_and_makes_no_request(
@@ -453,3 +453,38 @@ def test_zap_with_java_is_installed(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr("insidia.engines.shutil.which", lambda name: f"/usr/bin/{name}")
 
     assert "zap" in installed_engines()
+
+
+def test_doctor_accepts_an_authorized_non_local_host(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from insidia.cli import main
+
+    contacted: list[str] = []
+
+    def explode(url: str, *_args: object, **_kwargs: object) -> str:
+        contacted.append(url)
+        raise AssertionError(url)
+
+    monkeypatch.setattr("insidia.doctor.read_url", explode)
+    config = tmp_path / "insidia.yaml"
+    _chat(
+        config,
+        "http://qa-out-of-scope.invalid/chat",
+        scope="  - host: qa-out-of-scope.invalid\n    authorized: true\n",
+    )
+    detail = "authorized non-local host, not probed by doctor"
+
+    assert main(["--config", str(config), "doctor"]) == 0
+    out = capsys.readouterr().out
+    assert contacted == []
+    assert detail in out
+    assert "is not local" not in out
+
+    assert main(["--config", str(config), "--json", "doctor"]) == 0
+    raw = capsys.readouterr().out
+    assert "is not local" not in raw
+    document = json.loads(raw)
+    checks = {str(item["name"]): item for item in document["checks"]}
+    assert checks["target.app"]["ok"] is True
+    assert checks["target.app"]["detail"] == detail

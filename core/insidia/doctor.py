@@ -84,7 +84,11 @@ def _target_check(
     except CliError as exc:
         return {"name": name, "ok": False, "detail": str(exc)}
     if host not in LOCAL_HOSTS:
-        return {"name": name, "ok": False, "detail": f"{host} is not local"}
+        return {
+            "name": name,
+            "ok": True,
+            "detail": "authorized non-local host, not probed by doctor",
+        }
     ok, detail = _probe_target(target.url, scope)
     return {"name": name, "ok": ok, "detail": detail}
 
