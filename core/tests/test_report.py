@@ -979,6 +979,14 @@ def test_low_assurance_passes_are_counted_from_the_field(tmp_path: Path) -> None
     assert _score_line(html, "OWASP Web Top 10") == ("0", "2 passed (1 low assurance)", "8")
     assert _owasp_result(html, "owasp-web:A03") == "pass (low assurance)"
     assert _owasp_result(html, "owasp-web:A05") == "pass"
+    weak_badge = _coverage_badge(html, "web.ssti")
+    assert "PASS (low assurance)" in weak_badge
+    assert "res-low" in weak_badge
+    assert "res-pass" not in weak_badge
+    full_badge = _coverage_badge(html, "web.headers")
+    assert "res-pass" in full_badge
+    assert ">PASS<" in full_badge
+    assert "low assurance" not in full_badge
     assert note in html
     benchmark = json.loads((directory / "benchmark.json").read_text())
     weak = next(row for row in benchmark["controls"] if row["id"] == "web.ssti")
@@ -1022,6 +1030,11 @@ def test_an_owasp_row_with_a_strong_pass_stays_plain() -> None:
     ]
     failed_rows = {item_id: result for item_id, _title, result in coverage(failed)}
     assert failed_rows["owasp-web:A03"] == "fail"
+
+
+def _coverage_badge(html: str, check_id: str) -> str:
+    row = html.split(f"<code>{check_id}</code>", 1)[1].split("</tr>", 1)[0]
+    return row.split('data-l="Result">', 1)[1].split("</td>", 1)[0]
 
 
 def _owasp_result(html: str, control_id: str) -> str:

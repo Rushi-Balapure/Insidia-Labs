@@ -12,6 +12,7 @@ import socket
 import ssl
 import tempfile
 import threading
+import weakref
 from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
@@ -132,6 +133,63 @@ def _bound_limiter(target: Target) -> RateLimiter | None:
 def _request_count(target: Target) -> int:
     limiter = _bound_limiter(target)
     return 0 if limiter is None else limiter.sent
+
+
+# Replies this scan already received. A judge-only check reads them and does not send again.
+# Keyed by id so a later object that reuses the id cannot see a dead target's replies.
+_SEEN_LIMIT = 64
+_SEEN_CHARS = 512
+_seen_replies: dict[int, tuple[weakref.ref[Target], list[tuple[str, str]]]] = {}
+_seen_lock = threading.Lock()
+
+
+def reset_seen_replies() -> None:
+    """Drop replies from an earlier scan. The next scan starts with an empty log."""
+    with _seen_lock:
+        _seen_replies.clear()
+
+
+def _remember_reply(target: Target, payload: str, outcome: str) -> None:
+    text = outcome if len(outcome) <= _SEEN_CHARS else outcome[:_SEEN_CHARS]
+    with _seen_lock:
+        _drop_dead_replies()
+        current = _seen_replies.get(id(target))
+        if current is None or current[0]() is not target:
+            rows: list[tuple[str, str]] = []
+            _seen_replies[id(target)] = (weakref.ref(target), rows)
+        else:
+            rows = current[1]
+        rows.append((payload, text))
+        if len(rows) > _SEEN_LIMIT:
+            del rows[:-_SEEN_LIMIT]
+
+
+def _remembered(target: Target) -> tuple[tuple[str, str], ...]:
+    with _seen_lock:
+        current = _seen_replies.get(id(target))
+        if current is None or current[0]() is not target:
+            return ()
+        return tuple(current[1])
+
+
+def _drop_dead_replies() -> None:
+    dead = [key for key, (ref, _rows) in _seen_replies.items() if ref() is None]
+    for key in dead:
+        del _seen_replies[key]
+
+
+def _judge_only(
+    spec: ProbeSpec,
+    target: Target,
+) -> tuple[list[EngineHit], str, str]:
+    """Score a plant already in this scan's replies. Do not send a new prompt."""
+    oracle = ORACLES[spec.family]
+    for payload, outcome in _remembered(target):
+        evidence = oracle(payload, outcome, target)
+        if evidence is None:
+            continue
+        return _judge_reply(spec, payload, outcome, target, evidence), "", ""
+    return [], "", _JUDGE_UNUSED_NOTE
 
 
 def _probe_hit(
@@ -331,6 +389,9 @@ def _judge(
     root: Path,
 ) -> tuple[list[EngineHit], str, str]:
     """Hits, an error if the check did not finish, and why nothing could be tested."""
+    # L1 does not call a judge, so this check does not prompt the target.
+    if spec.family in _JUDGE_ONLY:
+        return _judge_only(spec, target)
     if target.kind == "repo":
         hits, untested, _counted, _unit = _judge_repo(spec, target, root)
         return hits, "", untested
@@ -353,9 +414,10 @@ def _corpus(
 ) -> tuple[list[EngineHit], str]:
     oracle = ORACLES[spec.family]
     payloads = adapter.corpus[spec]
-    # The first entry is the benchmark plant's trigger. Later entries repeat a
-    # request this oracle cannot judge on any other app. Cap that one request
-    # so a slow target cannot stall the check. A timeout or a miss is not tested.
+    # Judge-only families return in `_judge` before this. The first entry is the
+    # benchmark plant's trigger. Later entries repeat a request this oracle cannot
+    # judge on any other app. Cap that one request so a slow target cannot stall
+    # the check. A timeout or a miss is not tested.
     timeout: float | None = None
     if spec.family in FIXTURE_ONLY and spec.family not in _ORDERED:
         payloads = payloads[:1]
@@ -441,14 +503,15 @@ def _send(
 ) -> str:
     """A web app's error page is its answer to the attack, so it is judged too."""
     _count_probe()
-    if timeout is not None:
-        target = replace(target, timeout=timeout)
+    sent = replace(target, timeout=timeout) if timeout is not None else target
     try:
-        return exchange(target, payload, scope, root)
+        body = exchange(sent, payload, scope, root)
     except HttpStatus as exc:
         if target.kind in AI_KINDS:
             raise
         return exc.body
+    _remember_reply(target, payload, body)
+    return body
 
 
 def _paired_ssti(
@@ -877,6 +940,9 @@ def _relay(
     root: Path,
     launch: Launch,
 ) -> tuple[list[EngineHit], str, str]:
+    # Same skip as the built-in path: preparing the engine would prompt the target.
+    if spec.family in _JUDGE_ONLY:
+        return _judge_only(spec, target)
     token = secrets.token_hex(16)
     pairs: list[tuple[str, str]] = []
     budget = current_budget()

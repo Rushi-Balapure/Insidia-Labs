@@ -89,10 +89,15 @@ def _scan(
     port: int,
     *flags: str,
     placeholder: bool = False,
+    quiet: bool = True,
 ) -> tuple[int, Path]:
     monkeypatch.setenv("INSIDIA_TOOLCHAIN", str(tmp_path / "toolchain"))
     config = _config(tmp_path, port, placeholder=placeholder)
-    code = main(["scan", "--config", str(config), "--quiet", *flags])
+    command = ["scan", "--config", str(config)]
+    if quiet:
+        command.append("--quiet")
+    command.extend(flags)
+    code = main(command)
     runs = tmp_path / ".insidia" / "runs"
     latest = max(path for path in runs.iterdir() if path.is_dir() and not path.name.startswith("."))
     return code, latest
@@ -160,10 +165,17 @@ def test_info_does_not_sink_a_scan_that_passed_another_check(
 
 
 def test_accept_banner_only_records_low_assurance(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     with _serve("nginx/1.25.3") as (port, _seen):
-        code, latest = _scan(tmp_path, monkeypatch, port, "--accept-banner-only")
+        code, latest = _scan(
+            tmp_path, monkeypatch, port, "--accept-banner-only", quiet=False
+        )
+    err = capsys.readouterr().err
+    cli = next(line for line in err.splitlines() if "infra.cve" in line and "pass" in line)
+    assert "insidia" in cli
+    assert "not a vulnerability assessment" in cli
+    assert "low confidence" in cli
     assert code == 0
     benchmark = json.loads((latest / "benchmark.json").read_text(encoding="utf-8"))
     assert benchmark["policy_verdict"] == "pass"
@@ -181,6 +193,10 @@ def test_accept_banner_only_records_low_assurance(
     html = (latest / "report.html").read_text(encoding="utf-8")
     assert "pass (low assurance)" in html
     cell = html.split("infra.cve", 1)[1].split("</tr>", 1)[0]
+    badge = cell.split('data-l="Result">', 1)[1].split("</td>", 1)[0]
+    assert "PASS (low assurance)" in badge
+    assert "res-low" in badge
+    assert "res-pass" not in badge
     assert "not a vulnerability assessment" in cell
     sarif = json.loads((latest / "results.sarif").read_text(encoding="utf-8"))
     notes = [item for item in sarif["runs"][0]["results"] if item["level"] == "note"]
