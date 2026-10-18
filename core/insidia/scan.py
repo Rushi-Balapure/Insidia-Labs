@@ -605,11 +605,14 @@ def _family_result(records: list[CheckRecord]) -> str:
 
 
 def _judge_name(project: Project) -> str:
-    """Configured judge model, or none when models.judge is absent."""
+    """Configured judge, marked unused at L1, or none when models.judge is absent."""
     role = project.judge
     if role is None:
         return "none"
-    return role.model or role.provider or "none"
+    name = role.model or role.provider
+    if not name:
+        return "none"
+    return f"{name} (configured, not used at L1)"
 
 
 def _engines_that_ran(records: list[CheckRecord], findings: list[Finding]) -> tuple[str, ...]:

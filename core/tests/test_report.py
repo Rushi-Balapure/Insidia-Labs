@@ -305,6 +305,46 @@ targets:
     assert set(shown) == set(files) - {"report.html"}
 
 
+def test_configured_judge_is_labeled_unused_at_l1(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from dataclasses import replace
+
+    from insidia.config import load_project
+    from insidia.scan import _judge_name, execute
+
+    (tmp_path / "insidia.yaml").write_text(
+        """\
+version: 1
+policy: L1
+coverage: standard
+scope:
+  - host: 127.0.0.1
+targets:
+  repo:
+    kind: repo
+    path: .
+models:
+  judge:
+    provider: openai-compatible
+    base_url: http://127.0.0.1:9/v1
+    model: qwen
+"""
+    )
+    monkeypatch.setattr("insidia.scan.select", lambda *_args, **_kwargs: [])
+    outcome = execute(load_project(tmp_path / "insidia.yaml"), tmp_path)
+    manifest = json.loads((outcome.run_dir / "manifest.json").read_text())
+    html = (outcome.run_dir / "report.html").read_text()
+    label = "qwen (configured, not used at L1)"
+    assert _scan_cell(html, "models/judge") == label
+    assert manifest["models"] == {"judge": label}
+    project = load_project(tmp_path / "insidia.yaml")
+    assert project.judge is not None
+    unnamed = replace(project, judge=replace(project.judge, model=None))
+    assert _judge_name(unnamed) == "openai-compatible (configured, not used at L1)"
+    assert _judge_name(replace(project, judge=None)) == "none"
+
+
 def test_findings_csv_masks_formula_cells_and_is_hashed(tmp_path: Path) -> None:
     import csv
     import hashlib
