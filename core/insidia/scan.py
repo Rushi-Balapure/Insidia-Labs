@@ -14,7 +14,7 @@ from insidia.errors import CliError, EngineFailed, ProbeError, ScopeError
 from insidia.findings import Finding, normalize
 from insidia.mask import bind_secrets, mask
 from insidia.policy import MARKDOWN_BEACON, Policy, get_policy
-from insidia.probes import ProbeHit, _is_relay_shallow_note, run
+from insidia.probes import ProbeHit, _is_relay_shallow_note, reset_seen_replies, run
 from insidia.registry import select, unlock_hint
 from insidia.results import (
     CANCELLED,
@@ -75,6 +75,7 @@ def execute(
     rerun_of: str = "",
     accept_banner_only: bool = False,
 ) -> ScanOutcome:
+    reset_seen_replies()
     blocked = unauthorized_host(project.scope)
     if blocked is not None:
         raise ScopeError(f"{blocked} needs authorized: true in scope")

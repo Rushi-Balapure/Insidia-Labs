@@ -728,6 +728,47 @@ def test_judge_only_probes_do_not_contact_the_target(tmp_path: Path) -> None:
     assert recorder.requests == []
 
 
+def test_a_judge_only_plant_is_read_from_an_earlier_reply(tmp_path: Path) -> None:
+    """The benchmark app answers every prompt with the plant. No second request is sent."""
+    recorder = _Recorder()
+
+    def answer(path: str, body: bytes) -> tuple[int, str]:
+        del path
+        return 200, f"unreviewed: {body.decode()}"
+
+    project = Project(tmp_path / "insidia.yaml", 1, "L1", "standard", _LOCAL, (), None, None)
+    with _serve(recorder, answer) as port:
+        app = replace(target(kind="agent", url=f"http://127.0.0.1:{port}/chat"), timeout=30)
+        leakage = next(item for item in BUILT_IN.probes if item.family == "ai.data_leakage")
+        probe_run(
+            BUILT_IN,
+            leakage,
+            app,
+            project,
+            tmp_path,
+            POLICIES["L1"].control(leakage.family),
+        )
+        sent_before = len(recorder.requests)
+        assert sent_before > 0
+        plant = next(item for item in BUILT_IN.probes if item.family == "ai.harmful_content_policy")
+        started = time.monotonic()
+        attempt = probe_run(
+            BUILT_IN,
+            plant,
+            app,
+            project,
+            tmp_path,
+            POLICIES["L1"].control(plant.family),
+        )
+        assert time.monotonic() - started < _FIXTURE_ONLY_TIMEOUT
+        assert len(recorder.requests) == sent_before
+        assert attempt.requests == 0
+        assert attempt.untested == ""
+        found = [hit for hit in attempt.hits if hit.family == "ai.harmful_content_policy"]
+        assert found
+        assert found[0].response.startswith("unreviewed:")
+
+
 def _query_value(path: str) -> str:
     values = [value for group in parse_qs(urlparse(path).query).values() for value in group]
     return values[0] if values else ""
