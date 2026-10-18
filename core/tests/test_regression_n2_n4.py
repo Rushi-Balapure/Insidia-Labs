@@ -2,14 +2,14 @@
 
 N2: an api or web target with no ``{{payload}}`` placeholder must not report
 injection checks as a plain pass. A users-only scan is inconclusive (exit 2):
-payload checks are not tested, and the payload-free infra checks stay not
-tested for their own reasons. N4: ``ai.hidden_context_extraction`` must not
+payload checks and infra.tls stay not tested, and infra.cve is info, which
+must not count as a pass. N4: ``ai.hidden_context_extraction`` must not
 report a plain pass when the reply contains a system prompt that does not use
 the phrasing "you are a". Guard cases (N2-P2, N2-N1, N4-N1) lock in detections
 and real passes that a fix must leave alone.
 
 Both bugs are live guards. N4 landed in 708d7f0. N2's exit 2 is the intended
-verdict confirmed at 08f6f87.
+verdict. At 513e904 a banner with no known CVE is info, not a pass.
 """
 
 from __future__ import annotations
@@ -67,7 +67,7 @@ def test_tc_n2_p1_users_without_placeholder_is_not_a_plain_pass(
     assert ran.code == 2, _tail(ran)
     assert ran.benchmark.get("policy_verdict") == "inconclusive"
     assert ran.findings == [], _tail(ran)
-    problems = _infra_not_tested(ran)
+    problems = _users_infra(ran)
     problems += [
         problem
         for family in N2_FAMILIES
@@ -81,6 +81,7 @@ def test_tc_n2_p1_users_without_placeholder_is_not_a_plain_pass(
             )
         )
     ]
+    problems.extend(_framework_not_pass(ran))
     assert not problems, "\n".join(problems)
 
 
@@ -152,7 +153,7 @@ def test_tc_n2_nfp1_owasp_rows_from_users_are_not_plain_passes(
         )
     assert ran.code == 2, _tail(ran)
     assert ran.benchmark.get("policy_verdict") == "inconclusive"
-    problems = _infra_not_tested(ran)
+    problems = _users_infra(ran)
     problems += [
         problem
         for family in N2_FAMILIES
@@ -176,6 +177,7 @@ def test_tc_n2_nfp1_owasp_rows_from_users_are_not_plain_passes(
             problems.append(problem)
         if rendered.get(item_id) == "pass":
             problems.append(f"report {item_id}: expected not a plain pass, got 'pass'")
+    problems.extend(_framework_not_pass(ran))
     assert not problems, "\n".join(problems)
 
 
@@ -195,7 +197,7 @@ def test_tc_n2_nfp2_identical_probes_are_not_plain_passes(
         recorded = [line for _stamp, line in server.requests]
     assert ran.code == 2, _tail(ran)
     assert ran.benchmark.get("policy_verdict") == "inconclusive"
-    problems = _infra_not_tested(ran)
+    problems = _users_infra(ran)
     for family in N2_FAMILIES:
         problem = vacuous_problem(
             ran.control("users", family),
@@ -209,6 +211,7 @@ def test_tc_n2_nfp2_identical_probes_are_not_plain_passes(
     problems.extend(_payload_did_not_land(ran, recorded))
     problems.extend(_no_users_pass(ran))
     problems.extend(_users_route_bounds(recorded))
+    problems.extend(_framework_not_pass(ran))
     assert not problems, "\n".join(problems)
 
 
@@ -364,19 +367,35 @@ def test_tc_n4_nfp2_data_leakage_does_not_hide_the_prompt(
     assert problem is None, problem
 
 
-def _infra_not_tested(ran: ScanRun) -> list[str]:
-    """infra.cve and infra.tls are payload-free, so they stay not tested with a reason."""
+def _users_infra(ran: ScanRun) -> list[str]:
+    """infra.tls stays not tested. infra.cve is info, never a pass or a fail."""
     problems: list[str] = []
-    for family in _PAYLOAD_FREE:
-        control = ran.control("users", family)
-        result = control.get("result")
-        reason = reason_text(
-            control, ran.detail("users", family), ran.benchmark.get("skips"), family
-        )
-        if result != "not tested":
-            problems.append(f"{family}: expected 'not tested', got {result!r}")
-        elif not reason:
-            problems.append(f"{family}: expected a non-empty reason")
+    tls = ran.control("users", "infra.tls")
+    tls_result = tls.get("result")
+    tls_reason = reason_text(
+        tls, ran.detail("users", "infra.tls"), ran.benchmark.get("skips"), "infra.tls"
+    )
+    if tls_result != "not tested":
+        problems.append(f"infra.tls: expected 'not tested', got {tls_result!r}")
+    elif not tls_reason:
+        problems.append("infra.tls: expected a non-empty reason")
+    cve = ran.control("users", "infra.cve")
+    cve_result = cve.get("result")
+    detail = str(cve.get("detail") or "").strip()
+    if cve_result != "info":
+        problems.append(f"infra.cve: expected 'info', got {cve_result!r}")
+    elif not detail:
+        problems.append("infra.cve: expected a non-empty detail")
+    return problems
+
+
+def _framework_not_pass(ran: ScanRun) -> list[str]:
+    """A users-only scan's framework rows must not be pass. INFO is not a pass."""
+    problems: list[str] = []
+    for source, rows in (("benchmark", ran.framework()), ("report", ran.html_framework())):
+        for item_id, result in rows.items():
+            if result == "pass" or result == "pass (low assurance)":
+                problems.append(f"{source} {item_id}: expected not a pass, got {result!r}")
     return problems
 
 
