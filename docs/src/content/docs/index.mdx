@@ -6,7 +6,11 @@ prev: false
 next: false
 ---
 
+import PageAnalytics from "../../components/PageAnalytics.astro";
+import { TRACKED_PATHS } from "../../lib/analytics";
 import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<PageAnalytics path={TRACKED_PATHS.documentation} />
 
 Insidia tests your AI app and the application around it in one local run. Start with a running app on localhost, then review the evidence in the HTML report. The CLI is free and pre-release.
 

@@ -16,8 +16,9 @@ npm run links
 node scripts/secrets.mjs dist
 ```
 
-The build installs the docs dependencies with `npm ci` when needed. No
-environment variables are required for this static deployment.
+The build installs the docs dependencies with `npm ci` when needed. The
+static build succeeds with no environment variables. Web Analytics stays off
+until `PUBLIC_VERCEL_ANALYTICS_ID` is set. See [Web Analytics](#web-analytics).
 
 ## Deploy through Vercel's GitHub integration
 
@@ -63,6 +64,46 @@ The settings above follow Vercel's [build configuration](https://vercel.com/docs
 [monorepo access](https://vercel.com/docs/monorepos/monorepo-faq), and
 [custom domain](https://vercel.com/docs/domains/working-with-domains/add-a-domain)
 documentation.
+
+## Web Analytics
+
+Vercel Web Analytics and Speed Insights run on two pages:
+
+| Page a visitor opens | Path recorded in Vercel |
+| --- | --- |
+| Marketing homepage (`/`, also `/site`) | `/site` |
+| Documentation home (`/docs/`, also `/documentation`) | `/documentation` |
+
+`/site` redirects to `/`. `/documentation` redirects to `/docs/`. Pricing,
+changelog, film, and the other documentation articles do not load the script.
+
+A page view includes the aggregate panels Vercel builds from it: visitors,
+unique visitors, top pages, referrers, countries, devices, browsers, and
+operating systems. Speed Insights adds Core Web Vitals for those same two
+paths. Vercel’s model is cookieless. Visitors are counted from a hash of the
+request, not from a cookie or an account. No custom events are sent. The CLI
+and `report.html` do not include this script.
+
+Collection happens on a Vercel deployment. The scripts are
+`/_vercel/insights/script.js` and `/_vercel/speed-insights/script.js`, which
+Vercel serves after you enable the features. A local build and any host other
+than Vercel do not receive the events.
+
+Enable it:
+
+1. In the Vercel project, open **Analytics** and enable **Web Analytics**.
+   Enable **Speed Insights** for the vitals panels.
+2. Copy the Web Analytics DSN into `PUBLIC_VERCEL_ANALYTICS_ID` for Production
+   and Preview. `site/.env.example` and `docs/.env.example` list the variable.
+   The docs build reads the same environment because `npm run build` builds
+   `docs/` first.
+3. Redeploy. Visits to the homepage show up as `/site`. Visits to the
+   documentation home show up as `/documentation`, so that page’s views and
+   unique visitors are their own row under Top Pages.
+
+Turn it off by setting `PUBLIC_VERCEL_ANALYTICS_DISABLED=1`, or by clearing
+`PUBLIC_VERCEL_ANALYTICS_ID`, then redeploy. Disabling Web Analytics in the
+Vercel project stops collection as well.
 
 ## Video assets
 

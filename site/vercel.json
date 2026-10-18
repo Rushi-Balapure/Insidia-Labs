@@ -3,6 +3,8 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "redirects": [
-    { "source": "/licenses", "destination": "/credits", "permanent": true }
+    { "source": "/licenses", "destination": "/credits", "permanent": true },
+    { "source": "/site", "destination": "/", "permanent": true },
+    { "source": "/documentation", "destination": "/docs/", "permanent": true }
   ]
 }

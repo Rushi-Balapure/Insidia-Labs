@@ -1,0 +1,15 @@
+---
+import AnalyticsBeacon from "./AnalyticsBeacon.astro";
+import { analyticsEnabled, assertTrackedPath } from "../lib/analytics";
+
+interface Props {
+  path: string;
+}
+
+const path = assertTrackedPath(Astro.props.path);
+const id = (import.meta.env.PUBLIC_VERCEL_ANALYTICS_ID ?? import.meta.env.VERCEL_ANALYTICS_ID ?? "").trim();
+const disabled = (import.meta.env.PUBLIC_VERCEL_ANALYTICS_DISABLED ?? "").trim();
+const enabled = analyticsEnabled({ id, disabled });
+---
+
+{enabled && <AnalyticsBeacon path={path} dsn={id} />}

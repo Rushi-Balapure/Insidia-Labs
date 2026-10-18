@@ -1,0 +1,53 @@
+---
+interface Props {
+  path: string;
+  dsn: string;
+}
+
+const { path, dsn } = Astro.props;
+---
+
+<insidia-analytics data-path={path} data-dsn={dsn}></insidia-analytics>
+
+<script>
+  import { inject, pageview } from "@vercel/analytics";
+  import { injectSpeedInsights } from "@vercel/speed-insights";
+  import { pageUrl, type TrackedPath } from "../lib/analytics";
+
+  const tag = "insidia-analytics";
+
+  function trackedPath(value: string | undefined): TrackedPath | null {
+    if (value === "/site" || value === "/documentation") return value;
+    return null;
+  }
+
+  if (!customElements.get(tag)) {
+    customElements.define(
+      tag,
+      class extends HTMLElement {
+        connectedCallback() {
+          if (this.dataset.ready === "1") return;
+          const path = trackedPath(this.dataset.path);
+          const dsn = this.dataset.dsn?.trim();
+          if (!path || !dsn) return;
+          this.dataset.ready = "1";
+          const urlFor = (current: string) => pageUrl(current, path, window.location.href);
+          inject({
+            dsn,
+            disableAutoTrack: true,
+            beforeSend(event) {
+              return { ...event, url: urlFor(event.url) };
+            },
+          });
+          pageview({ path, route: path });
+          injectSpeedInsights({
+            route: path,
+            beforeSend(event) {
+              return { ...event, route: path, url: urlFor(event.url) };
+            },
+          });
+        }
+      },
+    );
+  }
+</script>
