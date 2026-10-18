@@ -4,6 +4,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 import tomllib
 from pathlib import Path
 
@@ -109,14 +110,34 @@ def _fill(directory: Path, marker: str) -> None:
         (directory / name).write_text(f"{marker}:{name}\n", encoding="utf-8")
 
 
+def _bash() -> str:
+    if sys.platform != "win32":
+        return "bash"
+    git_bash = Path(r"C:\Program Files\Git\bin\bash.exe")
+    if git_bash.is_file():
+        return str(git_bash)
+    pytest.skip("Git Bash is not installed")
+
+
+def _runner_temp(workspace: Path) -> Path:
+    path = workspace.parent / f"{workspace.name}-runner-temp"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _write_scan_json(workspace: Path, body: str) -> None:
+    (_runner_temp(workspace) / "insidia-scan.json").write_text(body, encoding="utf-8")
+
+
 def _run_collect(workspace: Path) -> tuple[subprocess.CompletedProcess[str], str]:
     output = workspace / "github-output.txt"
     output.unlink(missing_ok=True)
     env = os.environ.copy()
     env["GITHUB_WORKSPACE"] = str(workspace)
     env["GITHUB_OUTPUT"] = str(output)
+    env["RUNNER_TEMP"] = str(_runner_temp(workspace))
     completed = subprocess.run(
-        ["bash", "-c", _collect_script()],
+        [_bash(), "-c", _collect_script()],
         cwd=workspace,
         env=env,
         capture_output=True,
@@ -205,10 +226,16 @@ def test_scan_step_writes_json_from_insidia_json_scan(tmp_path: Path) -> None:
         line.strip() for line in _scan_script().splitlines() if "insidia --json scan" in line
     )
     assert command == (
-        'insidia --json scan --policy "$INSIDIA_POLICY" --yes > insidia-scan.json'
+        'insidia --json scan --policy "$INSIDIA_POLICY" --yes > "$RUNNER_TEMP/insidia-scan.json"'
     )
-    assert _scan_script().index(command) < _scan_script().index('if [ "$code" -eq 0 ]')
-    assert "insidia-scan.json" in _collect_script()
+    script = _scan_script()
+    assert script.index('rm -f "$RUNNER_TEMP/insidia-scan.json"') < script.index(command)
+    assert script.index(command) < script.index('if [ "$code" -eq 0 ]')
+    scan = next(step for step in _steps(_action()) if "insidia --json scan" in step.get("run", ""))
+    assert scan["id"] == "scan"
+    collect = next(step for step in _steps(_action()) if step.get("id") == "reports")
+    assert collect["if"] == "steps.scan.outcome == 'success' || steps.scan.outcome == 'failure'"
+    assert '"$RUNNER_TEMP/insidia-scan.json"' in _collect_script()
     assert "run_dir" in _collect_script()
 
 
@@ -239,8 +266,9 @@ def test_scan_writes_json_even_when_the_exit_code_is_not_zero(
     env["PATH"] = f"{bindir}{os.pathsep}{env.get('PATH', '')}"
     env["INSIDIA_POLICY"] = "L1"
     env["INSIDIA_FAIL_ON_INCONCLUSIVE"] = fail_on_inconclusive
+    env["RUNNER_TEMP"] = str(_runner_temp(tmp_path))
     completed = subprocess.run(
-        ["bash", "-c", _scan_script()],
+        [_bash(), "-c", _scan_script()],
         cwd=tmp_path,
         env=env,
         capture_output=True,
@@ -248,7 +276,10 @@ def test_scan_writes_json_even_when_the_exit_code_is_not_zero(
         check=False,
     )
     assert completed.returncode == expected, completed.stderr + completed.stdout
-    saved = json.loads((tmp_path / "insidia-scan.json").read_text(encoding="utf-8"))
+    saved = json.loads(
+        (_runner_temp(tmp_path) / "insidia-scan.json").read_text(encoding="utf-8")
+    )
+    assert not (tmp_path / "insidia-scan.json").exists()
     assert saved["run_dir"] == f".insidia/runs/{_VALID}"
     assert (tmp_path / "insidia-argv").read_text(encoding="utf-8").splitlines() == [
         "--json",
@@ -265,9 +296,9 @@ def test_collect_reads_run_dir_and_ignores_a_later_planted_folder(tmp_path: Path
     planted = workspace / ".insidia" / "runs" / _PLANTED
     _fill(valid, "scan")
     _fill(planted, "planted")
-    (workspace / "insidia-scan.json").write_text(
+    _write_scan_json(
+        workspace,
         json.dumps({"run_dir": f".insidia/runs/{_VALID}"}) + "\n",
-        encoding="utf-8",
     )
 
     completed, outputs = _run_collect(workspace)
@@ -313,7 +344,7 @@ def test_run_dir_is_accepted_only_under_insidia_runs(tmp_path: Path) -> None:
             for child in reports.iterdir():
                 child.unlink()
         body = {} if raw is None else {"run_dir": raw}
-        (workspace / "insidia-scan.json").write_text(json.dumps(body), encoding="utf-8")
+        _write_scan_json(workspace, json.dumps(body))
         completed, outputs = _run_collect(workspace)
         assert completed.returncode == 0, completed.stderr
         return outputs
@@ -351,8 +382,22 @@ def test_collect_does_not_follow_a_report_symlink_out_of_the_run(tmp_path: Path)
     sarif = valid / "results.sarif"
     sarif.unlink()
     sarif.symlink_to(planted)
+    _write_scan_json(workspace, json.dumps({"run_dir": f".insidia/runs/{_VALID}"}))
+
+    completed, outputs = _run_collect(workspace)
+
+    assert completed.returncode == 0, completed.stderr
+    assert "sarif=false" in outputs
+    assert "found=false" in outputs
+    assert not (workspace / "insidia-reports" / "results.sarif").exists()
+
+
+def test_workspace_scan_json_is_ignored_when_runner_temp_has_none(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    planted = workspace / ".insidia" / "runs" / _PLANTED
+    _fill(planted, "planted")
     (workspace / "insidia-scan.json").write_text(
-        json.dumps({"run_dir": f".insidia/runs/{_VALID}"}),
+        json.dumps({"run_dir": f".insidia/runs/{_PLANTED}"}) + "\n",
         encoding="utf-8",
     )
 
@@ -361,4 +406,6 @@ def test_collect_does_not_follow_a_report_symlink_out_of_the_run(tmp_path: Path)
     assert completed.returncode == 0, completed.stderr
     assert "sarif=false" in outputs
     assert "found=false" in outputs
-    assert not (workspace / "insidia-reports" / "results.sarif").exists()
+    for name in _REPORTS:
+        assert not (workspace / "insidia-reports" / name).exists()
+    assert not (_runner_temp(workspace) / "insidia-scan.json").exists()
