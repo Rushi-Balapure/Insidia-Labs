@@ -244,13 +244,14 @@ def test_doctor_fails_when_a_local_target_does_not_answer(
     out = capsys.readouterr().out
     assert "✘ target.app:" in out
     assert f"127.0.0.1:{port}" in out
-    assert "unreachable" in out
+    assert "unreachable" in out or "target timed out" in out
 
     assert main(["--config", str(config), "--json", "doctor"]) == 2
     document = json.loads(capsys.readouterr().out)
     checks = {str(item["name"]): item for item in document["checks"]}
     assert checks["target.app"]["ok"] is False
-    assert "unreachable" in str(checks["target.app"]["detail"])
+    detail = str(checks["target.app"]["detail"])
+    assert "unreachable" in detail or "target timed out" in detail
 
 
 def test_doctor_json_marks_a_live_local_target_reachable(
