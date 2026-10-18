@@ -152,10 +152,14 @@ def _steps(document: dict[str, Any]) -> list[dict[str, Any]]:
     return steps
 
 
+def _is_scan_script(script: str) -> bool:
+    return re.search(r"(?m)^[ \t]*insidia\b.*\bscan\b", script) is not None
+
+
 def _scan_step(document: dict[str, Any]) -> dict[str, Any]:
     for step in _steps(document):
         script = step.get("run", "")
-        if isinstance(script, str) and "insidia scan" in script:
+        if isinstance(script, str) and _is_scan_script(script):
             return step
     raise AssertionError("action has no insidia scan run step")
 
@@ -168,7 +172,7 @@ def _steps_before_scan(document: dict[str, Any]) -> list[dict[str, Any]]:
         script = step["run"]
         if not isinstance(script, str):
             continue
-        if "insidia scan" in script:
+        if _is_scan_script(script):
             break
         found.append(step)
     assert found, "version is not checked before the scan step"
@@ -738,6 +742,176 @@ def test_tc_f1_p5_matching_version_installs_the_action_core(tmp_path: Path) -> N
     _assert_nothing_fetched(work / "empty")
 
 
+_REAL_RUN = "20200101T000000Z-aaaaaa"
+_DECOY_RUN = "20990101T000000Z-ffffff"
+_REAL_MARKER = "REAL-RUN-I66"
+_DECOY_MARKER = "DECOY-MARKER-I66"
+_REPORT_NAMES = ("results.sarif", "report.html", "findings.json")
+_SORT_TAIL = re.compile(r"sort\s*\\?\s*\|\s*\\?\s*tail\s+-n\s+1")
+
+
+def _collect_step(document: dict[str, Any]) -> dict[str, Any]:
+    for step in _steps(document):
+        script = step.get("run", "")
+        if isinstance(script, str) and 'dest="insidia-reports"' in script:
+            return step
+    raise AssertionError("action has no report collection step")
+
+
+def _plant_decoy(work: Path) -> Path:
+    decoy = work / ".insidia" / "runs" / _DECOY_RUN
+    decoy.mkdir(parents=True)
+    for name in _REPORT_NAMES:
+        (decoy / name).write_text(_DECOY_MARKER + "\n")
+    return decoy
+
+
+def _scan_cli_stub(directory: Path, work: Path, run_id: str | None) -> None:
+    """A stand-in for `insidia --json scan` that reports run_dir on stdout."""
+    directory.mkdir(parents=True)
+    if run_id is None:
+        script = "#!/bin/sh\nprintf '%s\\n' '{\"schema_version\":\"2.0\"}'\nexit 0\n"
+    else:
+        run_dir = work / ".insidia" / "runs" / run_id
+        quoted = shlex.quote(str(run_dir))
+        payload = json.dumps(
+            {"schema_version": "2.0", "run_id": run_id, "run_dir": str(run_dir)}
+        )
+        script = (
+            "#!/bin/sh\n"
+            f"mkdir -p {quoted}\n"
+            + "".join(
+                f"printf '%s\\n' {_REAL_MARKER!r} > {quoted}/{name}\n" for name in _REPORT_NAMES
+            )
+            + f"printf '%s\\n' {shlex.quote(payload)}\n"
+            "exit 0\n"
+        )
+    _write_executable(directory / "insidia", script)
+
+
+def _replay_reported_run(
+    bash: str, work: Path, *, run_id: str | None
+) -> subprocess.CompletedProcess[str]:
+    work.mkdir()
+    _plant_decoy(work)
+    store = work / "empty"
+    bin_dir = work / "bin"
+    _scan_cli_stub(bin_dir, work, run_id)
+    scan = _scan_step(_action())
+    inputs = {"policy": "L1", "fail-on-inconclusive": "true"}
+    env = _offline_env(store, bin_dir)
+    env.update(_env_from_step(scan, inputs))
+    env["GITHUB_WORKSPACE"] = str(work.resolve())
+    env["GITHUB_OUTPUT"] = str(work / "github-output.txt")
+    (work / "github-output.txt").write_text("")
+    scanned = _bash(bash, _expand_run(str(scan["run"]), inputs), env, work)
+    if scanned.returncode != 0:
+        raise AssertionError(f"scan stub did not finish\n{_blob(scanned)}")
+    collected = _bash(bash, str(_collect_step(_action())["run"]), env, work)
+    return collected
+
+
+def _collected_text(work: Path) -> str:
+    dest = work / "insidia-reports"
+    if not dest.exists():
+        return ""
+    parts: list[str] = []
+    for path in sorted(dest.rglob("*")):
+        if path.is_file():
+            parts.append(path.read_text())
+    return "\n".join(parts)
+
+
+def test_tc_f1_i66_collects_the_reported_run_folder(tmp_path: Path) -> None:
+    """TC-F1-I66. Collection follows the scan's run_dir, not the latest name.
+
+    A planted run-id folder sorts after the real one and holds a decoy marker.
+    The stub CLI writes the real folder and reports it the way `insidia --json`
+    reports run_dir. The collected files are that folder, and the marker is absent.
+    """
+    bash = _require_bash()
+    work = tmp_path / "planted"
+    result = _replay_reported_run(bash, work, run_id=_REAL_RUN)
+    blob = _blob(result)
+    collected = _collected_text(work)
+    if _DECOY_MARKER in collected:
+        raise AssertionError(f"decoy was selected\n{blob}\n{collected}")
+    dest = work / "insidia-reports"
+    real = work / ".insidia" / "runs" / _REAL_RUN
+    for name in _REPORT_NAMES:
+        copied = dest / name
+        source = real / name
+        if not copied.is_file():
+            raise AssertionError(f"collected set is missing {name} from the scan run\n{blob}")
+        if copied.read_text() != source.read_text():
+            raise AssertionError(f"collected {name} is not the scan run folder\n{blob}")
+    assert result.returncode == 0, blob
+    _assert_nothing_fetched(work / "empty")
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "Possible #66 gap on 1509c9a: when insidia-scan.json has no run_dir, "
+        "the collect step exits 0 with empty stdout and stderr and does not "
+        "copy the planted folder. The case requires a non-zero exit and a "
+        "clear error. AssertionError: no run folder was a success; exit=0."
+    ),
+)
+def test_tc_f1_i66_missing_run_dir_fails_closed(tmp_path: Path) -> None:
+    """TC-F1-I66. No reported run folder fails closed instead of picking one.
+
+    The stub CLI writes JSON with no run_dir. A planted folder is present.
+    The collection step must exit non-zero with a clear error and must not
+    copy that folder.
+    """
+    bash = _require_bash()
+    work = tmp_path / "unreported"
+    result = _replay_reported_run(bash, work, run_id=None)
+    blob = _blob(result)
+    collected = _collected_text(work)
+    if _DECOY_MARKER in collected:
+        raise AssertionError(f"decoy was selected\n{blob}\n{collected}")
+    if result.returncode == 0:
+        raise AssertionError(f"no run folder was a success\n{blob}")
+    if not result.stderr.strip() or "error" not in result.stderr.lower():
+        raise AssertionError(f"no run folder produced no clear error\n{blob}")
+    _assert_nothing_fetched(work / "empty")
+
+
+def test_tc_f1_i66_docs_agree_with_the_reported_run() -> None:
+    """TC-F1-I66. The CI guide matches how the action chooses a run folder.
+
+    A claim that a planted folder cannot sort ahead is kept only when the
+    action does not select by sort. The manual example does not use
+    `sort | tail -n 1`.
+    """
+    text = _guide_path().read_text()
+    if "## Upload SARIF yourself" not in text:
+        raise AssertionError("guides/ci.md has no manual SARIF section")
+    action_part, manual = text.split("## Upload SARIF yourself", 1)
+    script = str(_collect_step(_action())["run"])
+    selects_by_sort = _SORT_TAIL.search(script) is not None
+    reports_run_dir = "insidia-scan.json" in script and "run_dir" in script
+    problems: list[str] = []
+    if _SORT_TAIL.search(manual):
+        problems.append("manual example selects a run folder with sort | tail -n 1")
+    if "cannot sort ahead" in action_part and selects_by_sort:
+        problems.append(
+            "docs claim a planted folder cannot sort ahead, "
+            "but the action selects with sort | tail"
+        )
+    if selects_by_sort and "does not sort" in action_part:
+        problems.append("docs say the action does not sort, but it selects with sort | tail")
+    if reports_run_dir and not selects_by_sort:
+        if "run_dir" not in action_part:
+            problems.append("docs do not describe the action's run_dir selection")
+        if "does not sort" not in action_part:
+            problems.append("docs do not agree that the action does not sort run folder names")
+    if problems:
+        raise AssertionError("\n\n".join(problems))
+
+
 def test_tc_f1_n3_uses_are_pinned_and_scan_workflow_permissions_are_minimal() -> None:
     """TC-F1-N3. SHA-pin every uses. Permissions are the workflow's, not action.yml.
 
@@ -806,7 +980,11 @@ def test_tc_f1_p3_exit_codes_and_fail_on_inconclusive_default(tmp_path: Path) ->
         blob = _blob(result)
         assert result.returncode == expected, blob
         assert (result.returncode != 0) is (expected != 0)
-        assert "insidia-argv:scan --policy L1 --yes" in result.stdout, blob
+        recorded = result.stdout
+        captured = work / "insidia-scan.json"
+        if captured.is_file():
+            recorded = recorded + "\n" + captured.read_text()
+        assert "insidia-argv:--json scan --policy L1 --yes" in recorded, blob + recorded
         if warning:
             assert "scan was inconclusive" in result.stderr, blob
             assert "fail-on-inconclusive is false" in result.stderr, blob
