@@ -76,10 +76,11 @@ Vercel Web Analytics and Speed Insights run on two pages:
 
 | Page a visitor opens | Path recorded in Vercel |
 | --- | --- |
-| Marketing homepage (`/`, also `/site`) | `/site` |
+| Marketing homepage (`/`) | `/site` |
 | Documentation home (`/docs/`, also `/documentation`) | `/documentation` |
 
-`/site` redirects to `/`. `/documentation` redirects to `/docs/`. Pricing,
+`/documentation` redirects to `/docs/`. The homepage is recorded as `/site`.
+Visitors open `/`; `/site` is not a separate page. Pricing,
 changelog, film, and the other documentation articles do not load the script.
 
 A page view includes the aggregate panels Vercel builds from it: visitors,

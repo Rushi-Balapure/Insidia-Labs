@@ -69,7 +69,6 @@ export default defineConfig({
   output: "static",
   redirects: {
     "/licenses": "/credits",
-    "/site": "/",
     "/documentation": "/docs/",
   },
   integrations: [react(), sitemap()],
