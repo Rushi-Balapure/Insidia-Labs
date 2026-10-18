@@ -10,6 +10,8 @@ SCHEMA_VERSION = "2.0"
 COMPLETE = "complete"
 # Finished, but too shallow to count as a pass. It still fails on a finding.
 LIMITED = "limited"
+# Finished observation that is not evidence of a pass and is not a finding.
+INFO = "info"
 ERROR = "error"
 UNSUPPORTED = "unsupported"
 NOT_APPLICABLE = "not_applicable"
@@ -41,12 +43,13 @@ def aggregate(records: Sequence[CheckRecord]) -> tuple[str, str]:
 
     A finding fails the policy even when another required check did not finish.
     No applicable check, or a required check that did not finish, is inconclusive.
-    A limited check finished, so the run can complete, but it cannot be the pass.
+    A limited or info check finished, so the run can complete, but it cannot be the pass.
     """
 
     applicable = [record for record in records if record.state != NOT_APPLICABLE]
     findings = sum(record.finding_count for record in records)
-    unfinished = [record for record in applicable if record.state not in {COMPLETE, LIMITED}]
+    finished = {COMPLETE, LIMITED, INFO}
+    unfinished = [record for record in applicable if record.state not in finished]
     tested = [record for record in applicable if record.state == COMPLETE]
     if findings:
         verdict = FAIL

@@ -97,6 +97,11 @@ class Attempt:
     # Payloads or prompts handed to the target, and HTTP requests made for them.
     probes: int = 0
     requests: int = 0
+    # Files, manifests, or dependencies a repository check read. Not a payload total.
+    counted: int = 0
+    unit: str = ""
+    # A finished observation that is not a pass and not a finding. Banner gaps use this.
+    info: str = ""
 
 
 # Shared list so a worker thread can record a payload the scan thread totals.
@@ -161,6 +166,10 @@ def _probe_hit(
     )
 
 
+# Distinct from the active-HTML probe so SARIF can describe the beacon on its own.
+_BEACON_PROBE = "insidia.ai.output_handling_sinks.markdown_beacon"
+
+
 def _judge_reply(
     spec: ProbeSpec,
     payload: str,
@@ -170,7 +179,8 @@ def _judge_reply(
 ) -> list[EngineHit]:
     """The family oracle, plus a markdown beacon on any chat-style reply.
 
-    The beacon URL is recorded and not requested.
+    The beacon belongs to output handling, not to the family that received the
+    reply. The URL is recorded and not requested.
     """
     found: list[EngineHit] = []
     if evidence is not None:
@@ -188,7 +198,7 @@ def _judge_reply(
             outcome,
             url,
             family=copy.family,
-            probe=f"insidia.{copy.family}",
+            probe=_BEACON_PROBE,
             check_id=copy.check_id,
             title=copy.title,
             synopsis=copy.synopsis,
@@ -217,7 +227,12 @@ def run(
     before = _request_count(target)
     try:
         untested = ""
+        counted = 0
+        unit = ""
         match adapter:
+            case BuiltIn() if target.kind == "repo":
+                found, untested, counted, unit = _judge_repo(spec, target, root)
+                error = ""
             case BuiltIn():
                 found, error, untested = _judge(adapter, spec, target, project.scope, root)
             case RelayAdapter():
@@ -229,11 +244,27 @@ def run(
             case _:
                 raise CliError(f"{adapter.engine}: no adapter arm")
         hits = tuple(_probe_hit(spec, target.name, adapter.engine, control, hit) for hit in found)
-        # A hit clears a miss-only note. A relay under the prompt minimum stays limited.
-        if hits and not _is_relay_shallow_note(untested):
+        # Only this family's hits clear a miss-only note. A markdown beacon is
+        # output handling's finding, even when another family's reply carried it.
+        # A relay under the prompt minimum stays limited.
+        owned = tuple(hit for hit in hits if hit.family == spec.family)
+        if owned and not _is_relay_shallow_note(untested):
+            untested = ""
+        info = ""
+        if untested.startswith(_BANNER_GAP_MARK):
+            info = untested.removeprefix(_BANNER_GAP_MARK)
             untested = ""
         sent = _request_count(target) - before
-        return Attempt(hits, error, untested, bucket[0], sent if sent > 0 else 0)
+        return Attempt(
+            hits,
+            error,
+            untested,
+            bucket[0],
+            sent if sent > 0 else 0,
+            counted,
+            unit,
+            info,
+        )
     finally:
         _probe_tally.reset(token)
 
@@ -301,7 +332,7 @@ def _judge(
 ) -> tuple[list[EngineHit], str, str]:
     """Hits, an error if the check did not finish, and why nothing could be tested."""
     if target.kind == "repo":
-        hits, untested = _judge_repo(spec, target, root)
+        hits, untested, _counted, _unit = _judge_repo(spec, target, root)
         return hits, "", untested
     paired = _PAIRED.get(spec.family)
     if paired is not None:
@@ -559,6 +590,8 @@ def _handshake(host: str, port: int, version: ssl.TLSVersion) -> bool | None:
 
 # Versions with a well-known remote exploit or no upstream security fixes.
 # A banner that is not listed is not evidence that the server is current.
+# The prefix never reaches a report. run() lifts it onto Attempt.info.
+_BANNER_GAP_MARK = "banner-gap\n"
 _BANNERS: tuple[tuple[re.Pattern[str], Callable[[tuple[int, ...]], bool], str], ...] = (
     (re.compile(r"Apache/(\d+)\.(\d+)\.(\d+)"), lambda v: v == (2, 4, 49), "CVE-2021-41773"),
     (re.compile(r"Apache/(\d+)\.(\d+)\.(\d+)"), lambda v: v == (2, 4, 50), "CVE-2021-42013"),
@@ -577,6 +610,17 @@ _BANNERS: tuple[tuple[re.Pattern[str], Callable[[tuple[int, ...]], bool], str], 
     (re.compile(r"PHP/(\d+)\.(\d+)"), lambda v: v < (8, 1), "PHP before 8.1 is EOL"),
     (re.compile(r"Python/(\d+)\.(\d+)"), lambda v: v < (3, 9), "Python before 3.9 is EOL"),
 )
+
+
+def _banner_gap(banner: str) -> str:
+    """A recognised version the built-in list does not mark. This is not a pass."""
+    shown = " ".join(banner.split())
+    if len(shown) > 180:
+        shown = shown[:179].rstrip() + "…"
+    return (
+        f"{shown} identified; no match in the built-in list ({len(_BANNERS)} entries); "
+        "banner-based, low confidence; not a vulnerability assessment"
+    )
 
 
 def _paired_cve(
@@ -617,7 +661,7 @@ def _paired_cve(
         if vulnerable(version):
             evidence = f"{found.group(0)}: {label}"
             return [EngineHit("insidia-banner", "GET", banner, evidence)], "", ""
-    return [], "", f"no known-vulnerable version in {banner[:60]}"
+    return [], "", _BANNER_GAP_MARK + _banner_gap(banner)
 
 
 # A database error that is already on the baseline page is the app's normal reply.
@@ -791,14 +835,16 @@ _PAIRED: dict[
 }
 
 
-def _judge_repo(spec: ProbeSpec, target: Target, root: Path) -> tuple[list[EngineHit], str]:
-    """Hits across the repository's files, and why nothing could be tested."""
+def _judge_repo(
+    spec: ProbeSpec, target: Target, root: Path
+) -> tuple[list[EngineHit], str, int, str]:
+    """Hits across the repository's files, why nothing could be tested, and the real total."""
     result = _REPO_CHECKS[spec.family](repo_path(target, root))
     hits = [
         EngineHit(f"insidia-{hit.rule}", hit.rule, hit.line, hit.evidence, hit.location)
         for hit in result.hits
     ]
-    return hits, result.untested
+    return hits, result.untested, result.counted, result.unit
 
 
 def _report[View: (ScopedUrl, RepoPath)](

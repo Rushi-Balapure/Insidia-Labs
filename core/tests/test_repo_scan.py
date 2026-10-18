@@ -201,3 +201,33 @@ def test_lockfiles_and_other_manifests_are_parsed(tmp_path: Path) -> None:
     assert by_file["setup.cfg"] >= {"CVE-2024-27351", "CVE-2022-28346"}
     assert by_file["setup.py"] == {"CVE-2023-32681"}
     assert by_file["pyproject.toml"] >= {"CVE-2020-28493", "CVE-2020-14343"}
+
+
+def test_repo_checks_report_the_units_they_counted(tmp_path: Path) -> None:
+    _write(tmp_path, "app.py", "x = 1\n")
+    _write(tmp_path, "notes.txt", "hello\n")
+    secrets = repo_scan.secrets(tmp_path)
+    assert secrets.hits == ()
+    assert secrets.counted == 2
+    assert secrets.unit == "file"
+    sinks = repo_scan.sinks(tmp_path)
+    assert sinks.hits == ()
+    assert sinks.counted == 1
+    assert sinks.unit == "file"
+
+    _write(tmp_path, "requirements.txt", "pyyaml==5.3.1\n")
+    deps = repo_scan.dependencies(tmp_path)
+    assert deps.hits
+    assert deps.counted == 1
+    assert deps.unit == "dependency"
+
+    bare = tmp_path / "empty"
+    bare.mkdir()
+    missed = repo_scan.dependencies(bare)
+    assert missed.counted == 0
+    assert missed.unit == ""
+    _write(bare, "requirements.txt", "# comment only\n")
+    manifests = repo_scan.dependencies(bare)
+    assert manifests.hits == ()
+    assert manifests.counted == 1
+    assert manifests.unit == "manifest"

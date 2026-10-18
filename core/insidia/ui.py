@@ -34,6 +34,9 @@ class Event:
     sent: Callable[[], int] | None = None
     # Payloads or prompts for a finished check. None when this row has no count.
     probes: int | None = None
+    # Files, manifests, or dependencies a repository check counted. Preferred over probes.
+    counted: int | None = None
+    unit: str = ""
 
 
 def wants_color(stream: TextIO, no_color: bool = False) -> bool:
@@ -110,6 +113,7 @@ class Terminal:
                 "skipped": "–",
                 "inconclusive": "?",
                 "not tested": "·",
+                "info": "i",
                 "note": "!",
                 "ok": "✔",
             }
@@ -120,6 +124,7 @@ class Terminal:
                 "skipped": "-",
                 "inconclusive": "?",
                 "not tested": ".",
+                "info": "i",
                 "note": "!",
                 "ok": "+",
             }
@@ -131,6 +136,7 @@ class Terminal:
             "skipped": "33",
             "inconclusive": "33",
             "not tested": "2",
+            "info": "2",
             "note": "33",
         }
         return self.paint(glyphs[result], colors[result])
@@ -206,15 +212,33 @@ class Terminal:
             self._draw(0)
 
 
-def _payload_count(event: Event) -> str:
-    """Payloads or prompts on a pass or fail line, for example `8 payloads`."""
-    count = event.probes
-    if count is None or event.result not in {"pass", "fail"}:
-        return ""
-    noun = "prompt" if event.family.startswith("ai.") else "payload"
+_REAL_UNITS = frozenset({"file", "manifest", "dependency"})
+
+
+def _count_text(count: int, noun: str) -> str:
+    if noun == "dependency" and count != 1:
+        return f"{count} dependencies"
     if count != 1:
         noun += "s"
     return f"{count} {noun}"
+
+
+def _payload_count(event: Event) -> str:
+    """Count on a pass or fail line, for example `8 payloads` or `2 files`.
+
+    A repository check prefers the unit it actually counted. A zero total is omitted,
+    so a row never says `0 payloads` or `0 prompts`.
+    """
+    if event.result not in {"pass", "fail"}:
+        return ""
+    counted = event.counted
+    if counted is not None and counted > 0 and event.unit in _REAL_UNITS:
+        return _count_text(counted, event.unit)
+    count = event.probes
+    if count is None or count <= 0:
+        return ""
+    noun = "prompt" if event.family.startswith("ai.") else "payload"
+    return _count_text(count, noun)
 
 
 def _requests(event: Event) -> Callable[[], str] | None:
@@ -237,7 +261,14 @@ class ScanView:
     def __init__(self, terminal: Terminal) -> None:
         self.terminal = terminal
         self._target = ""
-        self.counts = {"pass": 0, "fail": 0, "skipped": 0, "inconclusive": 0, "not tested": 0}
+        self.counts = {
+            "pass": 0,
+            "fail": 0,
+            "skipped": 0,
+            "inconclusive": 0,
+            "not tested": 0,
+            "info": 0,
+        }
 
     def __call__(self, event: Event) -> None:
         term = self.terminal
@@ -278,6 +309,7 @@ class ScanView:
             "skipped": "skipped",
             "inconclusive": "incomplete",
             "not tested": "not tested",
+            "info": "info",
         }[event.result]
         tint = {
             "pass": "32",
@@ -285,6 +317,7 @@ class ScanView:
             "skipped": "33",
             "inconclusive": "33",
             "not tested": "2",
+            "info": "2",
         }[event.result]
         right = event.detail or ", ".join(event.engines)
         timing = seconds_text(event.seconds) if event.seconds else ""
@@ -298,6 +331,8 @@ class ScanView:
     def totals(self) -> str:
         c = self.counts
         parts = [f"{c['pass']} passed", f"{c['fail']} failed"]
+        if c["info"]:
+            parts.append(f"{c['info']} info")
         if c["not tested"]:
             parts.append(f"{c['not tested']} not tested")
         if c["skipped"]:

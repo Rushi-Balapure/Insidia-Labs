@@ -732,3 +732,135 @@ targets:
         "requests": 8,
     }
     assert _coverage_why(failed, []) == "8 payloads sent. A probe reported this check."
+
+
+def test_zero_payload_counts_are_omitted_and_low_assurance_keeps_both() -> None:
+    """A zero probe total is not printed. A low-assurance pass keeps the sent count."""
+    import io
+
+    from insidia.runstore import _coverage_why
+    from insidia.ui import Event, ScanView, Terminal, _payload_count
+
+    stream = io.StringIO()
+    view = ScanView(Terminal(stream, animate=False, no_color=True))
+    view(Event("end", "tree", "deps.sca", ("insidia",), "fail", "", 0.0, probes=0))
+    view(Event("end", "tree", "code.secrets", ("insidia",), "pass", "", 0.0, probes=0))
+    view(Event("end", "bot", "ai.data_leakage", ("insidia",), "pass", "", 0.0, probes=0))
+    view(
+        Event(
+            "end",
+            "tree",
+            "code.sast_sinks",
+            ("insidia",),
+            "fail",
+            "",
+            0.0,
+            probes=0,
+            counted=4,
+            unit="file",
+        )
+    )
+    text = stream.getvalue()
+    assert "0 payloads" not in text
+    assert "0 prompts" not in text
+    assert "payload" not in _result_line(text, "deps.sca", "FAIL")
+    assert "prompt" not in _result_line(text, "ai.data_leakage", "pass")
+    assert "4 files" in _result_line(text, "code.sast_sinks", "FAIL")
+    manifests = Event(
+        "end", family="deps.sca", result="fail", probes=0, counted=2, unit="manifest"
+    )
+    one_pin = Event(
+        "end", family="deps.sca", result="pass", probes=0, counted=1, unit="dependency"
+    )
+    hidden = Event(
+        "end", family="deps.sca", result="not tested", probes=0, counted=3, unit="file"
+    )
+    assert _payload_count(manifests) == "2 manifests"
+    assert _payload_count(one_pin) == "1 dependency"
+    assert _payload_count(hidden) == ""
+    assert _payload_count(Event("end", family="web.cmdi", result="pass", probes=8)) == "8 payloads"
+    prompts = Event("end", family="ai.data_leakage", result="pass", probes=1)
+    assert _payload_count(prompts) == "1 prompt"
+
+    failed = {"id": "deps.sca", "target": "tree", "result": "fail", "probes": 0}
+    passed = {"id": "code.secrets", "target": "tree", "result": "pass", "probes": 0}
+    assert _coverage_why(failed, []) == "A probe reported this check."
+    assert _coverage_why(passed, []) == "none triggered."
+    assert "0 payloads" not in _coverage_why(failed, [])
+    assert "0 payloads" not in _coverage_why(passed, [])
+    skipped = {
+        "id": "deps.sca",
+        "target": "tree",
+        "result": "not tested",
+        "probes": 0,
+        "detail": "no runnable probe",
+    }
+    assert _coverage_why(skipped, []) == "no runnable probe"
+    note = "garak sent only 1 prompt(s)"
+    weak = {
+        "id": "ai.data_leakage",
+        "target": "bot",
+        "result": "pass",
+        "probes": 5,
+        "assurance": "low",
+        "assurance_reason": note,
+        "detail": note,
+    }
+    assert _coverage_why(weak, []) == f"5 prompts sent, none triggered. {note}"
+    assert weak["result"] == "pass"
+    assert weak["assurance"] == "low"
+
+
+def test_a_repo_scan_prints_the_units_it_counted(tmp_path: Path) -> None:
+    """Pass and fail rows for a repository use files or dependencies, never 0 payloads."""
+    import io
+
+    from insidia.config import load_project
+    from insidia.runstore import _coverage_why
+    from insidia.scan import execute
+    from insidia.ui import ScanView, Terminal
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "app.py").write_text("x = 1\n", encoding="utf-8")
+    (repo / "notes.txt").write_text("hello\n", encoding="utf-8")
+    (repo / "requirements.txt").write_text("pyyaml==5.3.1\n", encoding="utf-8")
+    config = tmp_path / "insidia.yaml"
+    config.write_text(
+        "version: 1\n"
+        "scope:\n"
+        "  - host: 127.0.0.1\n"
+        "targets:\n"
+        "  tree:\n"
+        "    kind: repo\n"
+        "    path: repo\n",
+        encoding="utf-8",
+    )
+    stream = io.StringIO()
+    view = ScanView(Terminal(stream, animate=False, no_color=True))
+    outcome = execute(load_project(config), tmp_path, progress=view)
+    text = stream.getvalue()
+    assert "0 payloads" not in text
+    assert "0 prompts" not in text
+    assert "3 files" in _result_line(text, "code.secrets", "pass")
+    assert "1 file" in _result_line(text, "code.sast_sinks", "pass")
+    assert "1 dependency" in _result_line(text, "deps.sca", "FAIL")
+    html = (outcome.run_dir / "report.html").read_text(encoding="utf-8")
+    assert "0 payloads" not in html
+    assert "0 prompts" not in html
+    benchmark = json.loads((outcome.run_dir / "benchmark.json").read_text(encoding="utf-8"))
+    controls = benchmark["controls"]
+    assert isinstance(controls, list)
+    for control in controls:
+        assert isinstance(control, dict)
+        why = _coverage_why(control, [])
+        assert "0 payloads" not in why
+        assert "0 prompts" not in why
+        if control.get("result") == "not tested":
+            assert "sent" not in why
+        if control.get("id") == "deps.sca":
+            assert control["probes"] == 0
+            assert why == "A probe reported this check."
+        if control.get("id") in {"code.secrets", "code.sast_sinks"}:
+            assert control["probes"] == 0
+            assert why == "none triggered."
