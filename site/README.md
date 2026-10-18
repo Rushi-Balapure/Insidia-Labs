@@ -52,10 +52,8 @@ installs the other devDependencies.
    should have eight chapters and a transcript.
 
 `vercel.json` already defines Astro, the build command, `dist`, and the
-`/licenses` redirect. The site stays static. `@astrojs/vercel` writes that
-static build as Vercel build output so Web Analytics and Speed Insights can
-attach to it. It does not turn the site into a server. Subsequent pushes to
-the production branch trigger deployments.
+`/licenses` redirect. The site uses Astro's static output; it does not need a
+server adapter. Subsequent pushes to the production branch trigger deployments.
 
 ## Connect insidialabs.com
 
@@ -79,10 +77,11 @@ Vercel Web Analytics and Speed Insights run on two pages:
 | Page a visitor opens | Path recorded in Vercel |
 | --- | --- |
 | Marketing homepage (`/`) | `/site` |
-| Documentation home (`/docs/`, also `/documentation`) | `/documentation` |
+| Documentation home (`/docs/`) | `/documentation` |
 
-`/documentation` redirects to `/docs/`. The homepage is recorded as `/site`.
-Visitors open `/`; `/site` is not a separate page. Pricing,
+Visitors open `/docs/`. `/documentation` is the recorded path, not a separate
+page. The homepage is recorded as `/site`. Visitors open `/`; `/site` is not a
+separate page. Pricing,
 changelog, film, and the other documentation articles do not load the script.
 
 A page view includes the aggregate panels Vercel builds from it: visitors,
