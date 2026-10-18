@@ -1,10 +1,9 @@
 name: Insidia scan
 description: >
   Run an Insidia policy and upload SARIF to GitHub code scanning.
-  version is required and has no default. The calling workflow checks out
-  the tag or commit SHA for that version before this action runs. When the
-  version is not on PyPI, this action installs the local core/ project with
-  uv from that checkout. insidia scan is invoked with --yes. --yes does not
+  version is required and has no default. This action installs the core
+  project shipped with the action. version must match that
+  core/pyproject.toml. insidia scan is invoked with --yes. --yes does not
   authorize a host: anything other than localhost, 127.0.0.1, or ::1 still
   needs authorized: true in insidia.yaml.
 
@@ -18,9 +17,9 @@ permissions:
 inputs:
   version:
     description: >
-      Insidia package version to install, matching core/pyproject.toml at
-      the tag or commit SHA the workflow checked out. Required. An empty
-      value fails before any scan. Do not pass a branch name.
+      Insidia package version to install. Must match the core/pyproject.toml
+      shipped with this action. Required. An empty value fails before any
+      scan. Do not pass a branch name.
     required: true
   policy:
     description: Policy passed to insidia scan --policy. L1 is the policy that runs.
@@ -67,6 +66,7 @@ runs:
       shell: bash
       env:
         INSIDIA_VERSION: ${{ inputs.version }}
+        INSIDIA_CORE: ${{ github.action_path }}/../../core
       run: |
         set -euo pipefail
         if [ -z "${INSIDIA_VERSION}" ]; then
@@ -79,30 +79,36 @@ runs:
             exit 1
             ;;
         esac
+        case "${INSIDIA_VERSION}" in
+          *[0-9]*) ;;
+          *)
+            printf '%s\n' "error: version must be a pin such as 0.1.0, not a floating ref" >&2
+            exit 1
+            ;;
+        esac
+        if [ ! -f "$INSIDIA_CORE/pyproject.toml" ]; then
+          printf '%s\n' "error: ${INSIDIA_CORE}/pyproject.toml is missing from the action checkout" >&2
+          exit 1
+        fi
+        checkout_version="$(
+          awk '
+            $0 == "[project]" { section = 1; next }
+            section && /^\[/ { section = 0 }
+            section && /^version = / {
+              value = $3
+              gsub("\"", "", value)
+              print value
+              exit
+            }
+          ' "$INSIDIA_CORE/pyproject.toml"
+        )"
+        if [ "$checkout_version" != "$INSIDIA_VERSION" ]; then
+          printf '%s\n' "error: action core version ${checkout_version} does not match ${INSIDIA_VERSION}" >&2
+          exit 1
+        fi
         uv python install 3.12
-        if [ -f core/pyproject.toml ]; then
-          checkout_version="$(
-            awk '
-              $0 == "[project]" { section = 1; next }
-              section && /^\[/ { section = 0 }
-              section && /^version = / {
-                value = $3
-                gsub("\"", "", value)
-                print value
-                exit
-              }
-            ' core/pyproject.toml
-          )"
-          if [ "$checkout_version" = "$INSIDIA_VERSION" ]; then
-            uv tool install --python 3.12 --force ./core
-            exit 0
-          fi
-        fi
-        if uv tool install --python 3.12 "insidia==${INSIDIA_VERSION}"; then
-          exit 0
-        fi
-        printf '%s\n' "error: could not install Insidia ${INSIDIA_VERSION}. Check out the tag or SHA whose core/pyproject.toml version matches, or publish that version." >&2
-        exit 1
+        uv tool install --python 3.12 --force "$INSIDIA_CORE"
+        exit 0
 
     - name: Scan
       shell: bash

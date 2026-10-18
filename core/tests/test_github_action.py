@@ -91,13 +91,36 @@ def test_report_collection_keeps_only_scan_run_ids() -> None:
     assert "find .insidia/runs -mindepth 1 -maxdepth 1 -type d | sort | tail" not in script
 
 
-def test_matching_checkout_is_installed_before_pypi() -> None:
-    install = next(step for step in _steps(_action()) if "uv tool install" in step.get("run", ""))
+def test_action_checkout_is_the_only_install_source() -> None:
+    text = _ACTION.read_text()
+    assert "insidia==" not in text
+    assert "pypi" not in text.lower()
+
+    install = next(
+        step for step in _steps(_action()) if "uv tool install" in step.get("run", "")
+    )
     script = install["run"]
-    checkout = script.index('"$checkout_version" = "$INSIDIA_VERSION"')
-    local = script.index("uv tool install --python 3.12 --force ./core")
-    pypi = script.index('uv tool install --python 3.12 "insidia==${INSIDIA_VERSION}"')
-    assert checkout < local < pypi
+    assert "${{" not in script
+    assert "github.action_path" not in script
+    assert install["env"]["INSIDIA_VERSION"] == "${{ inputs.version }}"
+    assert install["env"]["INSIDIA_CORE"] == "${{ github.action_path }}/../../core"
+
+    assert "insidia==" not in script
+    install_lines = [line.strip() for line in script.splitlines() if "uv tool install" in line]
+    assert install_lines == ['uv tool install --python 3.12 --force "$INSIDIA_CORE"']
+    assert "pip install" not in script
+    assert "--index-url" not in script
+
+    missing = script.index('! -f "$INSIDIA_CORE/pyproject.toml"')
+    compared = script.index('"$checkout_version" != "$INSIDIA_VERSION"')
+    installed = script.index('uv tool install --python 3.12 --force "$INSIDIA_CORE"')
+    missing_exit = script.index("exit 1", missing)
+    assert ">&2" in script[missing:missing_exit]
+    assert missing_exit < compared < script.index("uv python install 3.12") < installed
+    mismatch = script[compared:installed]
+    assert "error:" in mismatch
+    assert ">&2" in mismatch
+    assert "exit 1" in mismatch
 
 
 def test_example_scans_only_the_local_fixture() -> None:
