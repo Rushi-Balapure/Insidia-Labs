@@ -278,14 +278,14 @@ def _write_executable(path: Path, text: str) -> None:
     path.chmod(path.stat().st_mode | stat.S_IEXEC)
 
 
-def _tool_stub(directory: Path, log: Path) -> None:
+def _tool_stub(directory: Path, log: Path, *, code: int = 99) -> None:
     directory.mkdir(parents=True)
-    for name in ("uv", "pip", "pip3"):
+    for name in ("uv", "pip", "pip3", "pipx"):
         _write_executable(
             directory / name,
             "#!/bin/sh\n"
             f"printf '%s\\n' {name} \"$*\" >> {shlex.quote(str(log))}\n"
-            "exit 99\n",
+            f"exit {code}\n",
         )
 
 
@@ -478,6 +478,145 @@ def test_tc_f1_n2_blank_version_fails_before_install(tmp_path: Path) -> None:
             assert "pip install" not in blob
             assert "insidia==" not in blob
             _assert_nothing_fetched(store)
+
+
+def _install_step(document: dict[str, Any]) -> dict[str, Any]:
+    for step in _steps(document):
+        script = step.get("run", "")
+        if isinstance(script, str) and "uv tool install" in script:
+            return step
+    raise AssertionError("action has no install step")
+
+
+def _tool_calls(log: str) -> list[tuple[str, str]]:
+    lines = log.splitlines()
+    return [(lines[index], lines[index + 1]) for index in range(0, len(lines) - 1, 2)]
+
+
+def _index_insidia(tool: str, args: str) -> bool:
+    """True when a recorded command installs the PyPI name insidia."""
+    if tool not in {"uv", "pip", "pip3", "pipx"} or "install" not in args.split():
+        return False
+    for token in args.split():
+        cleaned = token.strip("'\"")
+        if cleaned == "insidia" or cleaned.startswith(("insidia==", "insidia[")):
+            return True
+    return False
+
+
+def _owned_core_install(tool: str, args: str, core: Path, work: Path) -> bool:
+    if tool != "uv" or "install" not in args.split():
+        return False
+    wanted = core.resolve()
+    skip = {"tool", "install", "python", "3.12", "--python", "--force"}
+    for token in args.split():
+        cleaned = token.strip("'\"")
+        if not cleaned or cleaned.startswith("-") or cleaned in skip:
+            continue
+        candidate = Path(cleaned)
+        if not candidate.is_absolute():
+            candidate = work / candidate
+        try:
+            if candidate.resolve() == wanted:
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def _claims_pypi_fallback(statement: str) -> bool:
+    lowered = statement.lower()
+    return any(
+        needle in lowered
+        for needle in (
+            "tries pypi",
+            "from pypi when",
+            "pypi only when",
+            "pypi when it is published",
+            "when it is not on pypi",
+        )
+    )
+
+
+def _install_statements(text: str) -> list[str]:
+    action_part = text.split("## Upload SARIF yourself", 1)[0]
+    paragraphs = [part.strip() for part in re.split(r"\n\s*\n", action_part) if part.strip()]
+    return [part for part in paragraphs if "pypi" in part.lower()]
+
+
+def _assert_docs_match_checkout_install(guide: str, script: str) -> None:
+    statements = _install_statements(guide)
+    problems: list[str] = []
+    if len(statements) != 2:
+        problems.append(
+            f"expected the two install statements in guides/ci.md, found {len(statements)}"
+        )
+    for statement in statements:
+        if _claims_pypi_fallback(statement):
+            problems.append(f"docs claim PyPI is tried: {statement}")
+            continue
+        lowered = statement.lower()
+        if "never" not in lowered or "pypi" not in lowered or "checkout" not in lowered:
+            problems.append(f"docs do not agree with a checkout-only install: {statement}")
+    if "insidia==" in script or "pip install insidia" in script:
+        problems.append("action install step still installs insidia from PyPI")
+    if problems:
+        raise AssertionError("\n\n".join(problems))
+
+
+def test_tc_f1_i62_refuses_pypi_without_a_matching_core(tmp_path: Path) -> None:
+    """TC-F1-I62. No matching core never installs insidia from PyPI.
+
+    The install step must fail with a clear error, or install the action
+    checkout's own core. guides/ci.md's two install statements must say the
+    same thing and must not claim PyPI is tried first.
+    """
+    bash = _require_bash()
+    step = _install_step(_action())
+    guide = (_root() / "docs" / "src" / "content" / "docs" / "guides" / "ci.md").read_text()
+    problems: list[str] = []
+    layouts = (
+        ("version-mismatch", 'version = "9.9.9"\n', True),
+        ("core-absent", "", False),
+    )
+    for label, version_line, write_core in layouts:
+        work = tmp_path / label
+        action_dir = work / "actions" / "scan"
+        action_dir.mkdir(parents=True)
+        core = work / "core"
+        if write_core:
+            core.mkdir()
+            (core / "pyproject.toml").write_text(f"[project]\nname = \"insidia\"\n{version_line}")
+        log = work / "tools.log"
+        bin_dir = work / "bin"
+        _tool_stub(bin_dir, log, code=0)
+        store = work / "empty"
+        inputs = {"version": "0.1.0", "github.action_path": str(action_dir)}
+        script = _expand_run(str(step["run"]), inputs)
+        env = _offline_env(store, bin_dir)
+        env.update(_env_from_step(step, inputs))
+        result = _bash(bash, script, env, work)
+        blob = _blob(result)
+        try:
+            calls = _tool_calls(log.read_text() if log.exists() else "")
+            for tool, args in calls:
+                if _index_insidia(tool, args):
+                    raise AssertionError(f"PyPI install of insidia: {tool} {args}\n{blob}")
+            owned = any(_owned_core_install(tool, args, core, work) for tool, args in calls)
+            if not owned:
+                if result.returncode == 0:
+                    raise AssertionError(f"no matching core was a success:\n{blob}")
+                if not result.stderr.strip() or "error" not in result.stderr.lower():
+                    raise AssertionError(f"no matching core produced no clear error:\n{blob}")
+            _assert_nothing_fetched(store)
+        except AssertionError as exc:
+            problems.append(f"{label}: {exc}")
+    try:
+        _assert_docs_match_checkout_install(guide, str(step["run"]))
+    except AssertionError as exc:
+        problems.append(f"docs: {exc}")
+    if problems:
+        raise AssertionError("\n\n".join(problems))
 
 
 def test_tc_f1_n3_uses_are_pinned_and_scan_workflow_permissions_are_minimal() -> None:
