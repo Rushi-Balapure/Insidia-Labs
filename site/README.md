@@ -38,11 +38,9 @@ until `PUBLIC_VERCEL_ANALYTICS_ID` is set. See [Web Analytics](#web-analytics).
 
 Vercel runs `npm ci` with `NODE_ENV=production`, which skips devDependencies.
 `@tailwindcss/vite` and `tailwindcss` are dependencies because the build
-imports them. `site/.npmrc` sets `include=dev` so that same command still
-installs the other devDependencies. `allowScripts` in `site/package.json`
-and `docs/package.json` lets `esbuild` and `sharp` run their install
-scripts. npm 12 blocks those scripts otherwise, and `npm ci` exits 1 when
-`strict-allow-scripts` is on.
+imports them. `allowScripts` in `site/package.json` and `docs/package.json`
+lets `esbuild` and `sharp` run their install scripts. npm 12 blocks those
+scripts otherwise, and `npm ci` exits 1 when `strict-allow-scripts` is on.
 
 4. Enable **Include source files outside of the Root Directory in the Build
    Step**. The build needs `../docs/`. If this option is only available after
