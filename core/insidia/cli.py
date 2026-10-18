@@ -85,7 +85,30 @@ class _Version(argparse.Action):
         parser.exit()
 
 
+def _prepare_stdio() -> None:
+    """A redirected Windows stream uses the ANSI code page, which cannot write ✔."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if not callable(reconfigure):
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (OSError, ValueError):
+            continue
+
+
+def _mark(ok: bool) -> str:
+    glyph = "✔" if ok else "✘"
+    encoding = getattr(sys.stdout, "encoding", None) or "ascii"
+    try:
+        glyph.encode(encoding)
+    except (LookupError, UnicodeError):
+        return "+ " if ok else "x "
+    return f"{glyph} "
+
+
 def main(argv: list[str] | None = None) -> int:
+    _prepare_stdio()
     shared = argparse.ArgumentParser(add_help=False)
     _global_options(shared, after_command=True)
 
@@ -515,7 +538,7 @@ def _progress(args: argparse.Namespace, message: str) -> None:
 def _doctor_line(check: dict[str, object]) -> str:
     mark = ""
     if check.get("required") is not False:
-        mark = "✔ " if check["ok"] else "✘ "
+        mark = _mark(bool(check["ok"]))
     return f"{mark}{check['name']}: {check['detail']}"
 
 

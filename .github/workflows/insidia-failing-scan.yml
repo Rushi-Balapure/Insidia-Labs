@@ -6,6 +6,8 @@ name: Insidia failing scan
 on:
   workflow_dispatch:
   pull_request:
+  push:
+    branches: [fix/n40]
 
 permissions:
   contents: read
@@ -13,7 +15,7 @@ permissions:
 
 jobs:
   failing-scan:
-    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'fix/n40'
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'fix/n40' || github.ref == 'refs/heads/fix/n40'
     runs-on: ubuntu-latest
     steps:
       - name: Check out the tagged commit
@@ -74,7 +76,6 @@ jobs:
           coverage: standard
           scope:
             - host: 127.0.0.1
-              ports: [8766]
           targets:
             local:
               kind: web
