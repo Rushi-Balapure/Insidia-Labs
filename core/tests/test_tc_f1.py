@@ -472,9 +472,10 @@ def test_tc_f1_n2_blank_version_fails_before_install(tmp_path: Path) -> None:
             env.update(_env_from_step(step, inputs))
             result = _bash(bash, script, env, work)
             blob = _blob(result)
+            called = log.read_text()
+            assert called == "", f"install started for {version!r}:\n{called}"
             assert result.returncode == 1, f"version gate did not fail fast\n{blob}"
             assert "version" in blob.lower(), blob
-            assert log.read_text() == "", f"install started for {version!r}:\n{log.read_text()}"
             assert "pip install" not in blob
             assert "insidia==" not in blob
             _assert_nothing_fetched(store)
@@ -499,7 +500,8 @@ def test_tc_f1_n3_uses_are_pinned_and_scan_workflow_permissions_are_minimal() ->
         if not any(uses == "./actions/scan" or "upload-sarif" in uses for uses in uses_values):
             continue
         sarif_workflows += 1
-        assert document.get("permissions") == _SCAN_PERMISSIONS, path
+        permissions = document.get("permissions")
+        assert permissions == _SCAN_PERMISSIONS, f"{path} permissions {permissions!r}"
         jobs = document.get("jobs")
         assert isinstance(jobs, dict)
         for name, job in jobs.items():
@@ -560,6 +562,8 @@ def test_tc_f1_p4_docs_describe_the_action_and_the_manual_upload() -> None:
     """TC-F1-P4. The CI guide documents the action and keeps manual SARIF upload."""
     path = _root() / "docs" / "src" / "content" / "docs" / "guides" / "ci.md"
     text = path.read_text()
+    if "## Upload SARIF yourself" not in text:
+        raise AssertionError(f"{path}: manual SARIF upload section is missing")
     action_part, manual_part = text.split("## Upload SARIF yourself", 1)
     assert "actions/scan" in action_part
     assert "fail-on-inconclusive" in action_part
