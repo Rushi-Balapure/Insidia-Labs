@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from insidia.adapters import find
@@ -13,7 +13,7 @@ from insidia.config import Project, Target
 from insidia.errors import CliError, EngineFailed, ProbeError, ScopeError
 from insidia.findings import Finding, normalize
 from insidia.mask import bind_secrets, mask
-from insidia.policy import Policy, get_policy
+from insidia.policy import MARKDOWN_BEACON, Policy, get_policy
 from insidia.probes import ProbeHit, _is_relay_shallow_note, run
 from insidia.registry import select, unlock_hint
 from insidia.results import (
@@ -295,9 +295,14 @@ def _scan_targets(
                     untested = attempt.untested
                     probe_count += attempt.probes
                     request_count += attempt.requests
+                # A beacon observed on this reply belongs to output handling.
+                # It is still recorded, and it does not count as this family's finding.
+                owned = tuple(hit for hit in attempt_hits if hit.family == family)
+                carried = tuple(hit for hit in attempt_hits if hit.family != family)
                 # A relay under the prompt minimum stays out of engines and reported_by.
                 if not untested:
-                    hits.extend(attempt_hits)
+                    hits.extend(owned)
+                hits.extend(carried)
                 if error:
                     reason = short(mask(error), limit=reason_limit)
                     reasons.append(reason)
@@ -309,7 +314,7 @@ def _scan_targets(
                             capability.engine,
                             ERROR,
                             reason,
-                            finding_count=len(attempt_hits),
+                            finding_count=len(owned),
                         )
                     )
                     _say(
@@ -329,7 +334,7 @@ def _scan_targets(
                         capability.engine,
                         LIMITED if untested else COMPLETE,
                         short(mask(untested)) if untested else "",
-                        finding_count=len(attempt_hits),
+                        finding_count=len(owned),
                     )
                 )
             records.extend(family_records)
@@ -374,6 +379,39 @@ def _scan_targets(
                     probes=probe_count if result in {"pass", "fail"} else None,
                 ),
             )
+    _attribute_markdown_beacons(hits, records, controls)
+
+
+def _attribute_markdown_beacons(
+    hits: list[ProbeHit],
+    records: list[CheckRecord],
+    controls: list[dict[str, str | int]],
+) -> None:
+    """Fail output handling when any reply carried a beacon. Leave other families alone."""
+    targets = {hit.target for hit in hits if hit.check_id == MARKDOWN_BEACON.check_id}
+    family = MARKDOWN_BEACON.family
+    for target in targets:
+        indexes = [
+            index
+            for index, record in enumerate(records)
+            if record.target == target and record.family == family and record.engine
+        ]
+        if indexes and all(records[index].finding_count == 0 for index in indexes):
+            chosen = next(
+                (index for index in indexes if records[index].state == COMPLETE),
+                indexes[0],
+            )
+            records[chosen] = replace(records[chosen], finding_count=1)
+        for row in controls:
+            if row.get("id") != family or row.get("target") != target:
+                continue
+            if row.get("result") == "fail":
+                break
+            row["result"] = "fail"
+            row.pop("detail", None)
+            row.pop("assurance", None)
+            row.pop("assurance_reason", None)
+            break
 
 
 def _counter(target: Target) -> Callable[[], int] | None:

@@ -161,6 +161,10 @@ def _probe_hit(
     )
 
 
+# Distinct from the active-HTML probe so SARIF can describe the beacon on its own.
+_BEACON_PROBE = "insidia.ai.output_handling_sinks.markdown_beacon"
+
+
 def _judge_reply(
     spec: ProbeSpec,
     payload: str,
@@ -170,7 +174,8 @@ def _judge_reply(
 ) -> list[EngineHit]:
     """The family oracle, plus a markdown beacon on any chat-style reply.
 
-    The beacon URL is recorded and not requested.
+    The beacon belongs to output handling, not to the family that received the
+    reply. The URL is recorded and not requested.
     """
     found: list[EngineHit] = []
     if evidence is not None:
@@ -188,7 +193,7 @@ def _judge_reply(
             outcome,
             url,
             family=copy.family,
-            probe=f"insidia.{copy.family}",
+            probe=_BEACON_PROBE,
             check_id=copy.check_id,
             title=copy.title,
             synopsis=copy.synopsis,
@@ -229,8 +234,11 @@ def run(
             case _:
                 raise CliError(f"{adapter.engine}: no adapter arm")
         hits = tuple(_probe_hit(spec, target.name, adapter.engine, control, hit) for hit in found)
-        # A hit clears a miss-only note. A relay under the prompt minimum stays limited.
-        if hits and not _is_relay_shallow_note(untested):
+        # Only this family's hits clear a miss-only note. A markdown beacon is
+        # output handling's finding, even when another family's reply carried it.
+        # A relay under the prompt minimum stays limited.
+        owned = tuple(hit for hit in hits if hit.family == spec.family)
+        if owned and not _is_relay_shallow_note(untested):
             untested = ""
         sent = _request_count(target) - before
         return Attempt(hits, error, untested, bucket[0], sent if sent > 0 else 0)
