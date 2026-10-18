@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 
 import yaml
@@ -61,7 +60,3 @@ def _assert_pinned(name: str, service: dict[str, object]) -> None:
         if "FROM " in text and "@sha256:" in text.split("FROM ", 1)[1].splitlines()[0]:
             return
     raise SandboxOpen(f"{name} is not pinned by image digest")
-
-
-def docker_available() -> bool:
-    return shutil.which("docker") is not None

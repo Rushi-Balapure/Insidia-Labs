@@ -3,7 +3,7 @@ title: Insidia Cloud
 description: The hosted attacker is not open yet. The CLI does not need it.
 ---
 
-Insidia Cloud is the paid hosted service: an attacker and a judge that run on Insidia's GPUs, custom attacks for your app's tools, and later a dashboard that launches scans. The code in the `cloud/` directory is Apache-2.0. The thing you would pay for is the operation.
+Insidia Cloud is the paid hosted service: an attacker and a judge that run on Insidia's GPUs, custom attacks for your app's tools, and later a dashboard that launches scans. The code for that service is not in this repository. When it is published, it will be Apache-2.0. The thing you would pay for is the operation.
 
 It is not open in this pre-release. There is no `insidia login` command yet. A scan does not call Insidia Cloud unless you later point a model role at it.
 

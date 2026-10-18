@@ -82,12 +82,15 @@ def run_command(
     name: str | None = None,
 ) -> tuple[int, str]:
     label = name or Path(argv[0]).name
+    # katana and httpx read targets from stdin when it is a pipe. A closed
+    # stdin keeps `insidia scan` pipelines and the MCP JSON-RPC stream intact.
     proc = subprocess.Popen(
         argv,
         cwd=cwd,
         env=child_env(env),
         shell=False,
         start_new_session=True,
+        stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )

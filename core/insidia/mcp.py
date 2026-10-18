@@ -12,7 +12,7 @@ from insidia.config import init_config, load_project
 from insidia.doctor import diagnose
 from insidia.errors import CliError
 from insidia.policy import POLICIES
-from insidia.runstore import latest_run
+from insidia.runstore import is_contained_run, latest_run, read_manifest
 from insidia.scan import execute
 from insidia.scope import needs_confirmation
 
@@ -162,7 +162,17 @@ def _scan(arguments: dict[str, object]) -> dict[str, object]:
 
 def _findings(arguments: dict[str, object]) -> dict[str, object]:
     directory = _run_dir(_run_id(arguments))
-    loaded = json.loads((directory / "findings.json").read_text())
+    manifest = read_manifest(directory)
+    if manifest is None:
+        raise CliError(f"run {directory.name} has no manifest, so it cannot be read")
+    findings_path = directory / "findings.json"
+    if findings_path.is_symlink():
+        raise CliError(f"run {directory.name} findings escape the run directory")
+    resolved = findings_path.resolve()
+    root = directory.resolve()
+    if resolved != root and root not in resolved.parents:
+        raise CliError(f"run {directory.name} findings escape the run directory")
+    loaded = json.loads(findings_path.read_text())
     return {"run_id": directory.name, "findings": loaded}
 
 
@@ -184,7 +194,7 @@ def _run_dir(run_id: str | None) -> Path:
     root = Path.cwd()
     if run_id:
         directory = root / ".insidia" / "runs" / run_id
-        if not directory.is_dir():
+        if not is_contained_run(root, directory):
             raise CliError(f"no run {run_id}")
         return directory
     latest = latest_run(root)

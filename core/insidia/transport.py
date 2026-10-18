@@ -272,7 +272,9 @@ def fetch(
     """Status, response headers, and body. An error status is returned, not raised.
 
     Redirects are followed only when `follow` is true. A 3xx is returned as-is
-    otherwise, and its Location is not requested.
+    otherwise, and its Location is not requested. A Location that urllib cannot
+    request, such as one with a raw space, is not followed either: the 3xx is
+    returned to the probe.
     """
     opener = urllib.request.OpenerDirector()
     opener.add_handler(urllib.request.HTTPHandler())
@@ -281,10 +283,15 @@ def fetch(
     current = url
     request_headers = dict(headers or {})
     for _ in range(4):
-        check_url(current, scope)
+        try:
+            check_url(current, scope)
+        except ScopeError as exc:
+            if current == origin:
+                raise
+            raise _refused_hop(current, str(exc)) from exc
         refusal = redirect_refusal(origin, current)
         if refusal is not None:
-            raise ScopeError(refusal)
+            raise _refused_hop(current, refusal)
         if limiter is not None:
             limiter.wait()
         request = urllib.request.Request(
@@ -308,7 +315,11 @@ def fetch(
                 location = received.get("location", "")
                 if not location:
                     raise CliError("redirect is missing Location")
-                current = urljoin(current, location)
+                nxt = urljoin(current, location)
+                if not _location_is_requestable(nxt):
+                    _refuse_unrequested_location(origin, nxt, scope)
+                    return status, received, text
+                current = nxt
                 if status in {301, 302, 303}:
                     method = "GET"
                     body = None
@@ -320,9 +331,49 @@ def fetch(
             if isinstance(reason, TimeoutError | socket.timeout):
                 raise ProbeError("target timed out") from exc
             raise ProbeError("endpoint is unreachable") from exc
+        except http.client.InvalidURL as exc:
+            raise ProbeError("redirect Location is not a valid URL") from exc
         except (http.client.HTTPException, ConnectionError) as exc:
             raise ProbeError("target closed the connection without a response") from exc
     raise CliError("redirected too many times")
+
+
+def _control_char(text: str) -> bool:
+    """Characters http.client rejects in a request target, including a raw space."""
+    return any(ord(char) <= 0x20 or ord(char) == 0x7F for char in text)
+
+
+def _location_is_requestable(url: str) -> bool:
+    """False when following this URL would raise InvalidURL instead of connecting."""
+    try:
+        request = urllib.request.Request(url)
+    except (ValueError, http.client.InvalidURL):
+        return False
+    selector = request.selector or ""
+    host = request.host or ""
+    return not (_control_char(selector) or _control_char(host))
+
+
+def _refuse_unrequested_location(origin: str, nxt: str, scope: tuple[ScopeHost, ...]) -> None:
+    """A Location we will not request still cannot leave the host or the port.
+
+    A hop that changes port or downgrades TLS is refused before any connection.
+    A Location that is not a URL at all is skipped.
+    """
+    try:
+        check_url(nxt, scope)
+    except ScopeError as exc:
+        raise _refused_hop(nxt, str(exc)) from exc
+    except ConfigError:
+        return
+    refusal = redirect_refusal(origin, nxt)
+    if refusal is not None:
+        raise _refused_hop(nxt, refusal)
+
+
+def _refused_hop(hop: str, reason: str) -> ScopeError:
+    """The next URL was not requested. The message names that hop."""
+    return ScopeError(f"refused redirect to {hop} ({reason})")
 
 
 def repo_path(target: Target, root: Path) -> Path:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from collections.abc import Callable
 from pathlib import Path
@@ -35,6 +36,8 @@ NUGUARD_ENV = {
     "LITELLM_TELEMETRY": "False",
 }
 _NUGUARD_SEVERITIES = frozenset({"critical", "high", "medium"})
+# The only opt-in for Trivy and osv-scanner vulnerability database downloads.
+_VULN_DB_OPT_IN = "INSIDIA_VULN_DB"
 
 
 def build() -> tuple[RelayAdapter | ReportAdapter[ScopedUrl] | ReportAdapter[RepoPath], ...]:
@@ -234,16 +237,48 @@ def _web_prepare(engine: str) -> Callable[[ProbeSpec, ScopedUrl, Path], Invocati
                 "-silent",
                 "-disable-update-check",
                 "-no-interactsh",
+                # Nuclei follows off-host redirects only when -fr is set. -dr
+                # keeps that off even if a template asks to follow.
+                "-dr",
             )
         elif engine == "zap":
+            # The plan already names a context for this URL. No proxy.
             (workspace / "plan.yaml").write_text(_zap_plan(url, workspace, report))
             args = ("-cmd", "-silent", "-autorun", str(workspace / "plan.yaml"))
         elif engine == "dalfox":
+            # -F / --follow-redirects is off unless passed. Do not pass it.
             args = ("url", "--url", url, "--format", "json", "--output", report, "--silence")
         elif engine == "katana":
-            args = ("-u", url, "-silent", "-jsonl", "-o", report, "-d", "1")
+            # Katana follows redirects unless -dr is set. Default field scope
+            # is the registrable domain, so pin the crawl to this origin.
+            args = (
+                "-u",
+                url,
+                "-silent",
+                "-jsonl",
+                "-o",
+                report,
+                "-d",
+                "1",
+                "-dr",
+                "-fs",
+                "fqdn",
+                "-cs",
+                _origin_scope(url),
+                "-disable-update-check",
+            )
         elif engine == "httpx":
-            args = ("-u", url, "-silent", "-json", "-o", report, "-irr")
+            # httpx follows redirects only with -fr. Do not pass it.
+            args = (
+                "-u",
+                url,
+                "-silent",
+                "-json",
+                "-o",
+                report,
+                "-irr",
+                "-disable-update-check",
+            )
         else:
             raise ValueError(engine)
         return Invocation(_program(engine), args, report, timeout=180)
@@ -279,6 +314,8 @@ def _repo_prepare(engine: str) -> Callable[[ProbeSpec, RepoPath, Path], Invocati
         elif engine == "skillspector":
             args = ("scan", source, "--no-llm", "--format", "json", "-o", report)
         elif engine == "trivy":
+            # --skip-db-update and --skip-java-db-update are Trivy 0.75 flags.
+            # The first run errors locally instead of downloading a database.
             args = (
                 "fs",
                 "--format",
@@ -286,9 +323,11 @@ def _repo_prepare(engine: str) -> Callable[[ProbeSpec, RepoPath, Path], Invocati
                 "--output",
                 report,
                 "--skip-version-check",
+                *_vuln_db_flags("--skip-db-update", "--skip-java-db-update"),
                 source,
             )
         elif engine == "osv-scanner":
+            # --offline is osv-scanner 2.6. It uses a cached database and does not connect.
             args = (
                 "scan",
                 "source",
@@ -297,6 +336,7 @@ def _repo_prepare(engine: str) -> Callable[[ProbeSpec, RepoPath, Path], Invocati
                 "json",
                 "--output-file",
                 report,
+                *_vuln_db_flags("--offline"),
                 source,
             )
         elif engine == "gitleaks":
@@ -711,6 +751,11 @@ def _origin(url: str) -> str:
     return f"{parsed.scheme}://{parsed.netloc}"
 
 
+def _origin_scope(url: str) -> str:
+    """Katana `-cs` regex. Only URLs on this origin are in scope."""
+    return rf"^{re.escape(_origin(url))}(?:/|$)"
+
+
 def _nuclei_yaml(path: str) -> str:
     # Nuclei treats a path without a scheme as a URL and refuses it. BaseURL
     # is its own placeholder for the scoped origin. The payload stays encoded.
@@ -755,6 +800,13 @@ def _zap_plan(url: str, workspace: Path, report: str) -> str:
         f"      reportDir: {workspace}\n"
         f"      reportFile: {report}\n"
     )
+
+
+def _vuln_db_flags(*flags: str) -> tuple[str, ...]:
+    """Keep vulnerability database downloads off unless INSIDIA_VULN_DB=1."""
+    if os.environ.get(_VULN_DB_OPT_IN) == "1":
+        return ()
+    return flags
 
 
 def _program(engine: str) -> str:

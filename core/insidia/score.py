@@ -8,6 +8,7 @@ list use that CVE's published CVSS v3 base score instead of the control's base.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -41,25 +42,28 @@ class Score:
     failed: int
     passed: int
     not_tested: int
+    low_assurance: int = 0
 
 
-def score_frameworks(controls: list[dict[str, str]]) -> tuple[Score, ...]:
+def score_frameworks(controls: Sequence[Mapping[str, str | int]]) -> tuple[Score, ...]:
     frameworks = _frameworks()
     _reject_unknown(controls, frameworks)
     return tuple(_score(framework, controls) for framework in frameworks)
 
 
-def coverage(controls: list[dict[str, str]]) -> tuple[tuple[str, str, str], ...]:
-    """One row per framework item: id, title, and fail, pass, or not tested."""
+def coverage(controls: Sequence[Mapping[str, str | int]]) -> tuple[tuple[str, str, str], ...]:
+    """One row per framework item: id, title, and fail, pass, low assurance, or not tested."""
     frameworks = _frameworks()
     _reject_unknown(controls, frameworks)
     rows: list[tuple[str, str, str]] = []
     for framework in frameworks:
         ids = {item_id for item_id, _title in framework.items}
-        failed, passed = _split(framework, controls, ids)
+        failed, passed, weak = _split(framework, controls, ids)
         for item_id, title in framework.items:
             if item_id in failed:
                 result = "fail"
+            elif item_id in weak:
+                result = "pass (low assurance)"
             elif item_id in passed:
                 result = "pass"
             else:
@@ -93,45 +97,66 @@ def _load(filename: str) -> Framework:
     return Framework(name, title, tuple(items))
 
 
-def _score(framework: Framework, controls: list[dict[str, str]]) -> Score:
+def _score(framework: Framework, controls: Sequence[Mapping[str, str | int]]) -> Score:
     ids = {item_id for item_id, _title in framework.items}
-    failed, passed = _split(framework, controls, ids)
+    failed, passed, weak = _split(framework, controls, ids)
     not_tested = len(ids - failed - passed)
-    return Score(framework.name, framework.title, len(failed), len(passed), not_tested)
+    return Score(
+        framework.name,
+        framework.title,
+        len(failed),
+        len(passed),
+        not_tested,
+        len(weak),
+    )
 
 
 def _split(
-    framework: Framework, controls: list[dict[str, str]], ids: set[str]
-) -> tuple[set[str], set[str]]:
+    framework: Framework, controls: Sequence[Mapping[str, str | int]], ids: set[str]
+) -> tuple[set[str], set[str], set[str]]:
     failed: set[str] = set()
-    passed: set[str] = set()
+    strong: set[str] = set()
+    weak: set[str] = set()
     prefix = f"{framework.name}:"
     for control in controls:
-        result = control.get("result", "")
-        for tag in control.get("taxonomy", "").split(","):
+        result = _text(control, "result")
+        low = _text(control, "assurance") == "low"
+        for tag in _text(control, "taxonomy").split(","):
             item_id = _item_id(tag, prefix, ids)
             if item_id is None:
                 continue
             if result == "fail":
                 failed.add(item_id)
+            elif result == "pass" and low:
+                weak.add(item_id)
             elif result == "pass":
-                passed.add(item_id)
-    passed -= failed
-    return failed, passed
+                strong.add(item_id)
+    # A fail wins. A full pass keeps the row a plain pass.
+    passed = (strong | weak) - failed
+    weak -= failed
+    weak -= strong
+    return failed, passed, weak
 
 
-def _reject_unknown(controls: list[dict[str, str]], frameworks: tuple[Framework, ...]) -> None:
+def _reject_unknown(
+    controls: Sequence[Mapping[str, str | int]], frameworks: tuple[Framework, ...]
+) -> None:
     known = {
         framework.name: {item_id for item_id, _title in framework.items} for framework in frameworks
     }
     for control in controls:
-        for tag in control.get("taxonomy", "").split(","):
+        for tag in _text(control, "taxonomy").split(","):
             cleaned = tag.strip()
             prefix, sep, item_id = cleaned.partition(":")
             if sep != ":" or prefix not in known:
                 continue
             if item_id not in known[prefix]:
                 raise ValueError(f"unknown taxonomy id {cleaned}")
+
+
+def _text(control: Mapping[str, str | int], key: str) -> str:
+    value = control.get(key)
+    return value if isinstance(value, str) else ""
 
 
 def _item_id(tag: str, prefix: str, ids: set[str]) -> str | None:

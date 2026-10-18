@@ -29,7 +29,7 @@ Insidia is an open-source CLI for security testing AI apps, agents, and the web 
 
 The public site is [insidialabs.com](https://insidialabs.com). Documentation is on the same host at [insidialabs.com/docs](https://insidialabs.com/docs/).
 
-This is a pre-release project. Built-in checks are currently classified as fixture-only, and external engine integrations as experimental. See the [readiness inventory](core/insidia/readiness.py) for current limitations and the [master plan](plans/00-master-plan.md) for planned work.
+This is a pre-release project. Built-in checks that run a real oracle are implemented and can detect issues on the target. Checks that only recognise Insidia's benchmark app stay fixture-only, and external engine integrations are experimental. See the [readiness inventory](core/insidia/readiness.py) for each family's disposition and the [master plan](plans/00-master-plan.md) for planned work.
 
 ## Install
 

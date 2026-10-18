@@ -14,7 +14,7 @@ import tempfile
 import threading
 from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import TypeGuard
@@ -36,6 +36,7 @@ from insidia.adapters import (
     ReportAdapter,
     ScopedUrl,
     has_standalone,
+    markdown_beacon,
 )
 from insidia.config import Project, Target, resolve_secret
 from insidia.errors import (
@@ -46,12 +47,13 @@ from insidia.errors import (
     ProbeError,
     ScopeError,
 )
-from insidia.policy import Control
+from insidia.policy import MARKDOWN_BEACON, Control, get_policy
 from insidia.process import launch_installed
 from insidia.scope import ScopeHost, check_url
 from insidia.transport import (
     AI_KINDS,
     BoundBudget,
+    RateLimiter,
     carries_payload,
     current_budget,
     exchange,
@@ -78,6 +80,10 @@ class ProbeHit:
     upstream: str = ""
     evidence: str = ""
     location: str = ""
+    check_id: str = ""
+    title: str = ""
+    synopsis: str = ""
+    description: str = ""
 
 
 @dataclass(frozen=True)
@@ -88,6 +94,109 @@ class Attempt:
     error: str = ""
     # The engine finished but could not test this target, for example TLS over plain HTTP.
     untested: str = ""
+    # Payloads or prompts handed to the target, and HTTP requests made for them.
+    probes: int = 0
+    requests: int = 0
+
+
+# Shared list so a worker thread can record a payload the scan thread totals.
+_probe_tally: contextvars.ContextVar[list[int] | None] = contextvars.ContextVar(
+    "insidia_probe_tally", default=None
+)
+_probe_tally_lock = threading.Lock()
+
+
+def _count_bucket(bucket: list[int] | None) -> None:
+    if bucket is None:
+        return
+    with _probe_tally_lock:
+        bucket[0] += 1
+
+
+def _count_probe() -> None:
+    _count_bucket(_probe_tally.get())
+
+
+def _bound_limiter(target: Target) -> RateLimiter | None:
+    table = current_budget()
+    if table is None or target.name not in table:
+        return None
+    return table[target.name][0]
+
+
+def _request_count(target: Target) -> int:
+    limiter = _bound_limiter(target)
+    return 0 if limiter is None else limiter.sent
+
+
+def _probe_hit(
+    spec: ProbeSpec,
+    target_name: str,
+    engine: str,
+    control: Control,
+    hit: EngineHit,
+) -> ProbeHit:
+    """One engine observation. A markdown beacon keeps its own title on this family."""
+    chosen = control
+    if hit.family and hit.family != spec.family:
+        chosen = get_policy("L1").control(hit.family)
+    return ProbeHit(
+        target_name,
+        hit.family or spec.family,
+        engine,
+        hit.probe or spec.probe,
+        hit.response,
+        hit.severity or chosen.severity,
+        hit.confidence or "high",
+        chosen.track,
+        chosen.taxonomy,
+        hit.remediation or chosen.remediation,
+        hit.upstream,
+        hit.evidence,
+        hit.location,
+        check_id=hit.check_id,
+        title=hit.title,
+        synopsis=hit.synopsis,
+        description=hit.description,
+    )
+
+
+def _judge_reply(
+    spec: ProbeSpec,
+    payload: str,
+    outcome: str,
+    target: Target,
+    evidence: str | None,
+) -> list[EngineHit]:
+    """The family oracle, plus a markdown beacon on any chat-style reply.
+
+    The beacon URL is recorded and not requested.
+    """
+    found: list[EngineHit] = []
+    if evidence is not None:
+        found.append(EngineHit(spec.upstream, payload, outcome, evidence))
+    if target.kind not in AI_KINDS:
+        return found
+    url = markdown_beacon(payload, outcome, target)
+    if url is None:
+        return found
+    copy = MARKDOWN_BEACON
+    found.append(
+        EngineHit(
+            spec.upstream,
+            payload,
+            outcome,
+            url,
+            family=copy.family,
+            probe=f"insidia.{copy.family}",
+            check_id=copy.check_id,
+            title=copy.title,
+            synopsis=copy.synopsis,
+            description=copy.description,
+            remediation=copy.remediation,
+        )
+    )
+    return found
 
 
 def run(
@@ -103,42 +212,46 @@ def run(
         return Attempt()
     if _payload_cannot_land(target, spec.family):
         return Attempt(untested=_NO_PAYLOAD)
-    untested = ""
-    match adapter:
-        case BuiltIn():
-            found, error, untested = _judge(adapter, spec, target, project.scope, root)
-        case RelayAdapter():
-            found, error, untested = _relay(adapter, spec, target, project, root, launch)
-        case ReportAdapter() if _over_url(adapter):
-            found, error = _report(adapter, spec, _scoped_url(target, project.scope), launch)
-        case ReportAdapter() if _over_repo(adapter):
-            found, error = _report(adapter, spec, RepoPath(repo_path(target, root)), launch)
-        case _:
-            raise CliError(f"{adapter.engine}: no adapter arm")
-    hits = tuple(
-        ProbeHit(
-            target.name,
-            spec.family,
-            adapter.engine,
-            spec.probe,
-            hit.response,
-            hit.severity or control.severity,
-            hit.confidence or "high",
-            control.track,
-            control.taxonomy,
-            control.remediation,
-            hit.upstream,
-            hit.evidence,
-            hit.location,
-        )
-        for hit in found
-    )
-    return Attempt(hits, error, "" if hits else untested)
+    bucket = [0]
+    token = _probe_tally.set(bucket)
+    before = _request_count(target)
+    try:
+        untested = ""
+        match adapter:
+            case BuiltIn():
+                found, error, untested = _judge(adapter, spec, target, project.scope, root)
+            case RelayAdapter():
+                found, error, untested = _relay(adapter, spec, target, project, root, launch)
+            case ReportAdapter() if _over_url(adapter):
+                found, error = _report(adapter, spec, _scoped_url(target, project.scope), launch)
+            case ReportAdapter() if _over_repo(adapter):
+                found, error = _report(adapter, spec, RepoPath(repo_path(target, root)), launch)
+            case _:
+                raise CliError(f"{adapter.engine}: no adapter arm")
+        hits = tuple(_probe_hit(spec, target.name, adapter.engine, control, hit) for hit in found)
+        # A hit clears a miss-only note. A relay under the prompt minimum stays limited.
+        if hits and not _is_relay_shallow_note(untested):
+            untested = ""
+        sent = _request_count(target) - before
+        return Attempt(hits, error, untested, bucket[0], sent if sent > 0 else 0)
+    finally:
+        _probe_tally.reset(token)
 
 
 _FIXTURE_ONLY_NOTE = "this check only recognises Insidia's benchmark app"
+# A judge is the only oracle that could score these on a real app. L1 does not call one.
+_JUDGE_ONLY = frozenset(
+    {
+        "ai.harmful_content_policy",
+        "ai.bias",
+        "ai.citation_groundedness",
+    }
+)
+_JUDGE_UNUSED_NOTE = "this coverage does not call the judge"
 # Fewer prompts than this is a smoke test, not coverage of the family.
 _RELAY_MIN_PROMPTS = 3
+_SHALLOW_NOTE = " sent only "
+_SHALLOW_TAIL = " prompt(s)"
 _NO_PAYLOAD = (
     "no {{payload}} placeholder in url, query, or body, "
     "so every probe sent the same request"
@@ -160,6 +273,25 @@ def _payload_cannot_land(target: Target, family: str) -> bool:
     return not carries_payload(target)
 
 
+def _relay_shallow_note(engine: str, sent: int) -> str:
+    """Why a relay that sent too few prompts did not cover the family."""
+    return f"{engine}{_SHALLOW_NOTE}{sent}{_SHALLOW_TAIL}"
+
+
+def _is_relay_shallow_note(note: str) -> bool:
+    engine, marker, rest = note.partition(_SHALLOW_NOTE)
+    if not engine or not marker or not rest.endswith(_SHALLOW_TAIL):
+        return False
+    return rest.removesuffix(_SHALLOW_TAIL).isdigit()
+
+
+def _untested_note(family: str) -> str:
+    """Why a fixture-only miss is not a pass. Judge-only families name the unused judge."""
+    if family in _JUDGE_ONLY:
+        return _JUDGE_UNUSED_NOTE
+    return _FIXTURE_ONLY_NOTE
+
+
 def _judge(
     adapter: BuiltIn,
     spec: ProbeSpec,
@@ -176,7 +308,8 @@ def _judge(
         return paired(target, scope, root)
     hits, error = _corpus(adapter, spec, target, scope, root)
     if spec.family in FIXTURE_ONLY:
-        return hits, error, _FIXTURE_ONLY_NOTE
+        # A matching plant is still a finding. The note only explains a miss.
+        return hits, error, _untested_note(spec.family)
     return hits, error, ""
 
 
@@ -189,16 +322,19 @@ def _corpus(
 ) -> tuple[list[EngineHit], str]:
     oracle = ORACLES[spec.family]
     payloads = adapter.corpus[spec]
-    # The first corpus entry is the benchmark plant's trigger. Later entries only
-    # repeat a request the oracle cannot judge on any other app.
+    # The first entry is the benchmark plant's trigger. Later entries repeat a
+    # request this oracle cannot judge on any other app. Cap that one request
+    # so a slow target cannot stall the check. A timeout or a miss is not tested.
+    timeout: float | None = None
     if spec.family in FIXTURE_ONLY and spec.family not in _ORDERED:
         payloads = payloads[:1]
+        timeout = _FIXTURE_ONLY_TIMEOUT
     hits: list[EngineHit] = []
     answered = 0
     rejected = ""
     try:
         for index, (payload, outcome) in enumerate(
-            _replies(target, payloads, spec.family, scope, root)
+            _replies(target, payloads, spec.family, scope, root, timeout)
         ):
             if isinstance(outcome, HttpStatus):
                 # An AI endpoint that refuses one prompt still answers the others.
@@ -208,11 +344,12 @@ def _corpus(
                 continue
             answered += 1
             evidence = oracle(payload, outcome, target)
-            if evidence is not None:
-                hits.append(EngineHit(spec.upstream, payload, outcome, evidence))
+            hits.extend(_judge_reply(spec, payload, outcome, target, evidence))
             if _fixture_follow_up_is_useless(spec.family, index, outcome):
                 break
     except ProbeError as exc:
+        if timeout is not None and str(exc) == "target timed out":
+            return [], ""
         return hits, str(exc)
     if not answered and rejected:
         return hits, f"every payload was rejected: {rejected}"
@@ -222,6 +359,8 @@ def _corpus(
 # Each payload depends on the reply to the one before it.
 _ORDERED = frozenset({"ai.memory_poisoning"})
 _MEMORY_PLANT = "insidia-memory-plant"
+# Fixture-only triggers do not inherit a slow target's timeout.
+_FIXTURE_ONLY_TIMEOUT = 1.0
 
 
 def _fixture_follow_up_is_useless(family: str, index: int, outcome: str | HttpStatus) -> bool:
@@ -237,12 +376,13 @@ def _replies(
     family: str,
     scope: tuple[ScopeHost, ...],
     root: Path,
+    timeout: float | None = None,
 ) -> Iterator[tuple[str, str | HttpStatus]]:
     """Each payload with its reply, in order. Sent in parallel up to the target's concurrency."""
 
     def one(payload: str) -> str | HttpStatus:
         try:
-            return _send(target, payload, scope, root)
+            return _send(target, payload, scope, root, timeout)
         except HttpStatus as exc:
             return exc
 
@@ -261,8 +401,17 @@ def _replies(
                 future.cancel()
 
 
-def _send(target: Target, payload: str, scope: tuple[ScopeHost, ...], root: Path) -> str:
+def _send(
+    target: Target,
+    payload: str,
+    scope: tuple[ScopeHost, ...],
+    root: Path,
+    timeout: float | None = None,
+) -> str:
     """A web app's error page is its answer to the attack, so it is judged too."""
+    _count_probe()
+    if timeout is not None:
+        target = replace(target, timeout=timeout)
     try:
         return exchange(target, payload, scope, root)
     except HttpStatus as exc:
@@ -445,7 +594,12 @@ def _paired_cve(
     if target.url is None:
         raise ConfigError(f"{target.name} needs a url")
     try:
-        _status, headers, _body = fetch(target.url, scope, headers=dict(target.headers))
+        _status, headers, _body = fetch(
+            target.url,
+            scope,
+            headers=dict(target.headers),
+            limiter=_bound_limiter(target),
+        )
     except ProbeError as exc:
         return [], str(exc), ""
     banner = " ".join(
@@ -585,6 +739,7 @@ def _paired_open_redirect(
     del root
     try:
         for payload in _OPEN_REDIRECTS:
+            _count_probe()
             status, headers, body = fetch_target(target, payload, scope, follow=False)
             evidence = _redirect_evidence(status, headers, body)
             if evidence is not None:
@@ -679,6 +834,7 @@ def _relay(
     token = secrets.token_hex(16)
     pairs: list[tuple[str, str]] = []
     budget = current_budget()
+    bucket = _probe_tally.get()
 
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:  # noqa: N802
@@ -709,6 +865,8 @@ def _relay(
                 self.end_headers()
                 return
             try:
+                # The relay thread does not inherit the scan tally. Count the prompt here.
+                _count_bucket(bucket)
                 with BoundBudget(budget):
                     response = exchange(target, prompt, project.scope, root)
             except (CliError, OSError):
@@ -748,16 +906,15 @@ def _relay(
             hits: list[EngineHit] = []
             for prompt, response in pairs:
                 evidence = oracle(prompt, response, target)
-                if evidence is not None:
-                    hits.append(EngineHit(spec.upstream, prompt, response, evidence))
+                hits.extend(_judge_reply(spec, prompt, response, target, evidence))
             if failed is not None:
                 return hits, str(failed), ""
             if not pairs:
                 return [], "engine finished without contacting the target", ""
             if spec.family in FIXTURE_ONLY:
-                return hits, "", _FIXTURE_ONLY_NOTE
+                return hits, "", _untested_note(spec.family)
             if len(pairs) < _RELAY_MIN_PROMPTS:
-                return hits, "", f"{adapter.engine} sent only {len(pairs)} prompt(s)"
+                return hits, "", _relay_shallow_note(adapter.engine, len(pairs))
             return hits, "", ""
     finally:
         server.shutdown()

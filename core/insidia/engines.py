@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import urllib.parse
 import urllib.request
 import zipfile
 from collections.abc import Callable
@@ -21,10 +22,13 @@ from insidia.errors import CliError
 from insidia.process import child_env
 
 _CPU_TORCH = "https://download.pytorch.org/whl/cpu"
+_GITHUB_PREFIX = "https://github.com"
 
-# SHA-256 of the file `_github()` downloads, keyed by that exact URL.
-# A platform with no entry is refused unless `engines install --allow-unverified`
-# is passed. A pin that does not match the bytes always fails, before extract.
+# SHA-256 of the file `_github()` names, keyed by that canonical GitHub URL.
+# INSIDIA_ENGINE_MIRROR may replace the https://github.com prefix at fetch time.
+# The pin is never keyed by the mirror URL. A mismatch always fails, before
+# extract. A platform with no entry is refused unless
+# `engines install --allow-unverified` is passed.
 PINNED_SHA256: dict[str, str] = {
     (
         "https://github.com/aquasecurity/trivy/releases/download/"
@@ -511,14 +515,41 @@ def _verify_download(spec: EngineSpec, url: str, archive: Path, allow_unverified
         raise CliError(f"{spec.name} {spec.version} failed SHA-256 verification")
 
 
+def _mirrored_download_url(url: str) -> str:
+    """Fetch URL for a canonical engine download.
+
+    Unset, the URL is unchanged. A mirror replaces only the ``https://github.com``
+    prefix. SHA-256 pins stay on the canonical URL the caller already holds.
+    """
+    mirror = os.environ.get("INSIDIA_ENGINE_MIRROR", "").strip()
+    if not mirror:
+        return url
+    parsed = urllib.parse.urlsplit(mirror)
+    if parsed.scheme not in {"http", "https"} or parsed.netloc == "":
+        raise CliError("INSIDIA_ENGINE_MIRROR must be an http or https URL")
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme != "https" or parts.netloc != "github.com":
+        raise CliError("INSIDIA_ENGINE_MIRROR rewrites only https://github.com URLs")
+    return mirror.rstrip("/") + url.removeprefix(_GITHUB_PREFIX)
+
+
 def _download(url: str, destination: Path) -> None:
-    request = urllib.request.Request(url, headers={"User-Agent": "insidia"})
-    opener = urllib.request.build_opener(urllib.request.HTTPSHandler())
+    fetch_url = _mirrored_download_url(url)
+    request = urllib.request.Request(fetch_url, headers={"User-Agent": "insidia"})
+    handlers: list[urllib.request.BaseHandler] = [
+        urllib.request.HTTPHandler(),
+        urllib.request.HTTPSHandler(),
+    ]
+    # A localhost mirror is an install override. Do not send it through a proxy.
+    host = urllib.parse.urlsplit(fetch_url).hostname
+    if host in {"localhost", "127.0.0.1", "::1"}:
+        handlers.insert(0, urllib.request.ProxyHandler({}))
+    opener = urllib.request.build_opener(*handlers)
     try:
         with opener.open(request, timeout=120) as response:
             destination.write_bytes(response.read())
     except OSError as exc:
-        raise CliError(f"download failed for {url}") from exc
+        raise CliError(f"download failed for {fetch_url}") from exc
 
 
 def _github(spec: EngineSpec) -> str:
