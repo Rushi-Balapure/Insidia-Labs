@@ -416,6 +416,17 @@ def _scan_targets(
                 for record in family_records
                 if record.state == COMPLETE and record.engine
             )
+            # Banner-only stores the warning after _detail() has already returned.
+            # A relay reason is already in detail, so it is not repeated.
+            assurance_reason = recorded.get("assurance_reason", "")
+            if (
+                result == "pass"
+                and recorded.get("assurance") == "low"
+                and isinstance(assurance_reason, str)
+                and assurance_reason
+                and assurance_reason not in detail
+            ):
+                detail = assurance_reason if not detail else f"{detail}. {assurance_reason}"
             shown = f"{', '.join(finished)} · {detail}" if finished and detail else detail
             _say(
                 progress,

@@ -83,6 +83,28 @@ def test_not_tested_row_stays_under_its_target_header() -> None:
     assert "ai.agent_posture" not in text[:header]
 
 
+def test_low_assurance_end_event_prints_the_reason() -> None:
+    stream = _Stream()
+    view = ScanView(_terminal(stream))
+    reason = "banner-based, low confidence; not a vulnerability assessment"
+    view(
+        Event(
+            "end",
+            "app",
+            "infra.cve",
+            ("insidia",),
+            "pass",
+            f"insidia · {reason}",
+            0.4,
+            probes=1,
+        )
+    )
+    line = next(item for item in stream.getvalue().splitlines() if "infra.cve" in item)
+    assert "pass" in line
+    assert reason in line
+    assert "insidia" in line
+
+
 def test_quiet_prints_nothing() -> None:
     stream = _Stream()
     terminal = Terminal(stream, quiet=True, animate=False, no_color=True)
