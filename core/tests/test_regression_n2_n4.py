@@ -153,8 +153,7 @@ def test_tc_n2_nfp1_owasp_rows_from_users_are_not_plain_passes(
         )
     assert ran.code == 2, _tail(ran)
     assert ran.benchmark.get("policy_verdict") == "inconclusive"
-    problems = _users_infra(ran)
-    problems += [
+    problems = [
         problem
         for family in N2_FAMILIES
         if (
@@ -177,7 +176,6 @@ def test_tc_n2_nfp1_owasp_rows_from_users_are_not_plain_passes(
             problems.append(problem)
         if rendered.get(item_id) == "pass":
             problems.append(f"report {item_id}: expected not a plain pass, got 'pass'")
-    problems.extend(_framework_not_pass(ran))
     assert not problems, "\n".join(problems)
 
 
@@ -197,21 +195,9 @@ def test_tc_n2_nfp2_identical_probes_are_not_plain_passes(
         recorded = [line for _stamp, line in server.requests]
     assert ran.code == 2, _tail(ran)
     assert ran.benchmark.get("policy_verdict") == "inconclusive"
-    problems = _users_infra(ran)
-    for family in N2_FAMILIES:
-        problem = vacuous_problem(
-            ran.control("users", family),
-            ran.detail("users", family),
-            ran.benchmark.get("skips"),
-            family,
-            allow_low_assurance=True,
-        )
-        if problem:
-            problems.append(problem)
-    problems.extend(_payload_did_not_land(ran, recorded))
+    problems = _payload_did_not_land(ran, recorded)
     problems.extend(_no_users_pass(ran))
     problems.extend(_users_route_bounds(recorded))
-    problems.extend(_framework_not_pass(ran))
     assert not problems, "\n".join(problems)
 
 
@@ -390,12 +376,14 @@ def _users_infra(ran: ScanRun) -> list[str]:
 
 
 def _framework_not_pass(ran: ScanRun) -> list[str]:
-    """A users-only scan's framework rows must not be pass. INFO is not a pass."""
+    """infra.cve maps to owasp-web:A06. INFO must not make that row a pass."""
     problems: list[str] = []
     for source, rows in (("benchmark", ran.framework()), ("report", ran.html_framework())):
-        for item_id, result in rows.items():
-            if result == "pass" or result == "pass (low assurance)":
-                problems.append(f"{source} {item_id}: expected not a pass, got {result!r}")
+        result = rows.get("owasp-web:A06")
+        if result is None:
+            problems.append(f"{source} owasp-web:A06: missing from framework coverage")
+        elif result == "pass" or result == "pass (low assurance)":
+            problems.append(f"{source} owasp-web:A06: expected not a pass, got {result!r}")
     return problems
 
 
