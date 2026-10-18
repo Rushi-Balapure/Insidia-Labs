@@ -148,6 +148,8 @@ targets:
 
 Leave this as `{}` when the checks do not need a model. L1 does not require one.
 
+L1 does not call the judge.
+
 `attacker` and `judge` are the only roles. Each role has:
 
 | Field | What to put |

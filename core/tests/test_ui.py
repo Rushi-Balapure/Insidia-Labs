@@ -97,12 +97,41 @@ def test_low_assurance_end_event_prints_the_reason() -> None:
             f"insidia · {reason}",
             0.4,
             probes=1,
+            assurance="low",
         )
     )
-    line = next(item for item in stream.getvalue().splitlines() if "infra.cve" in item)
-    assert "pass" in line
+    view(Event("end", "app", "web.headers", ("insidia",), "pass"))
+    text = stream.getvalue()
+    line = next(item for item in text.splitlines() if "infra.cve" in item)
+    full = next(item for item in text.splitlines() if "web.headers" in item)
+    assert "pass (low assurance)" in line
+    assert line.split()[0] not in {"✔", "+"}
+    assert "✔" not in line
+    assert "+" not in line.split()
     assert reason in line
     assert "insidia" in line
+    assert full.split()[0] == "✔"
+    assert "pass (low assurance)" not in full
+    assert view.totals() == "2 passed (1 low assurance) · 0 failed"
+    plain = ScanView(_terminal(_Stream()))
+    plain(Event("end", "app", "web.headers", ("insidia",), "pass"))
+    assert plain.totals() == "1 passed · 0 failed"
+
+
+def test_low_assurance_pass_is_yellow(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FORCE_COLOR", "1")
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    stream = _Stream()
+    view = ScanView(Terminal(stream, animate=False))
+    view(Event("end", "app", "infra.cve", ("insidia",), "pass", assurance="low"))
+    view(Event("end", "app", "web.headers", ("insidia",), "pass"))
+    text = stream.getvalue()
+    low = next(item for item in text.splitlines() if "infra.cve" in item)
+    full = next(item for item in text.splitlines() if "web.headers" in item)
+    assert "\x1b[33m" in low
+    assert "\x1b[32m" not in low
+    assert "pass (low assurance)" in low
+    assert "\x1b[32m" in full
 
 
 def test_quiet_prints_nothing() -> None:
