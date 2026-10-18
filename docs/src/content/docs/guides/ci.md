@@ -21,9 +21,9 @@ Keep localhost as the initial scope. A non-local target needs `authorized: true`
 
 The repository ships a composite action at `actions/scan`. It installs one Insidia version, runs `insidia scan --policy <policy> --yes`, uploads `results.sarif` to GitHub code scanning, and uploads `report.html`, `findings.json`, and the SARIF file as a workflow artifact.
 
-`version` is required. An empty or missing version fails the job before any scan. Pass the package version from `core/pyproject.toml` at the tag or commit SHA the workflow checked out. The action installs that version from PyPI when it is published. When it is not on PyPI, it installs the `core/` directory from that checkout with `uv`. It does not install from a URL.
+`version` is required. An empty or missing version fails the job before any scan. Pass the package version from the action checkout's `core/pyproject.toml`. The action installs `$INSIDIA_CORE` from the action checkout when its pyproject version matches. A mismatch or a missing core fails the job. It never installs `insidia` from PyPI.
 
-The calling workflow must check out that tag or commit SHA itself, and it must grant only these permissions:
+The calling workflow checks out the repository to scan, and it must grant only these permissions:
 
 ```yaml
 permissions:
@@ -43,11 +43,11 @@ permissions:
     fail-on-inconclusive: "true"
 ```
 
-`github.sha` is the full commit for that workflow run. For a release, run the workflow on the tag or SHA you named and pass the `core/pyproject.toml` version from that commit. `0.1.0` above is the current package version; use the version in the checkout you are testing.
+`github.sha` is the full commit for that workflow run. For a release, run the workflow on the tag or SHA you named and pass the `core/pyproject.toml` version shipped with the action. `0.1.0` above is the current package version; use the version in the action checkout you are testing.
 
 `fail-on-inconclusive` controls exit code 2 only. Exit code 1 still fails the job. Exit code 0 passes. The default is `true`.
 
-When the checked-out `core/pyproject.toml` version matches `version`, the action installs that checkout. It tries PyPI only when the checkout does not match. A directory under `.insidia/runs` is uploaded only when its name is a scan run id (`YYYYMMDDTHHMMSSZ-` plus six hex digits), so a planted folder cannot sort ahead of the scan.
+The action installs `$INSIDIA_CORE` from the action checkout when its pyproject version matches. A mismatch or a missing core fails the job. It never installs `insidia` from PyPI. A directory under `.insidia/runs` is uploaded only when its name is a scan run id (`YYYYMMDDTHHMMSSZ-` plus six hex digits), so a planted folder cannot sort ahead of the scan.
 
 The action reads `insidia.yaml` from the repository. It has no input for a host. `.github/workflows/insidia-scan.yml` is an example that starts a small Python server on `127.0.0.1` and scans only that fixture. It is safe to run on a pull request: it checks out the pull request commit, does not clone another repository, and does not scan a host other than `127.0.0.1`.
 

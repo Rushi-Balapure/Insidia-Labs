@@ -117,6 +117,7 @@ code { font-family: ui-monospace, monospace; word-break: break-all; }
 .sev-info, .bar-info { background: var(--info); color: #fff; }
 .res-fail { background: var(--high); color: #fff; }
 .res-pass { background: var(--pass); color: #fff; }
+.res-low { background: var(--low); color: #222; }
 .res-info { background: var(--info); color: #fff; }
 .res-nt { background: #E4E4EE; color: #454573; }
 details.finding {
@@ -1545,6 +1546,8 @@ def _coverage_by_target(controls: list[dict[str, str | int]], skips: list[str]) 
                 "info": ("INFO", "info"),
                 "not tested": ("NOT TESTED", "nt"),
             }.get(result, (result.upper() or "NOT TESTED", "nt"))
+            if result == "pass" and _control_text(control, "assurance") == "low":
+                label, css = "PASS (low assurance)", "low"
             why = _coverage_why(control, skips)
             body.append(
                 "<tr>"

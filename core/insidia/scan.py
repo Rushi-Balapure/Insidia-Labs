@@ -14,7 +14,7 @@ from insidia.errors import CliError, EngineFailed, ProbeError, ScopeError
 from insidia.findings import Finding, normalize
 from insidia.mask import bind_secrets, mask
 from insidia.policy import MARKDOWN_BEACON, Policy, get_policy
-from insidia.probes import ProbeHit, _is_relay_shallow_note, run
+from insidia.probes import ProbeHit, _is_relay_shallow_note, reset_seen_replies, run
 from insidia.registry import select, unlock_hint
 from insidia.results import (
     CANCELLED,
@@ -75,6 +75,7 @@ def execute(
     rerun_of: str = "",
     accept_banner_only: bool = False,
 ) -> ScanOutcome:
+    reset_seen_replies()
     blocked = unauthorized_host(project.scope)
     if blocked is not None:
         raise ScopeError(f"{blocked} needs authorized: true in scope")
@@ -416,6 +417,17 @@ def _scan_targets(
                 for record in family_records
                 if record.state == COMPLETE and record.engine
             )
+            # Banner-only stores the warning after _detail() has already returned.
+            # A relay reason is already in detail, so it is not repeated.
+            assurance_reason = recorded.get("assurance_reason", "")
+            if (
+                result == "pass"
+                and recorded.get("assurance") == "low"
+                and isinstance(assurance_reason, str)
+                and assurance_reason
+                and assurance_reason not in detail
+            ):
+                detail = assurance_reason if not detail else f"{detail}. {assurance_reason}"
             shown = f"{', '.join(finished)} · {detail}" if finished and detail else detail
             _say(
                 progress,
