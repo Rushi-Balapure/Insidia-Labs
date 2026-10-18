@@ -429,6 +429,8 @@ def _scan_targets(
             ):
                 detail = assurance_reason if not detail else f"{detail}. {assurance_reason}"
             shown = f"{', '.join(finished)} · {detail}" if finished and detail else detail
+            raw_assurance = recorded.get("assurance", "")
+            assurance = raw_assurance if isinstance(raw_assurance, str) else ""
             _say(
                 progress,
                 Event(
@@ -442,6 +444,7 @@ def _scan_targets(
                     probes=probe_count if result in {"pass", "fail"} else None,
                     counted=counted if result in {"pass", "fail"} and counted > 0 else None,
                     unit=unit if result in {"pass", "fail"} and counted > 0 else "",
+                    assurance=assurance,
                 ),
             )
     _attribute_markdown_beacons(hits, records, controls)
@@ -602,11 +605,14 @@ def _family_result(records: list[CheckRecord]) -> str:
 
 
 def _judge_name(project: Project) -> str:
-    """Configured judge model, or none when models.judge is absent."""
+    """Configured judge, marked unused at L1, or none when models.judge is absent."""
     role = project.judge
     if role is None:
         return "none"
-    return role.model or role.provider or "none"
+    name = role.model or role.provider
+    if not name:
+        return "none"
+    return f"{name} (configured, not used at L1)"
 
 
 def _engines_that_ran(records: list[CheckRecord], findings: list[Finding]) -> tuple[str, ...]:
