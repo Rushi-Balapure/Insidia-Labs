@@ -52,8 +52,10 @@ installs the other devDependencies.
    should have eight chapters and a transcript.
 
 `vercel.json` already defines Astro, the build command, `dist`, and the
-`/licenses` redirect. The site uses Astro's static output; it does not need a
-server adapter. Subsequent pushes to the production branch trigger deployments.
+`/licenses` redirect. The site stays static. `@astrojs/vercel` writes that
+static build as Vercel build output so Web Analytics and Speed Insights can
+attach to it. It does not turn the site into a server. Subsequent pushes to
+the production branch trigger deployments.
 
 ## Connect insidialabs.com
 

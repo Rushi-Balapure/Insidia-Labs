@@ -4,6 +4,7 @@ import { dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import react from "@astrojs/react";
 import sitemap from "@astrojs/sitemap";
+import vercel from "@astrojs/vercel";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "astro/config";
 
@@ -67,6 +68,9 @@ function docsDevPlugin() {
 export default defineConfig({
   site: "https://insidialabs.com",
   output: "static",
+  // Static Astro has to emit Vercel build output for Web Analytics.
+  // Leave webAnalytics off so the script stays on the two tracked pages.
+  adapter: vercel(),
   redirects: {
     "/licenses": "/credits",
     "/documentation": "/docs/",
