@@ -27,5 +27,9 @@
     "@types/react-dom": "^19.1.0",
     "typescript": "^5.8.0",
     "vitest": "^3.2.0"
+  },
+  "allowScripts": {
+    "esbuild": true,
+    "sharp": true
   }
 }
