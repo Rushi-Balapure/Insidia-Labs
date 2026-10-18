@@ -36,9 +36,10 @@ until `PUBLIC_VERCEL_ANALYTICS_ID` is set. See [Web Analytics](#web-analytics).
    | Output Directory | `dist` |
    | Node.js Version | `22.x` |
 
-`site/.npmrc` sets `include=dev`. Vercel runs that install with
-`NODE_ENV=production`, and `npm ci` would otherwise skip devDependencies such
-as `@tailwindcss/vite`, which the build imports.
+Vercel runs `npm ci` with `NODE_ENV=production`, which skips devDependencies.
+`@tailwindcss/vite` and `tailwindcss` are dependencies because the build
+imports them. `site/.npmrc` sets `include=dev` so that same command still
+installs the other devDependencies.
 
 4. Enable **Include source files outside of the Root Directory in the Build
    Step**. The build needs `../docs/`. If this option is only available after
