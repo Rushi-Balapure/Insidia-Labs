@@ -279,7 +279,7 @@ def _install_one(name: str, allow_unverified: bool = False) -> str:
 
 
 def _publish(stage: Path, final: Path, receipt: dict[str, str]) -> None:
-    (stage / "receipt.json").write_text(json.dumps(receipt) + "\n")
+    (stage / "receipt.json").write_text(json.dumps(receipt) + "\n", encoding="utf-8")
     if final.exists():
         backup = final.with_name(f".{final.name}.previous")
         if backup.exists():
@@ -311,13 +311,13 @@ def _rewrite_shebangs(root: Path) -> None:
         if script.is_symlink() or not script.is_file():
             continue
         try:
-            text = script.read_text()
+            text = script.read_text(encoding="utf-8")
         except (OSError, UnicodeError):
             continue
         first, sep, rest = text.partition("\n")
         if not first.startswith("#!") or "python" not in first or first == line:
             continue
-        script.write_text(line + sep + rest)
+        script.write_text(line + sep + rest, encoding="utf-8")
 
 
 def _stage(spec: EngineSpec, stage: Path, allow_unverified: bool = False) -> str:
@@ -384,6 +384,8 @@ def _installed_version(stage: Path, package: str) -> str:
             check=True,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             env=child_env({}),
             shell=False,
         )
@@ -439,6 +441,7 @@ def _checked(command: list[str], env: dict[str, str]) -> None:
             shell=False,
             capture_output=True,
             text=True,
+            encoding="utf-8",
             errors="replace",
         )
     except subprocess.CalledProcessError as exc:
@@ -612,7 +615,7 @@ def _read_receipt(directory: Path) -> dict[str, object] | None:
     if not path.is_file():
         return None
     try:
-        loaded = json.loads(path.read_text())
+        loaded = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, UnicodeDecodeError):
         return None
     if not isinstance(loaded, dict):

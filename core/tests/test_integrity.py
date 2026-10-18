@@ -89,7 +89,7 @@ def test_a_failed_engine_keeps_the_other_engines_finding(
     document = json.loads(capsys.readouterr().out)
     benchmark = json.loads(_latest(tmp_path, "benchmark.json").read_text())
     findings = json.loads(_latest(tmp_path, "findings.json").read_text())
-    report = _latest(tmp_path, "report.html").read_text()
+    report = _latest(tmp_path, "report.html").read_text(encoding="utf-8")
     assert code == 1
     assert document["execution_status"] == "incomplete"
     assert document["policy_verdict"] == "fail"
@@ -109,7 +109,7 @@ def test_no_applicable_controls_are_inconclusive(
     monkeypatch.setattr("insidia.scan.get_policy", lambda name: Policy("L1", "empty", ()))
     code = main(["scan", "--config", str(tmp_path / "insidia.yaml"), "--json", "--quiet"])
     document = json.loads(capsys.readouterr().out)
-    report = _latest(tmp_path, "report.html").read_text()
+    report = _latest(tmp_path, "report.html").read_text(encoding="utf-8")
     assert code == 2
     assert document["policy_verdict"] == "inconclusive"
     assert document["passed"] is False

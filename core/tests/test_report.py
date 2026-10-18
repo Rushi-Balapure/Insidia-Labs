@@ -49,7 +49,7 @@ def test_report_scores_frameworks_and_names_the_engine(tmp_path: Path) -> None:
         },
     ]
     directory = write_run(tmp_path, "run-1", "L1", False, [finding], controls, [])
-    html = (directory / "report.html").read_text()
+    html = (directory / "report.html").read_text(encoding="utf-8")
     assert "OWASP LLM" in html
     assert "OWASP Web" in html
     assert _score_line(html, "OWASP LLM Top 10") == ("1", "0 passed (0 low assurance)", "9")
@@ -152,7 +152,7 @@ def test_report_sections_follow_the_nessus_order(tmp_path: Path) -> None:
         started_epoch=1_700_000_000.0,
         scope_hosts=("127.0.0.1",),
     )
-    html = (directory / "report.html").read_text()
+    html = (directory / "report.html").read_text(encoding="utf-8")
     headings = re.findall(r"<h2[^>]*>([^<]+)</h2>", html)
     assert headings == [
         "Executive summary",
@@ -203,7 +203,7 @@ def test_manifest_started_at_is_the_scan_start(
         started_epoch=started_epoch,
     )
     manifest = json.loads((directory / "manifest.json").read_text())
-    html = (directory / "report.html").read_text()
+    html = (directory / "report.html").read_text(encoding="utf-8")
     assert manifest["started_at"] == _format_epoch(started_epoch)
     assert manifest["finished_at"] == _format_epoch(finished_epoch)
     assert manifest["finished_at"] > manifest["started_at"]
@@ -276,7 +276,7 @@ targets:
     manifest = json.loads((directory / "manifest.json").read_text())
     benchmark = json.loads((directory / "benchmark.json").read_text())
     findings = json.loads((directory / "findings.json").read_text())
-    html = (directory / "report.html").read_text()
+    html = (directory / "report.html").read_text(encoding="utf-8")
     assert findings == []
     engines = _scan_cell(html, "Engines")
     assert engines.strip()
@@ -339,7 +339,7 @@ models:
     monkeypatch.setattr("insidia.scan.select", lambda *_args, **_kwargs: [])
     outcome = execute(load_project(tmp_path / "insidia.yaml"), tmp_path)
     manifest = json.loads((outcome.run_dir / "manifest.json").read_text())
-    html = (outcome.run_dir / "report.html").read_text()
+    html = (outcome.run_dir / "report.html").read_text(encoding="utf-8")
     label = "qwen (configured, not used at L1)"
     assert _scan_cell(html, "models/judge") == label
     assert manifest["models"] == {"judge": label}
@@ -508,7 +508,7 @@ def test_finding_cards_list_fields_in_order_and_escape_evidence(tmp_path: Path) 
         evidence_hash="abc123",
     )
     directory = write_run(tmp_path, "run-card", "L1", False, [finding], [], [])
-    html = (directory / "report.html").read_text()
+    html = (directory / "report.html").read_text(encoding="utf-8")
     card = html.split('<details class="finding"', 1)[1].split("</details>", 1)[0]
     labels = re.findall(r"<dt>([^<]+)</dt>", card)
     assert labels == [
@@ -572,7 +572,7 @@ def test_finding_card_shows_confidence_for_one_and_two_engines(tmp_path: Path) -
         risk_factors=("base 9.8",),
     )
     directory = write_run(tmp_path, "run-ux6", "L1", False, [shared, alone], [], [])
-    html = (directory / "report.html").read_text()
+    html = (directory / "report.html").read_text(encoding="utf-8")
     cards = {
         card.split('class="pid">', 1)[1].split("<", 1)[0]: card.split("</details>", 1)[0]
         for card in html.split('<details class="finding"')[1:]
@@ -661,7 +661,7 @@ def test_four_hits_of_one_check_group_and_two_targets_filter(tmp_path: Path) -> 
             ("shop", "web", "GET http://127.0.0.1:8090/ping"),
         ),
     )
-    html = (directory / "report.html").read_text()
+    html = (directory / "report.html").read_text(encoding="utf-8")
     assert html.count('<details class="finding"') == 2
     assert html.count('<span class="pid">INS-DEP-001</span>') == 1
     assert 'href="#findings">Findings (5)</a>' in html
@@ -715,7 +715,7 @@ def test_three_hits_of_one_check_stay_separate_cards(tmp_path: Path) -> None:
         for line in (1, 2, 3)
     ]
     directory = write_run(tmp_path, "run-r6-flat", "L1", False, findings, [], [])
-    html = (directory / "report.html").read_text()
+    html = (directory / "report.html").read_text(encoding="utf-8")
     assert html.count('<details class="finding"') == 3
     assert html.count('<span class="pid">INS-CODE-001</span>') == 3
     assert '<ul class="locations">' not in html
@@ -795,7 +795,7 @@ def test_plugin_output_caps_a_long_passwd_body(tmp_path: Path) -> None:
         ),
     )
     directory = write_run(tmp_path, "run-lfi", "L1", False, [finding], [], [])
-    html = (directory / "report.html").read_text()
+    html = (directory / "report.html").read_text(encoding="utf-8")
     card = html.split('<details class="finding"', 1)[1].split("</details>", 1)[0]
     plugin = card.split("Plugin output", 1)[1].split("<dt>", 1)[0]
     assert plugin.count("<pre>") == 1
@@ -840,7 +840,7 @@ def test_not_tested_rows_say_why_and_passes_are_counted_honestly(tmp_path: Path)
         },
     ]
     directory = write_run(tmp_path, "run-cov", "L1", True, [], controls, [])
-    html = (directory / "report.html").read_text()
+    html = (directory / "report.html").read_text(encoding="utf-8")
     assert "not evidence that those risks are absent" in html
     reasons = []
     for row in re.findall(r"<tr>(.*?)</tr>", html, re.S):
@@ -866,7 +866,7 @@ def test_not_tested_rows_say_why_and_passes_are_counted_honestly(tmp_path: Path)
 
 def test_report_css_fits_a_390px_screen(tmp_path: Path) -> None:
     directory = write_run(tmp_path, "run-narrow", "L1", True, [], [], [])
-    html = (directory / "report.html").read_text()
+    html = (directory / "report.html").read_text(encoding="utf-8")
     assert "@media (max-width:390px)" in html
     assert "@media print" in html
     assert "nav { display: none; }" in html
@@ -927,7 +927,7 @@ def _nova_controls() -> list[dict[str, str]]:
 
 def test_fail_summary_names_the_run_and_is_not_a_certification(tmp_path: Path) -> None:
     directory = write_run(tmp_path, "run-fail", "L1", False, [_leak()], _nova_controls(), [])
-    text = _summary_paragraph((directory / "report.html").read_text())
+    text = _summary_paragraph((directory / "report.html").read_text(encoding="utf-8"))
     assert text == (
         "Insidia ran 2 of 3 checks against 1 target (nova). "
         "Policy L1 did not pass: 1 finding (1 critical, 0 high, 0 medium, 0 low, 0 info). "
@@ -956,7 +956,7 @@ def test_pass_summary_follows_the_same_shape(tmp_path: Path) -> None:
         },
     ]
     directory = write_run(tmp_path, "run-pass", "L1", True, [], controls, [])
-    text = _summary_paragraph((directory / "report.html").read_text())
+    text = _summary_paragraph((directory / "report.html").read_text(encoding="utf-8"))
     assert text == (
         "Insidia ran 1 of 2 checks against 1 target (shop). "
         "Policy L1 passed: 0 findings (0 critical, 0 high, 0 medium, 0 low, 0 info). "
@@ -981,7 +981,7 @@ def test_incomplete_summary_follows_the_same_shape(tmp_path: Path) -> None:
         [],
         execution_status="incomplete",
     )
-    text = _summary_paragraph((directory / "report.html").read_text())
+    text = _summary_paragraph((directory / "report.html").read_text(encoding="utf-8"))
     assert text == (
         "Insidia ran 2 of 3 checks against 1 target (nova). "
         "The scan did not finish: incomplete. "
@@ -1016,7 +1016,7 @@ def test_low_assurance_passes_are_counted_from_the_field(tmp_path: Path) -> None
         },
     ]
     directory = write_run(tmp_path, "run-weak", "L1", True, [], controls, [])
-    html = (directory / "report.html").read_text()
+    html = (directory / "report.html").read_text(encoding="utf-8")
     text = _summary_paragraph(html)
     assert "1 passed check has low assurance and 0 checks were not tested." in text
     assert "0 passed checks have low assurance" not in text
@@ -1254,7 +1254,7 @@ def test_rerun_records_provenance_and_finding_state(tmp_path: Path) -> None:
     dropped_stored = next(item for item in stored if item["evidence_hash"] == "hash-dropped")
     assert token not in json.dumps(dropped_stored)
     assert all(item["state"] == "new" and item["first_seen_run"] == run_a for item in stored)
-    assert "Fixed since" not in (directory_a / "report.html").read_text()
+    assert "Fixed since" not in (directory_a / "report.html").read_text(encoding="utf-8")
 
     directory_b = write_run(
         tmp_path,
@@ -1275,7 +1275,7 @@ def test_rerun_records_provenance_and_finding_state(tmp_path: Path) -> None:
     assert by_hash["hash-kept"]["first_seen_run"] == run_a
     assert by_hash["hash-new"]["state"] == "new"
     assert by_hash["hash-new"]["first_seen_run"] == run_b
-    html = (directory_b / "report.html").read_text()
+    html = (directory_b / "report.html").read_text(encoding="utf-8")
     assert f"Fixed since {run_a}" in html
     assert "Dropped finding" in html
     assert "hash-dropped" in html
@@ -1353,7 +1353,7 @@ def test_baseline_uses_digest_then_target_names_and_skips_dot_dirs(tmp_path: Pat
     payload = json.loads((directory / "findings.json").read_text())
     assert payload[0]["state"] == "still_open"
     assert payload[0]["first_seen_run"] == older
-    html = (directory / "report.html").read_text()
+    html = (directory / "report.html").read_text(encoding="utf-8")
     assert f"Fixed since {older}" in html
     assert "Other finding" in html
     assert "Hidden finding" not in html
@@ -1386,9 +1386,9 @@ def test_baseline_uses_digest_then_target_names_and_skips_dot_dirs(tmp_path: Pat
     followed_payload = json.loads((followed / "findings.json").read_text())
     assert followed_payload[0]["state"] == "still_open"
     assert followed_payload[0]["first_seen_run"] == named.name
-    assert "Fixed since .hidden" not in (followed / "report.html").read_text()
+    assert "Fixed since .hidden" not in (followed / "report.html").read_text(encoding="utf-8")
     lone = write_run(tmp_path / "lone", "run-b", "L1", False, [kept], [], [])
-    assert "Fixed since" not in (lone / "report.html").read_text()
+    assert "Fixed since" not in (lone / "report.html").read_text(encoding="utf-8")
     # A dot-named run is not a baseline for a later run that shares its digest.
     dots = tmp_path / "dots"
     write_run(dots, ".hidden", "L1", False, [kept], [], [], config_digest=digest)
@@ -1405,7 +1405,7 @@ def test_baseline_uses_digest_then_target_names_and_skips_dot_dirs(tmp_path: Pat
     dotted_payload = json.loads((dotted / "findings.json").read_text())
     assert dotted_payload[0]["state"] == "new"
     assert dotted_payload[0]["first_seen_run"] == "run-c"
-    assert "Fixed since" not in (dotted / "report.html").read_text()
+    assert "Fixed since" not in (dotted / "report.html").read_text(encoding="utf-8")
 
 
 def test_still_open_without_first_seen_uses_the_baseline_run(tmp_path: Path) -> None:
@@ -1439,7 +1439,7 @@ def test_still_open_without_first_seen_uses_the_baseline_run(tmp_path: Path) -> 
     payload = json.loads((directory / "findings.json").read_text())
     assert payload[0]["state"] == "still_open"
     assert payload[0]["first_seen_run"] == "legacy-run"
-    html = (directory / "report.html").read_text()
+    html = (directory / "report.html").read_text(encoding="utf-8")
     assert "Fixed since legacy-run" in html
     assert token not in html
     assert "raw evidence" not in html

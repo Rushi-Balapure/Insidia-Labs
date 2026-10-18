@@ -172,7 +172,7 @@ def _findings(arguments: dict[str, object]) -> dict[str, object]:
     root = directory.resolve()
     if resolved != root and root not in resolved.parents:
         raise CliError(f"run {directory.name} findings escape the run directory")
-    loaded = json.loads(findings_path.read_text())
+    loaded = json.loads(findings_path.read_text(encoding="utf-8"))
     return {"run_id": directory.name, "findings": loaded}
 
 

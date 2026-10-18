@@ -91,7 +91,7 @@ permissions:
     exit "$code"
 
 - name: Collect scan reports
-  if: steps.scan.outcome == 'success' || steps.scan.outcome == 'failure'
+  if: always() && (steps.scan.outcome == 'success' || steps.scan.outcome == 'failure')
   run: |
     set -euo pipefail
     dest="insidia-reports"

@@ -595,7 +595,7 @@ def _yaml_target_names(directory: Path) -> tuple[str, ...] | None:
     if path.is_symlink() or not path.is_file():
         return None
     try:
-        loaded = yaml.safe_load(path.read_text())
+        loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, yaml.YAMLError):
         return None
     if not isinstance(loaded, dict):
@@ -624,7 +624,7 @@ def _loose_json(path: Path) -> object | None:
     if path.is_symlink() or not path.is_file():
         return None
     try:
-        return cast(object, json.loads(path.read_text()))
+        return cast(object, json.loads(path.read_text(encoding="utf-8")))
     except (OSError, UnicodeError, json.JSONDecodeError):
         return None
 
@@ -750,7 +750,11 @@ def verdict_text(
 
 
 def _mark() -> str:
-    return (Path(__file__).resolve().parent / "brand" / "mark.svg").read_text().strip()
+    return (
+        (Path(__file__).resolve().parent / "brand" / "mark.svg")
+        .read_text(encoding="utf-8")
+        .strip()
+    )
 
 
 def read_manifest(directory: Path) -> dict[str, object] | None:
@@ -764,7 +768,7 @@ def read_manifest(directory: Path) -> dict[str, object] | None:
     if not path.is_file():
         return None
     try:
-        loaded = json.loads(path.read_text())
+        loaded = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise CliError(f"run {directory.name} manifest is not valid JSON") from exc
     if not isinstance(loaded, dict):
