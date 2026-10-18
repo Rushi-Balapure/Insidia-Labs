@@ -1,6 +1,7 @@
 import hashlib
 import io
 import json
+import os
 import platform
 import socket
 import subprocess
@@ -940,7 +941,8 @@ def test_a_pinned_digest_is_checked_before_extract(
     assert all(path.startswith("/projectdiscovery/nuclei/") for path in requested)
     program = tmp_path / "nuclei" / "bin" / "nuclei"
     assert program.is_file()
-    assert program.stat().st_mode & 0o111
+    if os.name != "nt":
+        assert program.stat().st_mode & 0o111
 
 
 def test_a_digest_mismatch_is_not_installed(
@@ -982,7 +984,8 @@ def test_a_missing_pin_needs_allow_unverified(
     assert all(path.startswith("/projectdiscovery/nuclei/") for path in requested)
     program = tmp_path / "nuclei" / "bin" / "nuclei"
     assert program.is_file()
-    assert program.stat().st_mode & 0o111
+    if os.name != "nt":
+        assert program.stat().st_mode & 0o111
 
 
 def _linux_amd64(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1160,7 +1163,8 @@ def test_a_mirror_archive_matching_the_pin_installs(
     assert all(path.startswith("/projectdiscovery/nuclei/") for path in requested)
     program = tmp_path / "nuclei" / "bin" / "nuclei"
     assert program.is_file()
-    assert program.stat().st_mode & 0o111
+    if os.name != "nt":
+        assert program.stat().st_mode & 0o111
 
 
 @pytest.mark.parametrize("machine", ["x86_64", "aarch64"])
@@ -1287,6 +1291,10 @@ def _stage_engine(root: Path, name: str, relative: str, script: str) -> None:
     )
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Windows cannot execute the extensionless POSIX engine stubs",
+)
 def test_thorough_scan_cross_validates_without_a_model(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

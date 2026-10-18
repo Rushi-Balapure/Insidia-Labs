@@ -102,7 +102,8 @@ def _relay_prepare(engine: str) -> Callable[[ProbeSpec, RelayEndpoint, Path], In
 def _garak(endpoint: RelayEndpoint, workspace: Path) -> Invocation:
     # Stock garak probes do not send this word. The workspace probe config does.
     (workspace / "probe.json").write_text(
-        json.dumps({"test": {"Blank": {"prompts": [STATIC_PROMPT], "active": True}}})
+        json.dumps({"test": {"Blank": {"prompts": [STATIC_PROMPT], "active": True}}}),
+        encoding="utf-8",
     )
     generator = {
         "rest": {
@@ -122,7 +123,7 @@ def _garak(endpoint: RelayEndpoint, workspace: Path) -> Invocation:
             }
         }
     }
-    (workspace / "generator.json").write_text(json.dumps(generator))
+    (workspace / "generator.json").write_text(json.dumps(generator), encoding="utf-8")
     return Invocation(
         _program("garak"),
         (
@@ -149,8 +150,8 @@ def _garak(endpoint: RelayEndpoint, workspace: Path) -> Invocation:
 
 
 def _promptfoo(endpoint: RelayEndpoint, workspace: Path) -> Invocation:
-    (workspace / "prompt.txt").write_text(STATIC_PROMPT + "\n")
-    (workspace / "provider.cjs").write_text(_PROVIDER_JS)
+    (workspace / "prompt.txt").write_text(STATIC_PROMPT + "\n", encoding="utf-8")
+    (workspace / "provider.cjs").write_text(_PROVIDER_JS, encoding="utf-8")
     config = "\n".join(
         (
             "prompts:",
@@ -163,7 +164,7 @@ def _promptfoo(endpoint: RelayEndpoint, workspace: Path) -> Invocation:
             "",
         )
     )
-    (workspace / "promptfooconfig.yaml").write_text(config)
+    (workspace / "promptfooconfig.yaml").write_text(config, encoding="utf-8")
     env = dict(PROMPTFOO_ENV)
     env["INSIDIA_RELAY_URL"] = endpoint.url
     env["INSIDIA_RELAY_TOKEN"] = endpoint.token
@@ -177,7 +178,7 @@ def _promptfoo(endpoint: RelayEndpoint, workspace: Path) -> Invocation:
 
 
 def _pyrit(endpoint: RelayEndpoint, workspace: Path) -> Invocation:
-    (workspace / "single_turn.py").write_text(_PYRIT_PY)
+    (workspace / "single_turn.py").write_text(_PYRIT_PY, encoding="utf-8")
     return Invocation(
         _program("pyrit"),
         (str(workspace / "single_turn.py"),),
@@ -190,7 +191,7 @@ def _pyrit(endpoint: RelayEndpoint, workspace: Path) -> Invocation:
 def _deepteam(endpoint: RelayEndpoint, workspace: Path) -> Invocation:
     if endpoint.model_url is None or endpoint.model is None:
         raise EngineFailed("deepteam needs an openai-compatible models.attacker")
-    (workspace / "callback.py").write_text(_DEEPTEAM_PY)
+    (workspace / "callback.py").write_text(_DEEPTEAM_PY, encoding="utf-8")
     env = _script_env(endpoint)
     env["INSIDIA_MODEL_URL"] = endpoint.model_url
     env["INSIDIA_MODEL_NAME"] = endpoint.model
@@ -225,7 +226,7 @@ def _web_prepare(engine: str) -> Callable[[ProbeSpec, ScopedUrl, Path], Invocati
             path = _nuclei_path(view)
             # Nuclei evaluates {{7*7}} as its own syntax. The template keeps the
             # expression percent-encoded so the sandbox still sees it.
-            (workspace / "ssti.yaml").write_text(_nuclei_yaml(path))
+            (workspace / "ssti.yaml").write_text(_nuclei_yaml(path), encoding="utf-8")
             args = (
                 "-u",
                 _origin(view.url),
@@ -243,7 +244,10 @@ def _web_prepare(engine: str) -> Callable[[ProbeSpec, ScopedUrl, Path], Invocati
             )
         elif engine == "zap":
             # The plan already names a context for this URL. No proxy.
-            (workspace / "plan.yaml").write_text(_zap_plan(url, workspace, report))
+            (workspace / "plan.yaml").write_text(
+                _zap_plan(url, workspace, report),
+                encoding="utf-8",
+            )
             args = ("-cmd", "-silent", "-autorun", str(workspace / "plan.yaml"))
         elif engine == "dalfox":
             # -F / --follow-redirects is off unless passed. Do not pass it.
@@ -292,7 +296,7 @@ def _repo_prepare(engine: str) -> Callable[[ProbeSpec, RepoPath, Path], Invocati
         source = str(view.path)
         args: tuple[str, ...]
         if engine == "nuguard":
-            (workspace / "nuguard_run.py").write_text(_NUGUARD_PY)
+            (workspace / "nuguard_run.py").write_text(_NUGUARD_PY, encoding="utf-8")
             return Invocation(
                 _program("nuguard"),
                 (str(workspace / "nuguard_run.py"), source, str(workspace)),

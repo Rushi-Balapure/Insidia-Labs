@@ -291,11 +291,11 @@ def local_time(run_id: str) -> str:
         started = datetime.strptime(run_id[:16], "%Y%m%dT%H%M%SZ").replace(tzinfo=UTC)
     except ValueError:
         return ""
-    return started.astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
+    return started.astimezone().strftime("%Y-%m-%d %H:%M:%S %z")
 
 
 def _format_epoch(epoch: float) -> str:
-    return datetime.fromtimestamp(epoch).astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
+    return datetime.fromtimestamp(epoch).astimezone().strftime("%Y-%m-%d %H:%M:%S %z")
 
 
 def write_run(
@@ -344,10 +344,18 @@ def write_run(
         document["state"] = item.state
         document["first_seen_run"] = item.first_seen_run
         payload.append(document)
-    (staging / "findings.json").write_text(json.dumps(payload, indent=2) + "\n")
-    (staging / "findings.csv").write_text(_findings_csv(findings, run_id, targets))
+    (staging / "findings.json").write_text(
+        json.dumps(payload, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    (staging / "findings.csv").write_text(
+        _findings_csv(findings, run_id, targets),
+        encoding="utf-8",
+        newline="",
+    )
     (staging / "results.sarif").write_text(
-        json.dumps(_sarif(findings, controls, targets), indent=2) + "\n"
+        json.dumps(_sarif(findings, controls, targets), indent=2) + "\n",
+        encoding="utf-8",
     )
     scores = score_frameworks(controls)
     benchmark = {
@@ -360,7 +368,10 @@ def write_run(
         "skips": skips,
         "scores": [asdict(score) for score in scores],
     }
-    (staging / "benchmark.json").write_text(json.dumps(benchmark, indent=2) + "\n")
+    (staging / "benchmark.json").write_text(
+        json.dumps(benchmark, indent=2) + "\n",
+        encoding="utf-8",
+    )
     names = ["findings.json", "findings.csv", "results.sarif", "benchmark.json", "report.html"]
     if config_text is not None:
         (staging / "insidia.yaml").write_bytes(config_text)
@@ -411,7 +422,7 @@ def write_run(
         still_open_count=sum(1 for item in tracked if item.state == "still_open"),
         fixed_count=len(fixed),
     )
-    (staging / "report.html").write_text(html)
+    (staging / "report.html").write_text(html, encoding="utf-8")
     artefacts["report.html"] = hashlib.sha256((staging / "report.html").read_bytes()).hexdigest()
     artefacts = {name: artefacts[name] for name in names}
     manifest = {
@@ -434,7 +445,10 @@ def write_run(
     }
     if rerun_of:
         manifest["rerun_of"] = rerun_of
-    (staging / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    (staging / "manifest.json").write_text(
+        json.dumps(manifest, indent=2) + "\n",
+        encoding="utf-8",
+    )
     staging.rename(directory)
     return directory
 
@@ -1886,6 +1900,9 @@ def _sarif_message(finding: Finding) -> str:
     return f"{title} ({finding.target})"
 
 
+_BANNER_RULE_ID = "insidia.infra.cve.banner"
+
+
 def _sarif_banner_note(
     control: dict[str, str | int], endpoints: dict[str, str]
 ) -> dict[str, object] | None:
@@ -1895,7 +1912,7 @@ def _sarif_banner_note(
     target_name = _control_text(control, "target") or "target"
     endpoint = endpoints.get(target_name, "") or target_name
     return {
-        "ruleId": "insidia.infra.cve",
+        "ruleId": _BANNER_RULE_ID,
         "level": "note",
         "message": {"text": mask(warning)},
         "properties": {
@@ -1910,7 +1927,7 @@ def _sarif_banner_note(
 
 def _banner_rule(warning: str) -> dict[str, object]:
     return {
-        "id": "insidia.infra.cve",
+        "id": _BANNER_RULE_ID,
         "name": "infra.cve",
         "shortDescription": {"text": "Banner version is not a vulnerability assessment"},
         "fullDescription": {"text": warning},
@@ -1950,7 +1967,7 @@ def _sarif(
         note = _sarif_banner_note(control, endpoints)
         if not warning or note is None:
             continue
-        rule_id = "insidia.infra.cve"
+        rule_id = _BANNER_RULE_ID
         if rule_id not in seen:
             seen.add(rule_id)
             rules.append(_banner_rule(mask(warning)))

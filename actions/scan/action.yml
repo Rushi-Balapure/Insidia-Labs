@@ -111,14 +111,16 @@ runs:
         exit 0
 
     - name: Scan
+      id: scan
       shell: bash
       env:
         INSIDIA_POLICY: ${{ inputs.policy }}
         INSIDIA_FAIL_ON_INCONCLUSIVE: ${{ inputs.fail-on-inconclusive }}
       run: |
         set -euo pipefail
+        rm -f "$RUNNER_TEMP/insidia-scan.json"
         set +e
-        insidia --json scan --policy "$INSIDIA_POLICY" --yes > insidia-scan.json
+        insidia --json scan --policy "$INSIDIA_POLICY" --yes > "$RUNNER_TEMP/insidia-scan.json"
         code=$?
         set -e
         printf '%s\n' "insidia scan exit code: ${code}"
@@ -142,7 +144,7 @@ runs:
         exit "$code"
 
     - name: Collect scan reports
-      if: always()
+      if: steps.scan.outcome == 'success' || steps.scan.outcome == 'failure'
       id: reports
       shell: bash
       run: |
@@ -153,8 +155,8 @@ runs:
         found=false
         sarif=false
         run_dir=""
-        if [ -f insidia-scan.json ]; then
-          run_dir="$(python3 - insidia-scan.json <<'PY'
+        if [ -f "$RUNNER_TEMP/insidia-scan.json" ]; then
+          run_dir="$(python3 - "$RUNNER_TEMP/insidia-scan.json" <<'PY'
         import json
         import os
         import re
