@@ -80,31 +80,29 @@ runs:
             ;;
         esac
         uv python install 3.12
+        if [ -f core/pyproject.toml ]; then
+          checkout_version="$(
+            awk '
+              $0 == "[project]" { section = 1; next }
+              section && /^\[/ { section = 0 }
+              section && /^version = / {
+                value = $3
+                gsub("\"", "", value)
+                print value
+                exit
+              }
+            ' core/pyproject.toml
+          )"
+          if [ "$checkout_version" = "$INSIDIA_VERSION" ]; then
+            uv tool install --python 3.12 --force ./core
+            exit 0
+          fi
+        fi
         if uv tool install --python 3.12 "insidia==${INSIDIA_VERSION}"; then
           exit 0
         fi
-        printf '%s\n' "Insidia is not on PyPI. Installing core/ from the checked-out tag or SHA."
-        if [ ! -f core/pyproject.toml ]; then
-          printf '%s\n' "error: core/pyproject.toml is missing. Check out the tag or SHA for this version." >&2
-          exit 1
-        fi
-        checkout_version="$(
-          awk '
-            $0 == "[project]" { section = 1; next }
-            section && /^\[/ { section = 0 }
-            section && /^version = / {
-              value = $3
-              gsub("\"", "", value)
-              print value
-              exit
-            }
-          ' core/pyproject.toml
-        )"
-        if [ "$checkout_version" != "$INSIDIA_VERSION" ]; then
-          printf '%s\n' "error: checked-out core/pyproject.toml version does not match the version input. Check out the tag or SHA for that version." >&2
-          exit 1
-        fi
-        uv tool install --python 3.12 --force ./core
+        printf '%s\n' "error: could not install Insidia ${INSIDIA_VERSION}. Check out the tag or SHA whose core/pyproject.toml version matches, or publish that version." >&2
+        exit 1
 
     - name: Scan
       shell: bash
@@ -149,7 +147,15 @@ runs:
         found=false
         sarif=false
         if [ -d .insidia/runs ]; then
-          latest="$(find .insidia/runs -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1)"
+          latest="$(
+            find .insidia/runs -mindepth 1 -maxdepth 1 -type d -printf '%f\n' \
+              | grep -E '^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{6}$' \
+              | sort \
+              | tail -n 1
+          )"
+          if [ -n "$latest" ]; then
+            latest=".insidia/runs/$latest"
+          fi
           if [ -n "$latest" ]; then
             copied=0
             for name in results.sarif report.html findings.json; do

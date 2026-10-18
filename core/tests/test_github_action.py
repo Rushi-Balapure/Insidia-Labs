@@ -84,6 +84,22 @@ def test_policy_payload_is_only_referenced_through_the_environment() -> None:
         assert _PAYLOAD not in script
 
 
+def test_report_collection_keeps_only_scan_run_ids() -> None:
+    collect = next(step for step in _steps(_action()) if step.get("id") == "reports")
+    script = collect["run"]
+    assert r"^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{6}$" in script
+    assert "find .insidia/runs -mindepth 1 -maxdepth 1 -type d | sort | tail" not in script
+
+
+def test_matching_checkout_is_installed_before_pypi() -> None:
+    install = next(step for step in _steps(_action()) if "uv tool install" in step.get("run", ""))
+    script = install["run"]
+    checkout = script.index('"$checkout_version" = "$INSIDIA_VERSION"')
+    local = script.index("uv tool install --python 3.12 --force ./core")
+    pypi = script.index('uv tool install --python 3.12 "insidia==${INSIDIA_VERSION}"')
+    assert checkout < local < pypi
+
+
 def test_example_scans_only_the_local_fixture() -> None:
     text = _EXAMPLE.read_text()
     document = yaml.safe_load(text)

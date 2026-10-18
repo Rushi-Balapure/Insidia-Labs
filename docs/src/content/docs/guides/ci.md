@@ -47,6 +47,8 @@ permissions:
 
 `fail-on-inconclusive` controls exit code 2 only. Exit code 1 still fails the job. Exit code 0 passes. The default is `true`.
 
+When the checked-out `core/pyproject.toml` version matches `version`, the action installs that checkout. It tries PyPI only when the checkout does not match. A directory under `.insidia/runs` is uploaded only when its name is a scan run id (`YYYYMMDDTHHMMSSZ-` plus six hex digits), so a planted folder cannot sort ahead of the scan.
+
 The action reads `insidia.yaml` from the repository. It has no input for a host. `.github/workflows/insidia-scan.yml` is an example that starts a small Python server on `127.0.0.1` and scans only that fixture. It is safe to run on a pull request: it checks out the pull request commit, does not clone another repository, and does not scan a host other than `127.0.0.1`.
 
 Code scanning must be enabled for the SARIF upload to succeed. The upload uses `github/codeql-action/upload-sarif` pinned to commit `6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee` (`v4.39.0`). The artifact upload uses `actions/upload-artifact` pinned to commit `cf430e030ddbb5b0abf93d22962f4752f3646cd9` (`v7.0.2`).
@@ -76,9 +78,14 @@ permissions:
   if: always()
   run: |
     mkdir -p insidia-reports
-    latest="$(find .insidia/runs -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1)"
+    latest="$(
+      find .insidia/runs -mindepth 1 -maxdepth 1 -type d -printf '%f\n' \
+        | grep -E '^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{6}$' \
+        | sort \
+        | tail -n 1
+    )"
     if [ -n "$latest" ]; then
-      cp "$latest/results.sarif" "$latest/report.html" "$latest/findings.json" insidia-reports/
+      cp ".insidia/runs/$latest/results.sarif" ".insidia/runs/$latest/report.html" ".insidia/runs/$latest/findings.json" insidia-reports/
     fi
 
 - name: Upload SARIF
