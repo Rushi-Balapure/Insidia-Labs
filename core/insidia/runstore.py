@@ -9,10 +9,13 @@ import json
 import re
 import secrets
 import time
-from dataclasses import asdict, replace
+from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 from urllib.parse import urlparse
+
+import yaml  # type: ignore[import-untyped]
 
 from insidia import __version__, version_text
 from insidia.errors import CliError
@@ -312,6 +315,7 @@ def write_run(
     engines: tuple[str, ...] | None = None,
     judge: str = "none",
     rate_limits: tuple[tuple[str, float, int], ...] = (),
+    rerun_of: str = "",
 ) -> Path:
     runs = root / ".insidia" / "runs"
     staging = runs / f".{run_id}.partial"
@@ -322,7 +326,22 @@ def write_run(
     verdict = policy_verdict or ("pass" if passed else "fail")
     passed = legacy_passed(execution_status, verdict)
     findings = _stamp_targets(prepare_findings(findings), targets)
-    payload = [finding.as_json() for finding in findings]
+    if config_text is not None:
+        config_digest = hashlib.sha256(config_text).hexdigest()
+    baseline_id, baseline_dir = _select_baseline(
+        runs,
+        run_id,
+        config_digest,
+        frozenset(_target_names(findings, controls, targets)),
+        rerun_of,
+    )
+    tracked, fixed = _compare_findings(run_id, findings, baseline_id, baseline_dir)
+    payload = []
+    for finding, item in zip(findings, tracked, strict=True):
+        document = finding.as_json()
+        document["state"] = item.state
+        document["first_seen_run"] = item.first_seen_run
+        payload.append(document)
     (staging / "findings.json").write_text(json.dumps(payload, indent=2) + "\n")
     (staging / "findings.csv").write_text(_findings_csv(findings, run_id, targets))
     (staging / "results.sarif").write_text(json.dumps(_sarif(findings), indent=2) + "\n")
@@ -382,6 +401,11 @@ def write_run(
         rate_limits=limits,
         engines=tuple(ran),
         artefacts=tuple(artefacts.items()),
+        baseline_id=baseline_id,
+        fixed=fixed,
+        new_count=sum(1 for item in tracked if item.state == "new"),
+        still_open_count=sum(1 for item in tracked if item.state == "still_open"),
+        fixed_count=len(fixed),
     )
     (staging / "report.html").write_text(html)
     artefacts["report.html"] = hashlib.sha256((staging / "report.html").read_bytes()).hexdigest()
@@ -404,9 +428,187 @@ def write_run(
         "skips": skips,
         "files": artefacts,
     }
+    if rerun_of:
+        manifest["rerun_of"] = rerun_of
     (staging / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     staging.rename(directory)
     return directory
+
+
+@dataclass(frozen=True)
+class _Tracked:
+    state: str
+    first_seen_run: str
+
+
+@dataclass(frozen=True)
+class _FixedFinding:
+    title: str
+    target: str
+    evidence_hash: str
+
+
+def _select_baseline(
+    runs: Path,
+    run_id: str,
+    config_digest: str,
+    target_names: frozenset[str],
+    rerun_of: str,
+) -> tuple[str, Path | None]:
+    """The run this one is compared with, and its directory when that directory is readable."""
+    if rerun_of:
+        return rerun_of, _contained_child(runs, rerun_of)
+    earlier = _earlier_run_dirs(runs, run_id)
+    for path in earlier:
+        manifest = _loose_object(path / "manifest.json")
+        digest = manifest.get("config_digest") if manifest is not None else None
+        if isinstance(digest, str) and digest == config_digest:
+            return path.name, path
+    for path in earlier:
+        if _stored_target_names(path) == target_names:
+            return path.name, path
+    return "", None
+
+
+def _compare_findings(
+    run_id: str,
+    findings: list[Finding],
+    baseline_id: str,
+    baseline_dir: Path | None,
+) -> tuple[tuple[_Tracked, ...], tuple[_FixedFinding, ...]]:
+    """Mark each current finding new or still open, and list baseline hashes that are gone."""
+    if not baseline_id:
+        return tuple(_Tracked("new", run_id) for _finding in findings), ()
+    previous = _object_list(baseline_dir / "findings.json") if baseline_dir is not None else []
+    origin: dict[str, str] = {}
+    for item in previous:
+        digest = item.get("evidence_hash")
+        if not isinstance(digest, str) or digest in origin:
+            continue
+        first = item.get("first_seen_run")
+        origin[digest] = first if isinstance(first, str) and first else baseline_id
+    current = {finding.evidence_hash for finding in findings}
+    fixed: list[_FixedFinding] = []
+    for item in previous:
+        digest = item.get("evidence_hash")
+        if not isinstance(digest, str) or digest in current:
+            continue
+        title = item.get("title")
+        target = item.get("target")
+        fixed.append(
+            _FixedFinding(
+                title if isinstance(title, str) else "",
+                target if isinstance(target, str) else "",
+                digest,
+            )
+        )
+    tracked = tuple(
+        _Tracked("still_open", origin[finding.evidence_hash])
+        if finding.evidence_hash in origin
+        else _Tracked("new", run_id)
+        for finding in findings
+    )
+    return tracked, tuple(fixed)
+
+
+def _earlier_run_dirs(runs: Path, run_id: str) -> list[Path]:
+    """Finalized runs whose ids sort before this one. Names starting with '.' are skipped."""
+    if runs.is_symlink() or not runs.is_dir():
+        return []
+    found: list[Path] = []
+    try:
+        children = list(runs.iterdir())
+    except OSError:
+        return []
+    for path in children:
+        name = path.name
+        if name.startswith(".") or name >= run_id:
+            continue
+        if path.is_symlink() or not path.is_dir() or not _stays_inside(runs, path):
+            continue
+        found.append(path)
+    found.sort(key=lambda item: item.name, reverse=True)
+    return found
+
+
+def _contained_child(runs: Path, name: str) -> Path | None:
+    if not name or name.startswith(".") or "/" in name or "\\" in name:
+        return None
+    if runs.is_symlink() or not runs.is_dir():
+        return None
+    path = runs / name
+    if path.is_symlink() or not path.is_dir() or not _stays_inside(runs, path):
+        return None
+    return path
+
+
+def _stays_inside(root: Path, path: Path) -> bool:
+    try:
+        resolved = path.resolve()
+        parent = root.resolve()
+    except OSError:
+        return False
+    return parent == resolved or parent in resolved.parents
+
+
+def _stored_target_names(directory: Path) -> frozenset[str]:
+    names: list[str] = []
+    snapshot = _yaml_target_names(directory)
+    if snapshot is not None:
+        names.extend(snapshot)
+    benchmark = _loose_object(directory / "benchmark.json")
+    controls = benchmark.get("controls") if benchmark is not None else None
+    if isinstance(controls, list):
+        for item in controls:
+            if not isinstance(item, dict):
+                continue
+            target = item.get("target")
+            if isinstance(target, str) and target and target not in names:
+                names.append(target)
+    for item in _object_list(directory / "findings.json"):
+        target = item.get("target")
+        if isinstance(target, str) and target and target not in names:
+            names.append(target)
+    return frozenset(names)
+
+
+def _yaml_target_names(directory: Path) -> tuple[str, ...] | None:
+    path = directory / "insidia.yaml"
+    if path.is_symlink() or not path.is_file():
+        return None
+    try:
+        loaded = yaml.safe_load(path.read_text())
+    except (OSError, UnicodeError, yaml.YAMLError):
+        return None
+    if not isinstance(loaded, dict):
+        return None
+    targets = loaded.get("targets")
+    if not isinstance(targets, dict):
+        return ()
+    return tuple(key for key in targets if isinstance(key, str) and key)
+
+
+def _loose_object(path: Path) -> dict[str, object] | None:
+    loaded = _loose_json(path)
+    if not isinstance(loaded, dict):
+        return None
+    return cast(dict[str, object], loaded)
+
+
+def _object_list(path: Path) -> list[dict[str, object]]:
+    loaded = _loose_json(path)
+    if not isinstance(loaded, list):
+        return []
+    return [cast(dict[str, object], item) for item in loaded if isinstance(item, dict)]
+
+
+def _loose_json(path: Path) -> object | None:
+    if path.is_symlink() or not path.is_file():
+        return None
+    try:
+        return cast(object, json.loads(path.read_text()))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None
 
 
 _CSV_COLUMNS = (
@@ -678,6 +880,11 @@ def _render(
     rate_limits: list[dict[str, object]],
     engines: tuple[str, ...],
     artefacts: tuple[tuple[str, str], ...],
+    baseline_id: str = "",
+    fixed: tuple[_FixedFinding, ...] = (),
+    new_count: int = 0,
+    still_open_count: int = 0,
+    fixed_count: int = 0,
 ) -> str:
     names = _target_names(findings, controls, targets)
     title = "Security scan report"
@@ -692,6 +899,10 @@ def _render(
         targets=targets,
         execution_status=execution_status,
         verdict=verdict,
+        baseline_id=baseline_id,
+        new_count=new_count,
+        still_open_count=still_open_count,
+        fixed_count=fixed_count,
     )
     tiles = _tiles(findings)
     nav = (
@@ -731,6 +942,7 @@ def _render(
         _targets_table(findings, controls, targets),
         '<h2 id="findings">Findings by severity</h2>',
         _finding_cards(findings, run_id, names),
+        _fixed_section(baseline_id, fixed),
         '<h2 id="remediation">Remediation summary</h2>',
         _remediation_table(findings),
         '<h2 id="coverage">Coverage by target</h2>',
@@ -781,7 +993,7 @@ def _render(
         "</body>",
         "</html>",
     ]
-    return "\n".join(parts) + "\n"
+    return "\n".join(part for part in parts if part) + "\n"
 
 
 def _target_names(
@@ -812,6 +1024,10 @@ def _executive_summary(
     targets: tuple[tuple[str, str, str], ...],
     execution_status: str,
     verdict: str,
+    baseline_id: str = "",
+    new_count: int = 0,
+    still_open_count: int = 0,
+    fixed_count: int = 0,
 ) -> str:
     """Fail, pass, and incomplete summaries share one shape and one ending."""
 
@@ -871,8 +1087,29 @@ def _executive_summary(
     if execution_status != "complete":
         sentences.append(f"Results below cover {tested} checks only.")
         sentences.append(f"Re-run with `insidia rerun {run_id}`.")
+    if baseline_id:
+        shown = mask(baseline_id)
+        sentences.append(
+            f"{new_count} new, {still_open_count} still open, and {fixed_count} fixed "
+            f"since {shown}."
+        )
     sentences.append("This report is test evidence, not a certification.")
     return " ".join(sentences)
+
+
+def _fixed_section(baseline_id: str, fixed: tuple[_FixedFinding, ...]) -> str:
+    """Baseline findings whose evidence hash is absent. Evidence text is not printed."""
+    if not baseline_id:
+        return ""
+    rows = []
+    for item in fixed:
+        title = _escape(mask(item.title))
+        target = _escape(mask(item.target))
+        fingerprint = _escape(mask(item.evidence_hash))
+        rows.append(f"<li>{title} · {target} · <code>{fingerprint}</code></li>")
+    body = "<ul>" + "".join(rows) + "</ul>"
+    heading = _escape(mask(baseline_id))
+    return f'<h2 id="fixed">Fixed since {heading}</h2>\n{body}'
 
 
 def _tiles(findings: list[Finding]) -> str:

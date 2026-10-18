@@ -71,6 +71,7 @@ def execute(
     coverage: str | None = None,
     assume_yes: bool = False,
     progress: Callable[[Event], None] | None = None,
+    rerun_of: str = "",
 ) -> ScanOutcome:
     blocked = unauthorized_host(project.scope)
     if blocked is not None:
@@ -125,6 +126,7 @@ def execute(
             progress,
             snapshot,
             started,
+            rerun_of,
         )
     finally:
         reset_budget(token)
@@ -143,6 +145,7 @@ def _run_targets(
     progress: Callable[[Event], None] | None,
     config_text: bytes,
     started_epoch: float,
+    rerun_of: str = "",
 ) -> ScanOutcome:
     notes: list[str] = []
     try:
@@ -177,6 +180,7 @@ def _run_targets(
         config_text,
         notes,
         started_epoch,
+        rerun_of,
     )
 
 
@@ -394,6 +398,7 @@ def _finish(
     config_text: bytes,
     notes: list[str],
     started_epoch: float,
+    rerun_of: str = "",
 ) -> ScanOutcome:
     execution_status, policy_verdict = aggregate(records)
     findings = normalize(hits)
@@ -418,6 +423,7 @@ def _finish(
         engines=_engines_that_ran(records, findings),
         judge=_judge_name(project),
         rate_limits=_rate_limits(project),
+        rerun_of=rerun_of,
     )
     return ScanOutcome(
         run_id,

@@ -250,6 +250,14 @@ targets:
     assert seen
     assert all(item.startswith("chat ") for item in seen)
     assert all("example.com" not in item for item in seen)
+    assert "rerun_of" not in manifest
+    rerun_dirs = [
+        path for path in (tmp_path / ".insidia" / "runs").iterdir() if path != run_dir
+    ]
+    assert len(rerun_dirs) == 1
+    rerun_manifest = read_manifest(rerun_dirs[0])
+    assert rerun_manifest is not None
+    assert rerun_manifest["rerun_of"] == run_dir.name
 
 
 def test_rerun_yes_does_not_approve_a_new_non_local_host(

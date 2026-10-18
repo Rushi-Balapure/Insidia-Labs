@@ -351,7 +351,9 @@ def _run(args: argparse.Namespace) -> int:
     raise CliError(f"unknown command {args.command}")
 
 
-def _finish_scan(args: argparse.Namespace, project: Project, root: Path) -> int:
+def _finish_scan(
+    args: argparse.Namespace, project: Project, root: Path, rerun_of: str = ""
+) -> int:
     terminal = _terminal(args)
     view = ScanView(terminal)
     outcome = execute(
@@ -361,6 +363,7 @@ def _finish_scan(args: argparse.Namespace, project: Project, root: Path) -> int:
         coverage=args.coverage,
         assume_yes=args.yes,
         progress=view,
+        rerun_of=rerun_of,
     )
     terminal.line(terminal.dim(view.totals()))
     report_path = outcome.run_dir / "report.html"
@@ -430,7 +433,11 @@ def _rerun(args: argparse.Namespace) -> int:
         raise CliError(f"run {directory.name} does not record its coverage")
     args.policy = "L1"
     args.coverage = coverage
-    return _finish_scan(args, project, Path(args.config).resolve().parent)
+    recorded = manifest.get("run_id")
+    source = recorded if isinstance(recorded, str) and recorded else directory.name
+    return _finish_scan(
+        args, project, Path(args.config).resolve().parent, rerun_of=source
+    )
 
 
 def _run_dir(run_id: str | None, config: str) -> Path:

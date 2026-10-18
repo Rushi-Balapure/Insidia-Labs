@@ -6,7 +6,13 @@ import pytest
 from insidia.findings import Finding, Observation
 from insidia.mask import mask
 from insidia.policy import MARKDOWN_BEACON, get_policy
-from insidia.runstore import _PLUGIN_OUTPUT_CAP, _format_epoch, local_time, write_run
+from insidia.runstore import (
+    _PLUGIN_OUTPUT_CAP,
+    _format_epoch,
+    local_time,
+    read_manifest,
+    write_run,
+)
 from insidia.score import coverage, score_frameworks
 
 _SECRET = "AKIAIOSFODNN7EXAMPLE"
@@ -1143,6 +1149,243 @@ _LIVE_LLM = {
     "09": "https://genai.owasp.org/llmrisk/llm092025-misinformation/",
     "10": "https://genai.owasp.org/llmrisk/llm102025-unbounded-consumption/",
 }
+
+
+_CSV_HEADER = [
+    "check_id",
+    "title",
+    "severity",
+    "risk_score",
+    "target",
+    "target_kind",
+    "endpoint",
+    "cve",
+    "taxonomy",
+    "synopsis",
+    "solution",
+    "evidence",
+    "evidence_hash",
+    "engines",
+    "run_id",
+]
+
+
+def test_rerun_records_provenance_and_finding_state(tmp_path: Path) -> None:
+    import csv
+    import io
+
+    token = "ghp_" + ("c" * 36)
+    masked = mask(f"saw {token} in the reply")
+    kept = _bare(title="Kept finding", evidence_hash="hash-kept", response="kept reply")
+    dropped = _bare(
+        title="Dropped finding",
+        evidence_hash="hash-dropped",
+        response=masked,
+        observations=(
+            Observation("insidia", "insidia.web.ssti", "high", "/ping", masked),
+        ),
+    )
+    fresh = _bare(title="New finding", evidence_hash="hash-new", response="new reply")
+    run_a = "20261018T000000Z-aaaaaa"
+    run_b = "20261018T000001Z-bbbbbb"
+    directory_a = write_run(tmp_path, run_a, "L1", False, [kept, dropped], [], [])
+    manifest_a = read_manifest(directory_a)
+    assert manifest_a is not None
+    assert "rerun_of" not in manifest_a
+    stored = json.loads((directory_a / "findings.json").read_text())
+    dropped_stored = next(item for item in stored if item["evidence_hash"] == "hash-dropped")
+    assert token not in json.dumps(dropped_stored)
+    assert all(item["state"] == "new" and item["first_seen_run"] == run_a for item in stored)
+    assert "Fixed since" not in (directory_a / "report.html").read_text()
+
+    directory_b = write_run(
+        tmp_path,
+        run_b,
+        "L1",
+        False,
+        [kept, fresh],
+        [],
+        [],
+        rerun_of=run_a,
+    )
+    manifest_b = read_manifest(directory_b)
+    assert manifest_b is not None
+    assert manifest_b["rerun_of"] == run_a
+    payload = json.loads((directory_b / "findings.json").read_text())
+    by_hash = {item["evidence_hash"]: item for item in payload}
+    assert by_hash["hash-kept"]["state"] == "still_open"
+    assert by_hash["hash-kept"]["first_seen_run"] == run_a
+    assert by_hash["hash-new"]["state"] == "new"
+    assert by_hash["hash-new"]["first_seen_run"] == run_b
+    html = (directory_b / "report.html").read_text()
+    assert f"Fixed since {run_a}" in html
+    assert "Dropped finding" in html
+    assert "hash-dropped" in html
+    assert token not in html
+    assert "ghp_" not in html
+    summary = _summary_paragraph(html)
+    assert f"1 new, 1 still open, and 1 fixed since {run_a}." in summary
+    assert summary.endswith("This report is test evidence, not a certification.")
+    header = next(csv.reader(io.StringIO((directory_b / "findings.csv").read_text())))
+    assert header == _CSV_HEADER
+    assert "state" not in header
+    sarif = json.loads((directory_b / "results.sarif").read_text())
+    result = sarif["runs"][0]["results"][0]
+    assert "state" not in result
+    assert "state" not in result["properties"]
+
+    run_c = "20261018T000002Z-cccccc"
+    directory_c = write_run(
+        tmp_path, run_c, "L1", False, [kept], [], [], rerun_of=run_b
+    )
+    later = json.loads((directory_c / "findings.json").read_text())
+    assert later[0]["evidence_hash"] == "hash-kept"
+    assert later[0]["state"] == "still_open"
+    assert later[0]["first_seen_run"] == run_a
+
+
+def test_baseline_uses_digest_then_target_names_and_skips_dot_dirs(tmp_path: Path) -> None:
+    root = tmp_path / "digest"
+    kept = _bare(title="Kept finding", evidence_hash="hash-kept")
+    other = _bare(title="Other finding", evidence_hash="hash-other", target="shop")
+    digest = "ab" * 32
+    other_digest = "cd" * 32
+    older = "20261018T000000Z-older1"
+    middle = "20261018T000001Z-middle"
+    current = "20261018T000002Z-curr01"
+    write_run(
+        root,
+        older,
+        "L1",
+        False,
+        [kept, other],
+        [],
+        [],
+        config_digest=digest,
+        targets=(("shop", "web", "http://127.0.0.1/"),),
+    )
+    write_run(
+        root,
+        middle,
+        "L1",
+        False,
+        [other],
+        [],
+        [],
+        config_digest=other_digest,
+        targets=(("shop", "web", "http://127.0.0.1/"),),
+    )
+    hidden = root / ".insidia" / "runs" / ".hidden"
+    hidden.mkdir()
+    (hidden / "manifest.json").write_text(json.dumps({"config_digest": digest}))
+    (hidden / "findings.json").write_text(
+        json.dumps([{"title": "Hidden finding", "target": "shop", "evidence_hash": "hash-hidden"}])
+    )
+    directory = write_run(
+        root,
+        current,
+        "L1",
+        False,
+        [kept],
+        [],
+        [],
+        config_digest=digest,
+        targets=(("shop", "web", "http://127.0.0.1/"),),
+    )
+    payload = json.loads((directory / "findings.json").read_text())
+    assert payload[0]["state"] == "still_open"
+    assert payload[0]["first_seen_run"] == older
+    html = (directory / "report.html").read_text()
+    assert f"Fixed since {older}" in html
+    assert "Other finding" in html
+    assert "Hidden finding" not in html
+    assert "rerun_of" not in json.loads((directory / "manifest.json").read_text())
+
+    names = tmp_path / "names"
+    write_run(names, ".hidden", "L1", False, [kept], [], [], config_digest=digest)
+    named = write_run(
+        names,
+        "20261018T000003Z-named1",
+        "L1",
+        False,
+        [other],
+        [],
+        [],
+        config_digest="ef" * 32,
+        targets=(("shop", "web", "http://127.0.0.1/"),),
+    )
+    followed = write_run(
+        names,
+        "20261018T000004Z-named2",
+        "L1",
+        False,
+        [other],
+        [],
+        [],
+        config_digest="12" * 32,
+        targets=(("shop", "web", "http://127.0.0.1/"),),
+    )
+    followed_payload = json.loads((followed / "findings.json").read_text())
+    assert followed_payload[0]["state"] == "still_open"
+    assert followed_payload[0]["first_seen_run"] == named.name
+    assert "Fixed since .hidden" not in (followed / "report.html").read_text()
+    lone = write_run(tmp_path / "lone", "run-b", "L1", False, [kept], [], [])
+    assert "Fixed since" not in (lone / "report.html").read_text()
+    # A dot-named run is not a baseline for a later run that shares its digest.
+    dots = tmp_path / "dots"
+    write_run(dots, ".hidden", "L1", False, [kept], [], [], config_digest=digest)
+    dotted = write_run(
+        dots,
+        "run-c",
+        "L1",
+        False,
+        [kept],
+        [],
+        [],
+        config_digest=digest,
+    )
+    dotted_payload = json.loads((dotted / "findings.json").read_text())
+    assert dotted_payload[0]["state"] == "new"
+    assert dotted_payload[0]["first_seen_run"] == "run-c"
+    assert "Fixed since" not in (dotted / "report.html").read_text()
+
+
+def test_still_open_without_first_seen_uses_the_baseline_run(tmp_path: Path) -> None:
+    token = "ghp_" + ("d" * 36)
+    legacy = tmp_path / ".insidia" / "runs" / "legacy-run"
+    legacy.mkdir(parents=True)
+    (legacy / "findings.json").write_text(
+        json.dumps(
+            [
+                {"title": "Old finding", "target": "shop", "evidence_hash": "hash-kept"},
+                {
+                    "title": f"Gone {token}",
+                    "target": "shop",
+                    "evidence_hash": "hash-dropped",
+                    "evidence": f"raw evidence {token}",
+                },
+            ]
+        )
+        + "\n"
+    )
+    directory = write_run(
+        tmp_path,
+        "run-b",
+        "L1",
+        False,
+        [_bare(title="Old finding", evidence_hash="hash-kept")],
+        [],
+        [],
+        rerun_of="legacy-run",
+    )
+    payload = json.loads((directory / "findings.json").read_text())
+    assert payload[0]["state"] == "still_open"
+    assert payload[0]["first_seen_run"] == "legacy-run"
+    html = (directory / "report.html").read_text()
+    assert "Fixed since legacy-run" in html
+    assert token not in html
+    assert "raw evidence" not in html
+    assert mask(f"Gone {token}") in html
 
 
 def test_owasp_llm_references_use_a_live_page_or_the_index() -> None:
