@@ -2,7 +2,7 @@
 
 TC-F1-P1, TC-F1-P2, TC-F1-P6, and TC-F1-N7 need a real GitHub Actions run
 and are not executed here. TC-F1-N4 and the SARIF shape check are local
-proxies, not those Actions runs.
+proxies, not those Actions runs. TC-F1-N11 is the open #66 residual.
 
 Set TC_F1_ROOT to point the file checks at a copy of the tree.
 """
@@ -23,7 +23,7 @@ from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 from urllib.parse import parse_qs, urlparse
 
 import pytest
@@ -1044,6 +1044,304 @@ def test_tc_f1_n10_unsafe_run_dir_is_not_copied(tmp_path: Path, case: str) -> No
         assert parsed["sarif"] == "false", output
         assert parsed["found"] == "false", output
     _assert_nothing_fetched(root / "empty")
+
+
+_N11_REASON = (
+    "open #66 residual: Collect runs after failed Install and uploads planted insidia-scan.json"
+)
+_RUN_ID = re.compile(r"^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{6}$")
+_STEP_REF = re.compile(
+    r"^steps\.([A-Za-z_][A-Za-z0-9_-]*)"
+    r"\.(outcome|conclusion|outputs\.([A-Za-z_][A-Za-z0-9_-]*))"
+    r"\s*(==|!=)\s*"
+    r"(?:'([^']*)'|\"([^\"]*)\"|(true|false))$"
+)
+
+
+class _StepDecision(NamedTuple):
+    role: str
+    name: str
+    step_id: str
+    condition: str
+    would_run: bool
+    parsed: bool
+    outcome: str
+
+
+def _condition_text(step: Mapping[str, Any]) -> str:
+    raw = step.get("if")
+    if raw is None:
+        return "success()"
+    return str(raw).strip()
+
+
+def _split_top_level(expr: str, operator: str) -> list[str]:
+    parts: list[str] = []
+    start = 0
+    depth = 0
+    quote = ""
+    index = 0
+    while index < len(expr):
+        char = expr[index]
+        if quote:
+            if char == quote:
+                quote = ""
+            index += 1
+            continue
+        if char in {"'", '"'}:
+            quote = char
+            index += 1
+            continue
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth = max(depth - 1, 0)
+        elif depth == 0 and expr.startswith(operator, index):
+            parts.append(expr[start:index].strip())
+            index += len(operator)
+            start = index
+            continue
+        index += 1
+    parts.append(expr[start:].strip())
+    return parts
+
+
+def _unwrap_if(expr: str) -> str:
+    text = expr.strip()
+    if text.startswith("${{") and text.endswith("}}"):
+        return text[3:-2].strip()
+    return text
+
+
+def _matching_parens(atom: str) -> str | None:
+    if not (atom.startswith("(") and atom.endswith(")")):
+        return None
+    depth = 0
+    for index, char in enumerate(atom):
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0 and index != len(atom) - 1:
+                return None
+    if depth != 0:
+        return None
+    return atom[1:-1].strip()
+
+
+def _eval_if(
+    expr: str,
+    *,
+    failed: bool,
+    outcomes: Mapping[str, str],
+    outputs: Mapping[str, Mapping[str, str]],
+) -> tuple[bool, bool]:
+    """Return (would_run, fully_parsed). An unknown atom might run."""
+    text = _unwrap_if(expr)
+    disjunction = _split_top_level(text, "||")
+    if len(disjunction) > 1:
+        parts = [
+            _eval_if(part, failed=failed, outcomes=outcomes, outputs=outputs)
+            for part in disjunction
+        ]
+        return any(value for value, _parsed in parts), all(parsed for _value, parsed in parts)
+    conjunction = _split_top_level(text, "&&")
+    if len(conjunction) > 1:
+        parts = [
+            _eval_if(part, failed=failed, outcomes=outcomes, outputs=outputs)
+            for part in conjunction
+        ]
+        return all(value for value, _parsed in parts), all(parsed for _value, parsed in parts)
+    atom = text.strip()
+    inner = _matching_parens(atom)
+    if inner is not None:
+        return _eval_if(inner, failed=failed, outcomes=outcomes, outputs=outputs)
+    if atom == "success()":
+        return (not failed), True
+    if atom == "failure()":
+        return failed, True
+    if atom == "always()":
+        return True, True
+    if atom == "cancelled()":
+        return False, True
+    match = _STEP_REF.fullmatch(atom)
+    if match is None:
+        return True, False
+    step_id = match.group(1)
+    kind = match.group(2)
+    output_name = match.group(3)
+    operator = match.group(4)
+    expected = next(
+        (group for group in (match.group(5), match.group(6), match.group(7)) if group is not None),
+        None,
+    )
+    if expected is None:
+        return True, False
+    if kind == "outcome" or kind == "conclusion":
+        actual = outcomes.get(step_id, "")
+    else:
+        actual = outputs.get(step_id, {}).get(output_name or "", "")
+    same = actual == expected
+    return (same if operator == "==" else not same), True
+
+
+def _install_step(document: dict[str, Any]) -> dict[str, Any]:
+    for step in _steps(document):
+        if step.get("name") == "Install Insidia":
+            return step
+    raise AssertionError("action has no Install Insidia step")
+
+
+def _is_upload_step(step: Mapping[str, Any]) -> bool:
+    uses = step.get("uses", "")
+    if isinstance(uses, str) and ("upload-sarif" in uses or "upload-artifact" in uses):
+        return True
+    return str(step.get("name", "")).startswith("Upload")
+
+
+def _prepare_planted_collect_root(root: Path) -> Path:
+    """Workspace with only the committed planted scan, as after a failed Install."""
+    ws = root / "ws"
+    _fill_reports(ws / ".insidia" / "runs" / _PLANTED_RUN, _PLANTED_MARKER)
+    (ws / "insidia-scan.json").write_text(
+        json.dumps({"run_dir": f".insidia/runs/{_PLANTED_RUN}"}) + "\n"
+    )
+    script = str(_collect_step(_action())["run"])
+    if not script.endswith("\n"):
+        script += "\n"
+    (root / "collect.sh").write_text(script)
+    (root / "out.txt").write_text("")
+    return ws
+
+
+def _assert_planted_scan_is_valid(ws: Path) -> None:
+    """The planted insidia-scan.json is valid. A pass must not depend on rejecting it."""
+    document = json.loads((ws / "insidia-scan.json").read_text())
+    run_dir = document.get("run_dir") if isinstance(document, dict) else None
+    expected = f".insidia/runs/{_PLANTED_RUN}"
+    if run_dir != expected or _RUN_ID.fullmatch(_PLANTED_RUN) is None:
+        raise AssertionError(f"planted run_dir is not a valid in-workspace run id: {run_dir!r}")
+    folder = (ws / run_dir).resolve()
+    workspace = ws.resolve()
+    if folder.parts[-3:] != (".insidia", "runs", _PLANTED_RUN):
+        raise AssertionError(f"planted folder is not .insidia/runs/{_PLANTED_RUN}")
+    if workspace not in folder.parents or folder.is_symlink() or not folder.is_dir():
+        raise AssertionError("planted folder is not a real directory inside the workspace")
+    for name in _REPORT_NAMES:
+        path = folder / name
+        if not path.is_file() or path.is_symlink() or path.read_text() != f"{_PLANTED_MARKER}\n":
+            raise AssertionError(f"planted {name} is not a regular file containing PLANTED")
+    if (ws / ".insidia" / "runs" / _REAL_RUN).exists():
+        raise AssertionError("a real scan run exists; the scan step did not run")
+
+
+def _simulate_failed_install(
+    document: dict[str, Any], harness_outputs: Mapping[str, str], collected_ok: bool
+) -> list[_StepDecision]:
+    """Walk action.yml after Install Insidia has failed. Scan did not run."""
+    install = _install_step(document)
+    collect = _collect_step(document)
+    scan = _scan_step(document)
+    failed = False
+    outcomes: dict[str, str] = {}
+    outputs: dict[str, dict[str, str]] = {}
+    decisions: list[_StepDecision] = []
+    for step in _steps(document):
+        condition = _condition_text(step)
+        would_run, parsed = _eval_if(
+            condition, failed=failed, outcomes=outcomes, outputs=outputs
+        )
+        step_id = step.get("id")
+        step_key = step_id if isinstance(step_id, str) else ""
+        if step is install:
+            if not would_run:
+                raise AssertionError("Install Insidia would not run, so it cannot fail")
+            outcome = "failure"
+            failed = True
+            role = "install"
+        elif not would_run:
+            outcome = "skipped"
+            role = "scan" if step is scan else "collect" if step is collect else "other"
+            if _is_upload_step(step):
+                role = "upload"
+        elif step is collect:
+            outcome = "success" if collected_ok else "failure"
+            if step_key:
+                outputs[step_key] = dict(harness_outputs)
+            if outcome == "failure":
+                failed = True
+            role = "collect"
+        else:
+            outcome = "success"
+            role = "scan" if step is scan else "upload" if _is_upload_step(step) else "other"
+        if step_key:
+            outcomes[step_key] = outcome
+        decisions.append(
+            _StepDecision(
+                role,
+                str(step.get("name", "")),
+                step_key,
+                condition,
+                would_run,
+                parsed,
+                outcome,
+            )
+        )
+    return decisions
+
+
+@pytest.mark.xfail(strict=True, raises=AssertionError, reason=_N11_REASON)
+def test_tc_f1_n11_failed_install_does_not_upload_planted_scan_json(tmp_path: Path) -> None:
+    """TC-F1-N11. A failed Install must not upload a planted insidia-scan.json.
+
+    The planted file points at .insidia/runs/99991231T235959Z-ffffff and is
+    valid. No scan step ran. Collect and the upload steps must not publish it.
+    """
+    bash = _require_bash()
+    document = _action()
+    root = tmp_path / "harness"
+    ws = _prepare_planted_collect_root(root)
+    _assert_planted_scan_is_valid(ws)
+    result = _run_collect_harness(bash, root)
+    blob = _blob(result)
+    collected = _collected_text(ws)
+    output = (root / "out.txt").read_text()
+    parsed = _output_map(output)
+    _assert_output_keys(parsed, blob)
+    decisions = _simulate_failed_install(document, parsed, result.returncode == 0)
+    collect = next(item for item in decisions if item.role == "collect")
+    uploads = [item for item in decisions if item.role == "upload"]
+    reports = _report_files(ws)
+    planted_copied = _PLANTED_MARKER in collected or _PLANTED_MARKER in output
+    dynamic_clean = (
+        not reports
+        and parsed["sarif"] == "false"
+        and parsed["found"] == "false"
+        and not planted_copied
+    )
+    uploads_run = [item for item in uploads if item.would_run]
+    structural = not collect.would_run and not uploads_run
+    _assert_nothing_fetched(root / "empty")
+    if structural or dynamic_clean:
+        return
+    lines = [
+        "Install Insidia failed and the scan step did not run.",
+        "The planted insidia-scan.json is valid by construction.",
+    ]
+    for item in decisions:
+        if item.role == "other":
+            continue
+        lines.append(
+            f"{item.role} {item.name!r} id={item.step_id!r} if={item.condition!r} "
+            f"would_run={item.would_run} parsed={item.parsed} outcome={item.outcome}"
+        )
+    if planted_copied or reports:
+        lines.append("planted files were copied")
+    if uploads_run:
+        names = ", ".join(item.name for item in uploads_run)
+        lines.append(f"upload step would run: {names}")
+    lines.extend((f"insidia-reports: {collected!r}", f"out.txt: {output!r}", blob))
+    raise AssertionError("\n".join(lines))
 
 
 def test_tc_f1_n3_uses_are_pinned_and_scan_workflow_permissions_are_minimal() -> None:
