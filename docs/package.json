@@ -10,5 +10,9 @@
   "dependencies": {
     "@astrojs/starlight": "^0.35.2",
     "astro": "^5.13.2"
+  },
+  "allowScripts": {
+    "esbuild": true,
+    "sharp": true
   }
 }

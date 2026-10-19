@@ -12,6 +12,8 @@ import VideoModal from "../components/VideoModal.tsx";
 import { changelog } from "../content/changelog";
 import { engineBrands, stackBrands } from "../content/brands";
 import { filmVideo, howtoVideo } from "../lib/video";
+import PageAnalytics from "../components/PageAnalytics.astro";
+import { TRACKED_PATHS } from "../lib/analytics";
 import { docsQuickstart, docsTests } from "../lib/paths";
 
 const description = "Test your AI app and the API behind it. Review findings, trace the evidence, and check your fixes before you ship.";
@@ -212,4 +214,5 @@ const retrieval = `def build_prompt(question, docs):
     </section>
   </main>
   <Footer />
+  <PageAnalytics path={TRACKED_PATHS.site} />
 </Base>
