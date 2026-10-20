@@ -1,4 +1,4 @@
-import { useId, useState, type KeyboardEvent } from "react";
+import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { installCommands, type Installer } from "../content/install";
 
 const order: Installer[] = ["uv", "pipx"];
@@ -6,8 +6,25 @@ const order: Installer[] = ["uv", "pipx"];
 export default function InstallLine() {
   const [which, setWhich] = useState<Installer>("uv");
   const [copied, setCopied] = useState(false);
+  const [slider, setSlider] = useState<{ x: number; w: number } | null>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
   const base = useId();
   const command = installCommands[which];
+
+  useLayoutEffect(() => {
+    const list = tabsRef.current;
+    if (!list) return;
+    const measure = () => {
+      const active = list.querySelector<HTMLElement>('[aria-selected="true"]');
+      if (!active) return;
+      const next = { x: active.offsetLeft, w: active.offsetWidth };
+      setSlider((current) => (current && current.x === next.x && current.w === next.w ? current : next));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [which]);
 
   async function copy() {
     let copiedOk = false;
@@ -42,7 +59,10 @@ export default function InstallLine() {
 
   return (
     <div className="install">
-      <div className="seg" role="tablist" aria-label="Install command" onKeyDown={onTabsKey}>
+      <div className={slider ? "seg has-slider" : "seg"} role="tablist" aria-label="Install command" onKeyDown={onTabsKey} ref={tabsRef}>
+        {slider ? (
+          <span className="seg-slider" aria-hidden="true" style={{ width: slider.w, transform: `translateX(${slider.x}px)` }} />
+        ) : null}
         {order.map((name) => (
           <button
             key={name}
@@ -63,9 +83,16 @@ export default function InstallLine() {
         ))}
       </div>
       <div className="install-row" id={`${base}-command`} role="tabpanel" aria-labelledby={`${base}-${which}`}>
-        <pre className="install-box" tabIndex={0}>
-          <code>{command}</code>
-        </pre>
+        <div className="install-swap">
+          {order.map((name) => {
+            const shown = which === name;
+            return (
+              <pre key={name} className={shown ? "install-box is-shown" : "install-box"} aria-hidden={shown ? undefined : true} inert={shown ? undefined : true} tabIndex={shown ? 0 : -1}>
+                <code>{installCommands[name]}</code>
+              </pre>
+            );
+          })}
+        </div>
         <button className="btn" type="button" onClick={copy}>
           {copied ? "Copied" : "Copy"}
         </button>

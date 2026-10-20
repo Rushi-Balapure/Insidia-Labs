@@ -125,6 +125,27 @@ Check the project's **Analytics** tab with the production environment selected
 and a date range including today. If the script returns 404, enable Web
 Analytics and redeploy; see [Vercel's troubleshooting guide](https://vercel.com/docs/analytics/troubleshooting).
 
+## Homepage components
+
+The homepage uses local Astro components for the terminal, the three scan
+steps, copy controls, and the FAQ accordion. Its visual patterns draw on
+[Magic UI Terminal](https://magicui.design/docs/components/terminal) and
+[React Bits Logo Loop](https://reactbits.dev/animations/logo-loop), adapted to
+the existing site without adding component-library dependencies.
+
+`src/content/terminal-run.json` contains a sanitized summary and selected rows
+from a CLI scan recorded on 2026-10-20 at commit `c07405f`. The target was an
+intentionally vulnerable arithmetic renderer bound to localhost. The scan
+found `insidia.web.ssti`, exited 1, and reported five checks as not tested.
+The terminal labels it as a fixture recording; it is not a live scan or a
+claim of accuracy on independent apps. No raw prompts, credentials, or finding
+evidence are included. Preserve that provenance when updating the recording.
+
+The terminal animation runs once and can be replayed. The scan steps sit side
+by side: the first command types to completion, then the second, then the
+third. Logo motion can be paused and stops when reduced motion is requested;
+the terminal and the step commands then show their complete text immediately.
+
 ## Video assets
 
 `public/video/` is versioned so CI and Vercel receive the MP4/WebM files,

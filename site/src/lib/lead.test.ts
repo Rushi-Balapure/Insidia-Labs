@@ -3,7 +3,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { mailtoHref, acknowledged, validateLead } from "./lead";
 import { installCommands } from "../content/install";
-import sampleRun from "../content/sample-run.json";
+import recording from "../content/terminal-run.json";
 
 const valid = {
   email: "a@example.com",
@@ -83,10 +83,14 @@ describe("marketing copy", () => {
     expect(hits).toEqual([]);
   });
 
-  it("marks the homepage trace as a stand-in and displays the full install command", () => {
-    expect(sampleRun.representative).toBe(true);
-    expect(sampleRun.blocked.header).toContain("policy L1");
-    expect(JSON.stringify(sampleRun)).not.toMatch(/L2|L3|sql/i);
+  it("identifies the recorded fixture and displays the full install command", () => {
+    expect(recording.source).toBe("recorded-local-fixture");
+    expect(recording.fixture).toContain("localhost");
+    expect(recording.policy).toBe("L1");
+    expect(recording.exitCode).toBe(1);
+    expect(recording.summary).toContain("5 not tested");
+    expect(recording.finding.probe).toBe("insidia.web.ssti");
+    expect(recording.note).toContain("not a live scan");
     const component = readFileSync(path.resolve("src/components/InstallLine.tsx"), "utf8");
     expect(component).toContain("<code>{command}</code>");
     expect(installCommands.uv).not.toContain("…");

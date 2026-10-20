@@ -5,12 +5,19 @@ type Sources = {
   webm: string;
   vtt: string;
   poster: string;
+  transcript?: string;
 };
 
-export default function VideoModal({ sources }: { sources: Sources }) {
+export default function VideoModal({ sources, thumbnail = false, label = "Watch the film", title = "Insidia — the film" }: {
+  sources: Sources;
+  thumbnail?: boolean;
+  label?: string;
+  title?: string;
+}) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const dialogId = useId();
+  const transcript = sources.transcript ?? "/film";
 
   function open() {
     const node = dialog.current;
@@ -32,8 +39,12 @@ export default function VideoModal({ sources }: { sources: Sources }) {
 
   return (
     <>
-      <button className="btn ghost" type="button" onClick={open} aria-haspopup="dialog" aria-controls={dialogId}>
-        Watch the film
+      <button className={thumbnail ? "video-preview" : "btn ghost"} type="button" onClick={open} aria-label={label} aria-haspopup="dialog" aria-controls={dialogId}>
+        {thumbnail ? <>
+          <img src={sources.poster} alt="" width="960" height="540" loading="lazy" />
+          <span className="video-preview-play" aria-hidden="true">▶</span>
+          <span className="video-preview-label">{label} <span aria-hidden="true">↗</span></span>
+        </> : label}
       </button>
       <dialog
         ref={dialog}
@@ -49,7 +60,7 @@ export default function VideoModal({ sources }: { sources: Sources }) {
         }}
       >
         <div className="film-bar">
-          <h2 id={titleId}>Insidia — the film</h2>
+          <h2 id={titleId}>{title}</h2>
           <button className="btn ghost" type="button" onClick={close} autoFocus>
             Close
           </button>
@@ -58,9 +69,9 @@ export default function VideoModal({ sources }: { sources: Sources }) {
           <source src={sources.webm} type="video/webm" />
           <source src={sources.mp4} type="video/mp4" />
           <track kind="captions" src={sources.vtt} srcLang="en" label="English" default />
-          <p>Your browser cannot play this video. <a href="/film">Read the transcript</a>.</p>
+          <p>Your browser cannot play this video. <a href={transcript}>Read the transcript</a>.</p>
         </video>
-        <p className="film-transcript"><a href="/film">Read the transcript and chapters</a></p>
+        <p className="film-transcript"><a href={transcript}>Read the transcript</a></p>
       </dialog>
     </>
   );

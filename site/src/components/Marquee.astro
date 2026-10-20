@@ -21,10 +21,11 @@ const rendered = items.map((item) => ({
   ...item,
   svg: item.kind === "svg" ? mark(item.file) : "",
 }));
-const copies = [0, 1, 2, 3];
+const copies = [0, 1];
 ---
 <section class="marquee" aria-labelledby={headingId}>
-  <h2 class="marquee-label" id={headingId}>{label}</h2>
+  <insidia-marquee>
+  <div class="marquee-heading"><h2 class="marquee-label" id={headingId}>{label}</h2><button type="button" aria-label="Pause logo animation" hidden>Pause <span aria-hidden="true">Ⅱ</span></button></div>
   <div class="marquee-window">
     <div class="marquee-track" style={`--copies: ${copies.length}`}>
       {copies.map((copy) => (
@@ -43,4 +44,24 @@ const copies = [0, 1, 2, 3];
       ))}
     </div>
   </div>
+  </insidia-marquee>
 </section>
+<script>
+  class InsidiaMarquee extends HTMLElement {
+    connectedCallback() {
+      if (this.dataset.ready) return;
+      this.dataset.ready = "true";
+      const button = this.querySelector("button");
+      if (!button) return;
+      button.hidden = false;
+      this.dataset.animated = "true";
+      button.addEventListener("click", () => {
+        const paused = this.dataset.paused !== "true";
+        this.dataset.paused = String(paused);
+        button.setAttribute("aria-label", paused ? "Resume logo animation" : "Pause logo animation");
+        button.textContent = paused ? "Resume ▷" : "Pause Ⅱ";
+      });
+    }
+  }
+  if (!customElements.get("insidia-marquee")) customElements.define("insidia-marquee", InsidiaMarquee);
+</script>

@@ -6,6 +6,7 @@ import { docsHome } from "../lib/paths";
 const stars = await githubStars();
 ---
 <header class="site-header material">
+  <div class="reading-progress" aria-hidden="true"><span></span></div>
   <div class="wrap bar">
     <a class="logo" href="/">
       <img class="logo-dark" src="/brand/lockup-dark.svg" alt="Insidia Labs" width="171" height="48" />
@@ -23,7 +24,6 @@ const stars = await githubStars();
       <div class="nav-actions">
         <GitHubStars count={stars} href={GITHUB_URL} />
         <button class="icon-btn" id="theme-toggle" type="button" aria-label="Switch color theme">◐</button>
-        <a class="btn ghost" href="mailto:insidialabs@gmail.com?subject=Book%20a%20call">Book a call</a>
         <a class="btn" href="/#install">Get started</a>
       </div>
     </nav>

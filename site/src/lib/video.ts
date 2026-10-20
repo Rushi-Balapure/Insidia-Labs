@@ -9,6 +9,7 @@ export const howtoVideo = {
   webm: "/video/howto.webm",
   vtt: "/video/howto.vtt",
   poster: "/video/howto.jpg",
+  transcript: "/video/howto-transcript.md",
 };
 
 export const filmVideo = {
