@@ -4,36 +4,38 @@ import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 import LeadForm from "../components/LeadForm.tsx";
 
-const description = "Run the Insidia CLI for free. Insidia Cloud is in development, with design-partner access planned for December 2026.";
+const description = "Use the Insidia CLI and agent skill for free. Run scans locally or in CI with no Insidia account.";
 const endpoint = import.meta.env.PUBLIC_LEAD_ENDPOINT ?? "";
 ---
 <Base title="Pricing | Insidia Labs" description={description} path="/pricing">
   <Header />
   <main id="content" class="wrap page">
-    <h1>The CLI is free.</h1>
-    <p class="lede">Run scans on your machine or in CI. No account required.</p>
+    <h1>Start testing for free.</h1>
+    <p class="lede">Use Insidia on your machine, through your coding agent, or in CI. No Insidia account required.</p>
     <div class="grid-2">
       <article class="card">
-        <h2>CLI</h2>
+        <h2>CLI + agent skill</h2>
         <p class="price-label">Free</p>
         <ul>
-          <li>Scan on your machine or in CI. No account.</li>
-          <li>AI checks and app checks in one run. Every finding names its engine.</li>
-          <li>HTML report, JSON, and SARIF.</li>
-          <li>Your model, or none. Many checks need no model.</li>
+          <li>CLI for local and CI scans.</li>
+          <li>Agent skill for setup, scanning, and report review.</li>
+          <li>HTML reports for review, plus JSON and SARIF for automation.</li>
+          <li>L1 baseline without a model; optional model endpoints you configure.</li>
         </ul>
-        <a class="btn" href="/#install">Get started</a>
+        <p class="muted">Coverage varies by target and engine. Paid model services you choose have their own costs.</p>
+        <a class="btn" href="/#agent-skill">Use the agent skill</a>
+        <a href="/#install">Install the CLI</a>
       </article>
       <article class="card">
         <h2>Insidia Cloud</h2>
         <p class="price-label">In development</p>
-        <p>Hosted attack generation, with design-partner access planned for December 2026. Pricing has not been announced. Get in touch to discuss your team's needs.</p>
+        <p>Interested in hosted attack generation for your team? Design-partner access is planned for December 2026. Pricing has not been announced.</p>
         <a class="btn ghost" href="mailto:insidialabs@gmail.com?subject=Book%20a%20call">Book a call</a>
       </article>
     </div>
     <section class="block" id="access">
       <h2>Ask about design-partner access</h2>
-      <p class="muted">Tell us what you are building and what you need to test. You can use the CLI today without joining the waitlist.</p>
+      <p class="muted">Tell us what you are building and what you need to test. The CLI and skill are available now; joining the waitlist is optional.</p>
       <LeadForm client:load endpoint={endpoint} />
     </section>
   </main>

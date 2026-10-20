@@ -9,23 +9,24 @@ import FeatureCard from "../components/FeatureCard.astro";
 import InstallLine from "../components/InstallLine.tsx";
 import TraceHero from "../components/TraceHero.tsx";
 import VideoModal from "../components/VideoModal.tsx";
-import { changelog } from "../content/changelog";
 import { engineBrands, stackBrands } from "../content/brands";
+import { GITHUB_REPO } from "../content/install";
 import { filmVideo, howtoVideo } from "../lib/video";
 import PageAnalytics from "../components/PageAnalytics.astro";
 import { TRACKED_PATHS } from "../lib/analytics";
-import { docsQuickstart, docsTests } from "../lib/paths";
+import { docsAgent, docsQuickstart, docsTests } from "../lib/paths";
 
-const description = "Test your AI app and the API behind it. Review findings, trace the evidence, and check your fixes before you ship.";
-const latest = changelog[0];
-const pill = `New · ${latest.pill}`;
+const description = "Check your AI app, agent, or API for security issues. Run Insidia locally or through your coding agent, then review the findings and suggested fixes in one report.";
+const skillInstall = `npx skills add ${GITHUB_REPO}`;
+const skillPrompt = `Use the Insidia skill to test my app at http://127.0.0.1:8080/chat.
+Only scan localhost. Review the findings and open the report when you're done.`;
 const faqs = [
-  ["What does Insidia test?", `AI and agent checks, plus app and API checks, in one scan. Each result names the check and the engine. The support notes are in the docs.`],
-  ["Does anything leave my machine?", "Traffic goes to the target you configured and, if you set one, to your model. There is no telemetry."],
-  ["Which engines does it run?", "A finding names the engine that produced it. The list, with each engine's license, is on the Credits page."],
-  ["Can my coding agent run it?", "Install the skill, or paste: Test this app with Insidia. Only scan localhost. Claude Code, Cursor, or Codex can run it. You confirm the hosts."],
-  ["Will it test production?", "Only hosts you list in insidia.yaml. Anything other than localhost needs authorized: true, which you set."],
-  ["What does it cost?", "The CLI is free. It runs on your machine and does not need an account. Insidia Cloud is in development, with design-partner access planned for December 2026. Cloud pricing has not been announced."],
+  ["What can I test?", "AI apps, agents, web apps, and APIs. Insidia checks areas such as prompt injection, data leakage, and application vulnerabilities. Available checks depend on your target and installed engines. Some checks only work on the project's test apps."],
+  ["Does my scan data leave my machine?", "The CLI runs locally and sends no telemetry. A scan contacts your configured target and any model endpoint you choose. Reports are saved on your machine."],
+  ["Do I need an API key or a model?", "You can run the L1 baseline without a model or model API key. Checks that need a model are skipped unless you configure one. External engines may need additional setup."],
+  ["How do I use the agent skill?", "Run npx skills add Rushi-Balapure/Insidia-Labs in your project and select your agent. Then ask it to use Insidia on your running app. The skill guides setup, scanning, and report review. You confirm which hosts it may test."],
+  ["Can I test a deployed app?", "Yes, if you own it or have permission to test it. Add the host to insidia.yaml with authorized: true and confirm the scan with --yes. Start on localhost or staging while you set up your checks."],
+  ["What does it cost?", "The CLI and agent skill are free. You do not need an Insidia account. Any paid model services you configure have their own costs. Insidia Cloud is in development; pricing has not been announced."],
 ];
 const jsonLd = {
   "@context": "https://schema.org",
@@ -56,10 +57,8 @@ const jsonLd = {
     },
   ],
 };
-const scopeYaml = `scope:
-  - host: 127.0.0.1
-  - host: staging.example.com
-    authorized: true`;
+const scopeYaml = `$ insidia init --url http://127.0.0.1:8080/chat
+$ insidia doctor`;
 const scanRows = `support-bot
   ✔ ai.prompt_injection_direct     pass
   ✘ ai.prompt_injection_indirect   FAIL
@@ -71,7 +70,7 @@ const retrieval = `def build_prompt(question, docs):
     context = "\\n".join(d.text for d in docs)   # uploaded files, unfiltered
     return SYSTEM + context + question`;
 ---
-<Base title="Insidia Labs | Your AI agent is your newest attack surface." description={description}>
+<Base title="Insidia Labs | Security testing for AI apps and agents" description={description}>
   <Fragment slot="head">
     <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
   </Fragment>
@@ -79,24 +78,50 @@ const retrieval = `def build_prompt(question, docs):
   <main id="content">
     <div class="wrap hero">
       <div>
-        <p class="pill"><a href="/changelog">{pill}</a></p>
         <h1>Your AI agent is your newest attack surface.</h1>
         <p class="lede">{description}</p>
         <div class="cta-row">
-          <a class="btn" href="#install">Get started</a>
+          <a class="btn" href="#agent-skill">Use with your agent</a>
+          <a class="btn ghost" href="#install">Install the CLI</a>
           <VideoModal client:load sources={filmVideo} />
         </div>
         <div id="install">
           <InstallLine client:load />
         </div>
-        <p class="muted install-more">Free CLI · Python 3.12 or newer. Follow the <a href={docsQuickstart}>quickstart</a> to configure your app and run your first scan.</p>
+        <p class="muted install-more">Free CLI and agent skill · Python 3.12+ · No account required. <a href={docsQuickstart}>Run your first scan.</a></p>
       </div>
       <TraceHero which="blocked" live />
     </div>
 
+    <section class="block" id="agent-skill" aria-labelledby="agent-skill-heading">
+      <div class="wrap">
+        <p class="kicker">For Claude Code, Cursor, Codex, and other skill-compatible agents</p>
+        <h2 id="agent-skill-heading">Let your coding agent run the scan.</h2>
+        <p class="lede">The Insidia skill gives your agent the steps to set up a scan, review the findings, and open your report. You choose the app and confirm what it may test.</p>
+        <div class="grid-2">
+          <article class="card">
+            <h3>1. Install the skill</h3>
+            <p>Run this in your project directory, then select your coding agent when prompted.</p>
+            <Exhibit file="Terminal" code={skillInstall} />
+            <p class="muted install-more">Requires Node.js 22+. Scans require Python 3.12+; the skill guides your agent through installing the CLI with uv or pipx.</p>
+          </article>
+          <article class="card">
+            <h3>2. Tell your agent what to test</h3>
+            <p>Start your app and replace the example URL with its address.</p>
+            <Exhibit file="Prompt for your coding agent" code={skillPrompt} />
+            <p class="muted install-more">Review the report, ask your agent to help with a fix, and repeat the scan.</p>
+          </article>
+        </div>
+        <div class="cta-row">
+          <a class="btn ghost" href={docsAgent}>Agent setup guide</a>
+          <a href={`https://github.com/${GITHUB_REPO}/blob/main/skills/insidia/SKILL.md`}>Read the skill</a>
+        </div>
+      </div>
+    </section>
+
     <section class="howto-band" aria-labelledby="howto-heading">
       <div class="wrap">
-        <h2 id="howto-heading">How to use Insidia</h2>
+        <h2 id="howto-heading">See the scan workflow</h2>
         <video class="howto-player" controls playsInline poster={howtoVideo.poster} preload="metadata">
           <source src={howtoVideo.webm} type="video/webm" />
           <source src={howtoVideo.mp4} type="video/mp4" />
@@ -106,13 +131,14 @@ const retrieval = `def build_prompt(question, docs):
     </section>
 
     <div class="marquee-band">
-      <Marquee label="Fits the stack you already ship" items={stackBrands} />
-      <Marquee label="Runs the engines you already trust" items={engineBrands} />
+      <Marquee label="For the apps and agents you build" items={stackBrands} />
+      <Marquee label="Explore the available engine integrations" items={engineBrands} />
     </div>
 
     <section class="block" id="problem">
       <div class="wrap">
-        <h2>Your chatbot passed review. It also obeys the PDF.</h2>
+        <h2>What happens when your app trusts the wrong input?</h2>
+        <p class="lede">An uploaded document can carry instructions your agent was never meant to follow. Test how your app handles that input, alongside the APIs and tools it can reach.</p>
         <Exhibit
           file="support_bot/retrieval.py"
           code={retrieval}
@@ -121,18 +147,18 @@ const retrieval = `def build_prompt(question, docs):
         <ol class="beats">
           <li>
             <p class="kicker">01</p>
-            <h3>No error.</h3>
-            <p>The bot answers politely. Logs look clean.</p>
+            <h3>Check the AI behavior</h3>
+            <p>Look for ways untrusted input can redirect a response or expose data.</p>
           </li>
           <li>
             <p class="kicker">02</p>
-            <h3>Two halves, two tools.</h3>
-            <p>The model call and the API it drives usually get tested by different tools, on different days.</p>
+            <h3>Check the connected app</h3>
+            <p>Include the web app and API your agent relies on in your testing.</p>
           </li>
           <li>
             <p class="kicker">03</p>
-            <h3>It ships.</h3>
-            <p>The instruction in the document reaches production with everything else.</p>
+            <h3>Review the evidence</h3>
+            <p>Use the findings to decide what to fix, then repeat the checks.</p>
           </li>
         </ol>
       </div>
@@ -140,15 +166,16 @@ const retrieval = `def build_prompt(question, docs):
 
     <section class="block" id="how">
       <div class="wrap">
-        <h2>Point it at your app. Get the finding, the evidence, and the fix.</h2>
+        <h2>From a running app to a report you can act on.</h2>
+        <p class="lede">Run these steps yourself or let the skill guide your coding agent.</p>
         <div class="grid-3">
-          <StepCard n="01" title="Scope in one file." text="insidia init writes insidia.yaml. Only hosts you list get tested. Anything other than localhost needs authorized: true.">
-            <Exhibit file="insidia.yaml" code={scopeYaml} />
+          <StepCard n="01" title="Choose your target" text="Start your app, set its URL, and check your setup. Insidia saves your target and allowed hosts in insidia.yaml.">
+            <Exhibit file="Set up a local scan" code={scopeYaml} />
           </StepCard>
-          <StepCard n="02" title="Scan both layers." text="insidia scan runs AI and app checks in one pass and names the engine behind every result. A check that couldn't run is marked incomplete, never passed.">
+          <StepCard n="02" title="Run the checks" text="Run insidia scan --policy L1 for the baseline without a model. Review the findings and coverage to see which checks ran and which were skipped.">
             <Exhibit file="insidia scan" code={scanRows} representative />
           </StepCard>
-          <StepCard n="03" title="Fix it. Run the checks again." text="Use the scan's exit code as a CI gate: 1 when a check found a problem, 2 for an incomplete run with no finding. After fixing the code, insidia rerun repeats the checks with the recorded policy and coverage.">
+          <StepCard n="03" title="Review, fix, and repeat" text="Open your report with insidia report --open. Review the evidence and suggested fixes, update your app, then use insidia rerun to repeat the checks.">
             <Exhibit file="insidia rerun" code={rerunRows} representative />
           </StepCard>
         </div>
@@ -157,12 +184,12 @@ const retrieval = `def build_prompt(question, docs):
 
     <section class="block" id="breaks">
       <div class="wrap">
-        <h2>Built for how AI apps break</h2>
+        <h2>Keep the scan in your workflow.</h2>
         <div class="grid-4">
           <FeatureCard
-            title="Scope guard"
+            title="Choose what gets tested"
             code={`scope:\n  - host: staging.example.com\n    authorized: true`}
-            line="It refuses to test a host you didn't list."
+            line="Start on localhost. Add staging or other hosts you have permission to test."
           />
           <FeatureCard
             title="Findings with evidence"
@@ -170,12 +197,12 @@ const retrieval = `def build_prompt(question, docs):
             line="Review the available evidence, remediation guidance, and the engine behind each finding."
           />
           <FeatureCard
-            title="Hand it to your coding agent"
-            code={`Test this app with Insidia. Only scan localhost.`}
-            line="Claude Code, Cursor, or Codex runs it. You confirm the hosts."
+            title="Use your coding agent"
+            code={skillInstall}
+            line="Install the skill once, then ask your agent to scan your app and review the report."
           />
           <FeatureCard
-            title="Local, your keys"
+            title="Run on your machine"
             code={`models:\n  attacker:\n    provider: openai-compatible\n    base_url: http://127.0.0.1:11434/v1\n    model: llama3.1`}
             line="Scans run on your machine. Use a supported model endpoint, or run the baseline without a model."
           />
@@ -192,7 +219,7 @@ const retrieval = `def build_prompt(question, docs):
             <p>
               {a}
               {i === 0 ? <> See <a href={docsTests}>what it tests</a>.</> : null}
-              {i === 2 ? <> See <a href="/credits">Credits</a>.</> : null}
+              {i === 3 ? <> Follow the <a href={docsAgent}>agent setup guide</a>.</> : null}
             </p>
           </details>
         ))}
@@ -202,11 +229,11 @@ const retrieval = `def build_prompt(question, docs):
     <section class="block end-cta">
       <div class="wrap end-grid">
         <div>
-          <h2>Find the weaknesses before you ship.</h2>
-          <p class="lede">Scan your app, review the evidence, and rerun the checks after each fix.</p>
+          <h2>Start with the app you're building.</h2>
+          <p class="lede">Use Insidia from your terminal or through your coding agent. Run a local scan and see what needs attention.</p>
           <div class="cta-row">
-            <a class="btn" href="#install">Get started</a>
-            <a class="btn ghost" href="mailto:insidialabs@gmail.com?subject=Book%20a%20call">Book a call</a>
+            <a class="btn" href="#agent-skill">Set up the agent skill</a>
+            <a class="btn ghost" href={docsQuickstart}>CLI quickstart</a>
           </div>
         </div>
         <TraceHero which="clear" />
