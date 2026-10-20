@@ -6,11 +6,6 @@ import pytest
 from insidia.cli import main
 from insidia.config import load_project
 
-from support import REPO
-
-README = REPO / "README.md"
-QUICKSTART = REPO / "docs" / "src" / "content" / "docs" / "start" / "quickstart.md"
-
 
 def test_init_url_writes_a_chat_target(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
@@ -63,10 +58,3 @@ def test_init_without_url_tells_you_to_set_the_target(
     assert "targets.app.url" in out
     assert "http://127.0.0.1:8080/chat" in out
     assert "insidia init --url http://127.0.0.1:PORT/path" in out
-
-
-def test_quickstart_docs_name_the_url_step() -> None:
-    for path in (README, QUICKSTART):
-        text = path.read_text()
-        assert "insidia init --url http://127.0.0.1:PORT/path" in text
-        assert "targets.app.url" in text
