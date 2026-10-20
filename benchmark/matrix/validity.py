@@ -1,7 +1,7 @@
 """Valid vs N/A cells for the permutation matrix.
 
-This is the machine copy of plans/18-validity-matrix.md. A projection test
-fails if the tables in that file drift from these sets.
+The function and projection tables in validity.md document these rules.
+A projection test fails if that reference drifts from these sets.
 """
 
 from __future__ import annotations
