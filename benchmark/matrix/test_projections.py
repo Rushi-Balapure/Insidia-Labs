@@ -1,4 +1,4 @@
-"""The tables in the validity-matrix plan are rendered from the code."""
+"""The benchmark validity reference agrees with the code."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from benchmark.matrix.validity import (
     iter_combinations,
 )
 
-PLAN = Path(__file__).resolve().parents[2] / "plans" / "18-validity-matrix.md"
+REFERENCE = Path(__file__).with_name("validity.md")
 
 _CHAT_COLUMNS = ("chat*", "rag", "agent", "multi_agent", "sdk_inproc", "ml_model")
 _CLASSIC_COLUMNS = ("web", "api_rest", "api_graphql", "api_grpc", "api_ws", "codebase")
@@ -23,7 +23,7 @@ _CONN_COLUMNS = ("direct", "relay", "tunnel", "sdk_bridge")
 
 
 def _section(heading: str, following: str) -> str:
-    text = PLAN.read_text()
+    text = REFERENCE.read_text(encoding="utf-8")
     start = text.index(heading)
     end = text.index(following, start)
     return text[start:end]
@@ -47,15 +47,16 @@ def _marked(cell: str) -> bool:
     return cell.strip() == "+"
 
 
-def test_plan_function_matches_the_module() -> None:
-    text = PLAN.read_text()
+def test_reference_function_matches_the_module() -> None:
+    text = REFERENCE.read_text(encoding="utf-8")
     block = text.split("```python", 1)[1].split("```", 1)[0]
     namespace: dict[str, object] = {}
     exec(block, namespace)  # noqa: S102
-    plan_valid = namespace["is_valid"]
-    assert callable(plan_valid)
+    reference_valid = namespace["is_valid"]
+    assert callable(reference_valid)
     for connector, box, attack, conn in iter_combinations():
-        assert plan_valid(connector, box, attack, conn) == is_valid(connector, box, attack, conn)
+        expected = reference_valid(connector, box, attack, conn)
+        assert expected == is_valid(connector, box, attack, conn)
 
 
 def test_projection_a_ai_by_connector() -> None:
