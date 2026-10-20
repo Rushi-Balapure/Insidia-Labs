@@ -3,21 +3,19 @@ import { describe, expect, it } from "vitest";
 import { TRACKED_PATHS, analyticsEnabled, assertTrackedPath, pageUrl } from "./analytics";
 
 describe("analyticsEnabled", () => {
-  it("stays off until the analytics id is set", () => {
-    expect(analyticsEnabled({})).toBe(false);
-    expect(analyticsEnabled({ id: "  ", disabled: "" })).toBe(false);
+  it("stays off in development", () => {
+    expect(analyticsEnabled({ production: false })).toBe(false);
   });
 
-  it("turns on for a non-empty id", () => {
-    expect(analyticsEnabled({ id: "dsn_example" })).toBe(true);
-    expect(analyticsEnabled({ id: " dsn_example " })).toBe(true);
+  it("turns on in production without an analytics id", () => {
+    expect(analyticsEnabled({ production: true })).toBe(true);
   });
 
   it("stays off when the disable flag is set", () => {
-    for (const disabled of ["1", "true", "YES", "on"]) {
-      expect(analyticsEnabled({ id: "dsn_example", disabled })).toBe(false);
+    for (const disabled of ["1", "true", "YES", "on", " TRUE "]) {
+      expect(analyticsEnabled({ production: true, disabled })).toBe(false);
     }
-    expect(analyticsEnabled({ id: "dsn_example", disabled: "0" })).toBe(true);
+    expect(analyticsEnabled({ production: true, disabled: "0" })).toBe(true);
   });
 });
 

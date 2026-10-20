@@ -17,8 +17,8 @@ node scripts/secrets.mjs dist
 ```
 
 The build installs the docs dependencies with `npm ci` when needed. The
-static build succeeds with no environment variables. Web Analytics stays off
-until `PUBLIC_VERCEL_ANALYTICS_ID` is set. See [Web Analytics](#web-analytics).
+static build succeeds with no environment variables. Web Analytics is included
+in production builds and stays off in the development server. See [Web Analytics](#web-analytics).
 
 ## Deploy through Vercel's GitHub integration
 
@@ -101,17 +101,29 @@ Enable it:
 
 1. In the Vercel project, open **Analytics** and enable **Web Analytics**.
    Enable **Speed Insights** for the vitals panels.
-2. Copy the Web Analytics DSN into `PUBLIC_VERCEL_ANALYTICS_ID` for Production
-   and Preview. `site/.env.example` and `docs/.env.example` list the variable.
-   The docs build reads the same environment because `npm run build` builds
-   `docs/` first.
+2. No analytics ID, DSN, or API key is required for Vercel-hosted deployments.
+   Leave `PUBLIC_VERCEL_ANALYTICS_DISABLED` unset (or set it to `0`). The docs
+   build reads the same environment because `npm run build` builds `docs/` first.
 3. Redeploy. Visits to the homepage show up as `/site`. Visits to the
    documentation home show up as `/documentation`, so that page’s views and
    unique visitors are their own row under Top Pages.
 
-Turn it off by setting `PUBLIC_VERCEL_ANALYTICS_DISABLED=1`, or by clearing
-`PUBLIC_VERCEL_ANALYTICS_ID`, then redeploy. Disabling Web Analytics in the
-Vercel project stops collection as well.
+The [Hobby plan](https://vercel.com/docs/analytics/limits-and-pricing) includes
+50,000 Web Analytics events per month across the team and a one-month reporting
+window. Basic visitor and page-view metrics do not require a paid plan. Custom
+events require Pro or Enterprise. Speed Insights is a separate feature and is
+not required for visitor counts.
+
+Turn both scripts off by setting `PUBLIC_VERCEL_ANALYTICS_DISABLED=1`, then
+redeploy. Disabling Web Analytics in the Vercel project stops Web Analytics
+collection as well. The legacy analytics ID variables remain optional.
+
+After deployment, visit `/` or `/docs/` with browser ad blocking disabled for
+the site. In DevTools → Network, confirm `/_vercel/insights/script.js` loads
+successfully and a page-view request to `/_vercel/insights/view` succeeds.
+Check the project's **Analytics** tab with the production environment selected
+and a date range including today. If the script returns 404, enable Web
+Analytics and redeploy; see [Vercel's troubleshooting guide](https://vercel.com/docs/analytics/troubleshooting).
 
 ## Video assets
 

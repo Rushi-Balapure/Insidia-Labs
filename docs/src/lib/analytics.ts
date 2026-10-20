@@ -7,9 +7,9 @@ export type TrackedPath = (typeof TRACKED_PATHS)[keyof typeof TRACKED_PATHS];
 
 const DISABLED = new Set(["1", "true", "yes", "on"]);
 
-export function analyticsEnabled(input: { id?: string; disabled?: string }): boolean {
+export function analyticsEnabled(input: { production: boolean; disabled?: string }): boolean {
   if (DISABLED.has((input.disabled ?? "").trim().toLowerCase())) return false;
-  return (input.id ?? "").trim().length > 0;
+  return input.production;
 }
 
 export function assertTrackedPath(path: string): TrackedPath {
