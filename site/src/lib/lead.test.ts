@@ -92,7 +92,7 @@ describe("marketing copy", () => {
     expect(recording.finding.probe).toBe("insidia.web.ssti");
     expect(recording.note).toContain("not a live scan");
     const component = readFileSync(path.resolve("src/components/InstallLine.tsx"), "utf8");
-    expect(component).toContain("<code>{command}</code>");
+    expect(component).toContain("<code>{installCommands[name]}</code>");
     expect(installCommands.uv).not.toContain("…");
     expect(installCommands.uv).toContain("Rushi-Balapure/Insidia-Labs#subdirectory=core");
     expect(installCommands.pipx.startsWith("pipx install ")).toBe(true);
