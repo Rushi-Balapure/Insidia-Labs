@@ -3,25 +3,26 @@ import Base from "../layouts/Base.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 
-const description = "Run the L1 policy against your app and explore the separate scanner regression matrix.";
+const description = "Understand the L1 baseline, what your scan report contains, and how Insidia tests its own scanner.";
 ---
 <Base title="Benchmark | Insidia Labs" description={description} path="/benchmark">
   <Header />
   <main id="content" class="wrap" style="padding:3rem 0 4rem">
-    <p class="kicker">Policy</p>
-    <h1>The Insidia Benchmark</h1>
-    <p class="lede">Run a policy against your app, or explore the public matrix used to test scanner adapters. They provide different kinds of evidence.</p>
+    <p class="kicker">Coverage and results</p>
+    <h1>Understand what your scan checked.</h1>
+    <p class="lede">A useful result shows the checks that ran, the findings they produced, and anything left untested. Start with the L1 baseline and review the coverage in your report.</p>
 
     <section class="block">
-      <h2>Policy</h2>
+      <h2>Start with the baseline</h2>
       <article class="card">
         <h3>L1 baseline</h3>
-        <p>Checks that need no model. This is what <code>insidia init</code> writes and what a scan runs. Use it on every pull request. The process exits 1 when the policy fails. L2 and L3 are not available.</p>
+        <p>Run <code>insidia scan --policy L1</code> for baseline checks without a model. This is the default policy in a new configuration. L2 and L3 are not available yet.</p>
+        <p>Review skipped checks as well as findings. A check that could not run does not count as a pass. See <a href="/docs/concepts/what-it-tests/">current coverage</a> for supported checks and limitations.</p>
       </article>
     </section>
 
     <section class="block">
-      <h2>What a run writes</h2>
+      <h2>Review and share your results</h2>
       <p><code>insidia scan --policy L1</code> writes a directory under <code>.insidia/runs/</code>:</p>
       <ul>
         <li><code>benchmark.json</code> — policy name, pass or fail, control results, and skips</li>
@@ -29,12 +30,12 @@ const description = "Run the L1 policy against your app and explore the separate
         <li><code>results.sarif</code> — for code scanning in CI</li>
         <li><code>report.html</code> — one file, opened with <code>insidia report --open</code></li>
       </ul>
-      <p>Controls map to OWASP LLM, OWASP Agentic, and OWASP Web and API where the registry has a mapping. MITRE ATLAS is not mapped yet. A framework score is the controls that ran, not a percentage we market on this page.</p>
+      <p>The report includes mappings to supported OWASP frameworks where available. Use them to organize your review, together with the evidence and coverage for that run.</p>
     </section>
 
     <section class="block">
-      <h2>The scanner matrix</h2>
-      <p>The repository holds sandboxed targets with planted vulnerabilities and a permutation matrix for testing adapters and transports. Passing these fixtures is a regression check; it does not establish detector accuracy on real applications or release readiness. Independent validation is part of the current productization work.</p>
+      <h2>How we test Insidia</h2>
+      <p>The repository includes test apps with known vulnerabilities. We use them to check scanner behavior and catch regressions. Results on those apps do not establish detection accuracy on your application; use your own scan's evidence and coverage when reviewing a result.</p>
       <p><a href="https://github.com/Rushi-Balapure/Insidia-Labs/tree/main/benchmark">Read the benchmark directory</a> · <a href="/#install">Install the CLI</a></p>
     </section>
   </main>

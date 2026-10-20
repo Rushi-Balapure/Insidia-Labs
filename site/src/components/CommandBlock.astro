@@ -1,0 +1,39 @@
+---
+interface Props {
+  label: string;
+  command: string;
+}
+const { label, command } = Astro.props;
+---
+<insidia-command class="command-block">
+  <div class="command-heading">
+    <span>{label}</span>
+    <button type="button" aria-label={`Copy ${label}`} hidden>Copy</button>
+  </div>
+  <pre tabindex="0"><code>{command}</code></pre>
+  <span class="visually-hidden" role="status"></span>
+</insidia-command>
+<script>
+  class InsidiaCommand extends HTMLElement {
+    connectedCallback() {
+      if (this.dataset.ready) return;
+      this.dataset.ready = "true";
+      const button = this.querySelector("button");
+      const code = this.querySelector("code");
+      const status = this.querySelector('[role="status"]');
+      if (!button || !code || !status || !navigator.clipboard) return;
+      button.hidden = false;
+      button.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(code.textContent ?? "");
+          status.textContent = "Copied to clipboard.";
+          button.textContent = "Copied";
+          window.setTimeout(() => { button.textContent = "Copy"; }, 2000);
+        } catch {
+          status.textContent = "Copy unavailable. Select the text and copy it manually.";
+        }
+      });
+    }
+  }
+  if (!customElements.get("insidia-command")) customElements.define("insidia-command", InsidiaCommand);
+</script>

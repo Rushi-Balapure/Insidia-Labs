@@ -9,10 +9,7 @@ html { scroll-behavior: smooth; }
 body {
   margin: 0;
   font: 400 1rem/1.6 var(--font);
-  background:
-    radial-gradient(900px 420px at 80% -10%, rgba(227, 61, 134, 0.16), transparent 60%),
-    radial-gradient(700px 380px at -10% 20%, rgba(237, 123, 57, 0.12), transparent 55%),
-    var(--bg);
+  background: var(--bg);
   color: var(--text);
 }
 
@@ -56,7 +53,7 @@ a:hover { color: var(--link-hover); }
 }
 .skip:focus { top: 1rem; }
 
-.wrap { width: min(1480px, calc(100% - 4rem)); margin: 0 auto; }
+.wrap { width: min(1240px, calc(100% - 4rem)); margin: 0 auto; }
 .prose { max-width: 68ch; }
 
 .material {
@@ -91,7 +88,15 @@ a:hover { color: var(--link-hover); }
   gap: 1.25rem;
   margin-left: auto;
 }
-.nav-links { display: flex; align-items: center; gap: 1.15rem; }
+.nav-links { display: flex; align-items: center; gap: 0.15rem; padding: 0.25rem; border: 1px solid var(--line); border-radius: 999px; }
+.nav-links a { display: flex; align-items: center; min-height: 2.75rem; padding: 0.45rem 0.7rem; border-radius: 999px; }
+.nav-links a:hover { background: var(--chip); color: var(--text); }
+.reading-progress { position: absolute; inset: 0 0 auto; height: 2px; overflow: hidden; pointer-events: none; }
+.reading-progress span { display: block; height: 100%; background: var(--accent); transform: scaleX(0); transform-origin: left; }
+@supports (animation-timeline: scroll()) {
+  .reading-progress span { animation: reading-progress linear both; animation-timeline: scroll(root); }
+}
+@keyframes reading-progress { to { transform: scaleX(1); } }
 
 .nav a {
   color: var(--text);
@@ -114,6 +119,7 @@ a:hover { color: var(--link-hover); }
   text-decoration: none;
   font: 600 0.95rem/1 var(--font);
   cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
 }
 .btn:hover, button.btn:hover { background: var(--insidia-sunburst); color: var(--insidia-navy-900); }
 .btn:active, button.btn:active { transform: scale(0.97); }
@@ -143,7 +149,7 @@ a:hover { color: var(--link-hover); }
   width: 6rem;
   height: 4px;
   border-radius: 99px;
-  background: var(--insidia-gradient-short);
+  background: var(--accent);
   margin: 1.1rem 0 1.2rem;
 }
 .cta-row { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1.4rem; }
@@ -183,7 +189,7 @@ section.block { padding: 4rem 0; border-top: 1px solid var(--line); }
   position: absolute;
   left: 0; right: 0; top: 0;
   height: 3px;
-  background: var(--insidia-gradient-short);
+  background: var(--accent);
 }
 .card p:last-child { margin: 0; }
 
@@ -825,6 +831,7 @@ html:has(.film-dialog[open]) { overflow: hidden; }
   }
   .nav.is-open .nav-links,
   .nav.is-open .nav-actions { display: grid; gap: 0.7rem; justify-items: start; }
+  .nav.is-open .nav-links { border: 0; border-radius: 0; padding: 0; }
 }
 @media (max-width: 860px) {
   .hero, .step, .step.reverse, .grid-3, .grid-4, .grid-2, .beats, .form-row, .log-item, .players, .foot-grid { grid-template-columns: minmax(0, 1fr); }

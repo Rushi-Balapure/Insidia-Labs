@@ -1,7 +1,7 @@
 ---
 interface Props {
   path: string;
-  dsn: string;
+  dsn?: string;
 }
 
 const { path, dsn } = Astro.props;
@@ -50,13 +50,13 @@ const { path, dsn } = Astro.props;
           if (this.dataset.ready === "1") return;
           const path = trackedPath(this.dataset.path);
           const dsn = this.dataset.dsn?.trim();
-          if (!path || !dsn) return;
+          if (!path) return;
           this.dataset.ready = "1";
           const urlFor = (current: string) => pageUrl(current, path, window.location.href);
           const va = queue("va");
           va("beforeSend", (event: { url: string }) => ({ ...event, url: urlFor(event.url) }));
           addScript("/_vercel/insights/script.js", {
-            dsn,
+            ...(dsn ? { dsn } : {}),
             sdkn: "@vercel/analytics",
             sdkv: "2.0.1",
             disableAutoTrack: "1",

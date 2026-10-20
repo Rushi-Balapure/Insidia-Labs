@@ -1,0 +1,75 @@
+---
+import recording from "../content/terminal-run.json";
+const { rows } = recording;
+---
+<insidia-terminal class="scan-terminal">
+  <figure aria-label="Recorded Insidia scan of an intentionally vulnerable localhost fixture">
+    <figcaption class="terminal-chrome">
+      <span class="terminal-lights" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span>insidia — local scan</span>
+      <span class="terminal-demo">Recorded fixture</span>
+    </figcaption>
+    <div class="terminal-body">
+      <p class="terminal-command"><span aria-hidden="true">❯</span> <span class="typed-command">{recording.command}</span></p>
+      <p class="terminal-muted terminal-line" style="--line: 0">localhost · policy {recording.policy} · {recording.coverage} coverage</p>
+      <div class="terminal-results">
+        {rows.map((row, i) => (
+          <div class:list={["terminal-result", "terminal-line", { "is-fail": row.result === "FAIL" }]} style={`--line: ${i + 1}`}>
+            <span class="result-symbol" aria-hidden="true">{row.symbol}</span>
+            <span class="result-name">{row.family}<small>{recording.target} <span>· {row.engine}</span></small></span>
+            <span class="result-state">{row.result}</span>
+          </div>
+        ))}
+      </div>
+      <div class="terminal-finding terminal-line" style={`--line: ${rows.length + 1}`}>
+        <span class="terminal-finding-label">Finding / {recording.finding.severity}</span>
+        <p>{recording.finding.title}</p>
+        <a href="/benchmark">Understand the coverage <span aria-hidden="true">↗</span></a>
+      </div>
+      <div class="terminal-outcome terminal-line" style={`--line: ${rows.length + 2}`}>
+        <span class="outcome-dot" aria-hidden="true"></span><strong>POLICY FAILED · exit {recording.exitCode}</strong>
+      </div>
+      <p class="terminal-summary terminal-line" style={`--line: ${rows.length + 2}`}>{recording.summary}</p>
+    </div>
+    <div class="terminal-foot">
+      <span>Local fixture · selected rows · {recording.recordedAt}</span>
+      <button type="button" hidden>Replay scan <span aria-hidden="true">↻</span></button>
+    </div>
+  </figure>
+</insidia-terminal>
+<script>
+  class InsidiaTerminal extends HTMLElement {
+    private controller = new AbortController();
+    connectedCallback() {
+      if (this.dataset.ready) return;
+      this.dataset.ready = "true";
+      this.controller = new AbortController();
+      const { signal } = this.controller;
+      const button = this.querySelector("button");
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+      if (!button) return;
+      const play = () => {
+        this.removeAttribute("data-playing");
+        if (reduce.matches) return;
+        // Reset the CSS sequence only when the visitor asks to replay it.
+        void this.offsetWidth;
+        this.dataset.playing = "true";
+      };
+      button.hidden = reduce.matches;
+      button.addEventListener("click", play, { signal });
+      this.querySelector(".terminal-summary")?.addEventListener("animationend", () => {
+        this.removeAttribute("data-playing");
+      }, { signal });
+      reduce.addEventListener("change", () => {
+        button.hidden = reduce.matches;
+        if (reduce.matches) this.removeAttribute("data-playing");
+      }, { signal });
+      play();
+    }
+    disconnectedCallback() {
+      this.controller.abort();
+      delete this.dataset.ready;
+    }
+  }
+  if (!customElements.get("insidia-terminal")) customElements.define("insidia-terminal", InsidiaTerminal);
+</script>

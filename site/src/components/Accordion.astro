@@ -1,0 +1,90 @@
+<insidia-accordion class="accordion">
+  <slot />
+</insidia-accordion>
+<script>
+  class InsidiaAccordion extends HTMLElement {
+    private controller = new AbortController();
+
+    connectedCallback() {
+      if (this.dataset.ready) return;
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+      if (reduce.matches) return;
+      this.dataset.ready = "true";
+      this.controller = new AbortController();
+      const { signal } = this.controller;
+      const items = [...this.querySelectorAll<HTMLDetailsElement>(".accordion-item")];
+      const generation = new WeakMap<HTMLElement, number>();
+      const bump = (item: HTMLElement) => {
+        const next = (generation.get(item) ?? 0) + 1;
+        generation.set(item, next);
+        return next;
+      };
+      const panelOf = (item: HTMLDetailsElement) => item.querySelector<HTMLElement>(".accordion-panel");
+
+      const open = (item: HTMLDetailsElement) => {
+        const panel = panelOf(item);
+        if (!panel) return;
+        const token = bump(item);
+        item.open = true;
+        panel.style.height = "0px";
+        requestAnimationFrame(() => {
+          if (generation.get(item) !== token) return;
+          const inner = panel.querySelector<HTMLElement>(".accordion-panel-inner");
+          panel.style.height = `${inner?.scrollHeight ?? panel.scrollHeight}px`;
+        });
+        panel.addEventListener("transitionend", function done(event) {
+          if (event.propertyName !== "height" || generation.get(item) !== token) return;
+          panel.style.height = "auto";
+          panel.removeEventListener("transitionend", done);
+        });
+      };
+
+      const close = (item: HTMLDetailsElement) => {
+        const panel = panelOf(item);
+        if (!panel || !item.open) return;
+        const token = bump(item);
+        panel.style.height = `${panel.scrollHeight}px`;
+        void panel.offsetHeight;
+        panel.style.height = "0px";
+        panel.addEventListener("transitionend", function done(event) {
+          if (event.propertyName !== "height" || generation.get(item) !== token) return;
+          item.open = false;
+          panel.style.height = "";
+          panel.removeEventListener("transitionend", done);
+        });
+      };
+
+      items.forEach((item, index) => {
+        const summary = item.querySelector("summary");
+        if (!summary) return;
+        summary.addEventListener("click", (event) => {
+          event.preventDefault();
+          const opening = !item.open;
+          for (const other of items) {
+            if (other !== item) close(other);
+          }
+          if (opening) open(item);
+          else close(item);
+        }, { signal });
+        summary.addEventListener("keydown", (event) => {
+          const keys: Record<string, number | undefined> = {
+            ArrowDown: (index + 1) % items.length,
+            ArrowUp: (index + items.length - 1) % items.length,
+            Home: 0,
+            End: items.length - 1,
+          };
+          const next = keys[event.key];
+          if (next === undefined) return;
+          event.preventDefault();
+          items[next].querySelector("summary")?.focus();
+        }, { signal });
+      });
+    }
+
+    disconnectedCallback() {
+      this.controller.abort();
+      delete this.dataset.ready;
+    }
+  }
+  if (!customElements.get("insidia-accordion")) customElements.define("insidia-accordion", InsidiaAccordion);
+</script>

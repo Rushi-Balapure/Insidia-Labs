@@ -1,7 +1,7 @@
 export const changelog = [
   {
     date: "2026-10-08",
-    title: "CLI launch",
+    title: "Local scans and agent setup",
     pill: "the CLI installs from git; no release is published yet",
     body: "The agent skill and the local MCP server are in the repo. The CLI installs from git and can run directly in CI. No release has been published, so there is no signed wheel or container image yet.",
   },

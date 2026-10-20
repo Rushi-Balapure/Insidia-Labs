@@ -1,5 +1,5 @@
 ---
-import { docsCi, docsCli, docsHome, docsQuickstart, docsTroubleshooting } from "../lib/paths";
+import { docsAgent, docsCi, docsCli, docsHome, docsQuickstart, docsTroubleshooting } from "../lib/paths";
 
 const groups = [
   {
@@ -17,6 +17,7 @@ const groups = [
     links: [
       [docsHome, "Docs"],
       [docsQuickstart, "Quickstart"],
+      [docsAgent, "Use the agent skill"],
       [docsCli, "CLI reference"],
       [docsCi, "Run in CI"],
       [docsTroubleshooting, "Troubleshooting"],
@@ -36,7 +37,7 @@ const groups = [
 ---
 <footer class="site-footer">
   <div class="wrap foot-grid">
-    <p>Insidia Labs. Built in Pune, India.</p>
+    <p>Insidia Labs.</p>
     {groups.map((group) => (
       <nav aria-label={group.title}>
         <h2>{group.title}</h2>

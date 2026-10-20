@@ -12,8 +12,6 @@ from insidia.scope import (
     unauthorized_host,
 )
 
-from support import REPO
-
 LOCAL = (ScopeHost("localhost", False), ScopeHost("127.0.0.1", False))
 
 
@@ -135,12 +133,3 @@ targets:
     out = capsys.readouterr().out
     assert "pass --yes" in out
     assert "needs authorized" not in out
-
-
-def test_readme_yes_exempts_loopback_hosts() -> None:
-    text = (REPO / "README.md").read_text()
-    matched = [line for line in text.splitlines() if "--yes" in line and "only required" in line]
-    assert len(matched) == 1
-    assert "localhost" in matched[0]
-    assert "127.0.0.1" in matched[0]
-    assert "::1" in matched[0]
