@@ -2,7 +2,7 @@ import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
 
 export default defineConfig({
-  site: "https://insidialabs.com",
+  site: "https://www.insidialabs.com",
   base: "/docs",
   trailingSlash: "always",
   integrations: [
@@ -11,7 +11,10 @@ export default defineConfig({
       description: "Install the Insidia CLI, scan a local app, and read the report.",
       customCss: ["./src/styles/custom.css"],
       logo: { src: "./src/assets/mark.svg" },
-      components: { SiteTitle: "./src/components/SiteTitle.astro" },
+      components: {
+        SiteTitle: "./src/components/SiteTitle.astro",
+        Head: "./src/components/Head.astro",
+      },
       editLink: { baseUrl: "https://github.com/Rushi-Balapure/Insidia-Labs/edit/main/docs/" },
       social: [
         { icon: "github", label: "GitHub", href: "https://github.com/Rushi-Balapure/Insidia-Labs" },

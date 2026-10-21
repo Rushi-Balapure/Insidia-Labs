@@ -1,6 +1,6 @@
 ---
 title: Benchmark
-description: The L1, L2, and L3 policies, and the separate scanner matrix.
+description: Understand Insidia's available L1 baseline, planned L2 and L3 policies, and scanner benchmark matrix. Review what benchmark results establish and their limits.
 ---
 
 ## Policy you run on your app

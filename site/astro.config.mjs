@@ -65,8 +65,9 @@ function docsDevPlugin() {
 }
 
 export default defineConfig({
-  site: "https://insidialabs.com",
+  site: "https://www.insidialabs.com",
   output: "static",
+  trailingSlash: "always",
   redirects: {
     "/licenses": "/credits",
   },

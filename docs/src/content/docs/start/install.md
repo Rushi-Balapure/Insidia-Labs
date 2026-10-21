@@ -1,6 +1,6 @@
 ---
 title: Install
-description: Install the Insidia CLI from GitHub with uv or pipx.
+description: Install the free Insidia security testing CLI from GitHub with uv or pipx. Check Python requirements, verify the installation, and get ready to scan localhost.
 ---
 
 You need Python 3.12 or newer. Insidia is not published to a package registry.

@@ -4,8 +4,7 @@ import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 import { docsHome, docsQuickstart } from "../lib/paths";
 ---
-<Base title="Page not found | Insidia Labs" description="Find your way back to Insidia or its documentation." path="/404">
-  <meta slot="head" name="robots" content="noindex" />
+<Base title="Page not found | Insidia Labs" description="Find your way back to Insidia or its documentation." path="/404" noindex>
   <Header />
   <main id="content" class="wrap" style="padding:4rem 0">
     <p class="kicker">404</p>

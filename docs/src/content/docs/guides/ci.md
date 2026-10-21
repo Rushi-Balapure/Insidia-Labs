@@ -1,6 +1,6 @@
 ---
 title: Run in CI
-description: Run L1 from a pinned GitHub Action, or upload SARIF yourself, and tell a policy failure from an incomplete scan.
+description: Run Insidia L1 security scans in CI with a pinned GitHub Action. Upload SARIF, preserve scan reports, and distinguish policy failures from incomplete runs.
 ---
 
 First, get a [local scan](/docs/start/quickstart/) working. Check in the reviewed `insidia.yaml` so CI runs the same targets and scope.

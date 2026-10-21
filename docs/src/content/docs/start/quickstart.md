@@ -1,6 +1,6 @@
 ---
 title: Your first scan
-description: Write a config, scan localhost, and open the report.
+description: Run your first Insidia security scan on localhost. Configure your app URL, check setup with doctor, run the L1 baseline, and review the HTML report.
 ---
 
 You need [the CLI installed](/docs/start/install/) and your app running on localhost. This guide uses L1, the policy available in the current release. A model is optional for L1.

@@ -1,6 +1,6 @@
 ---
 title: Use a coding agent
-description: Have a coding agent install Insidia, scan localhost, and open the report.
+description: Install the Insidia agent skill for Claude Code, Cursor, or Codex. Have your coding agent configure a local security scan, review findings, and open the report.
 ---
 
 The CLI is built so an agent can run it without a custom integration. The skill is [skills/insidia/SKILL.md](https://github.com/Rushi-Balapure/Insidia-Labs/blob/main/skills/insidia/SKILL.md).

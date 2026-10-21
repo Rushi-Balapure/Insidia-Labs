@@ -1,6 +1,6 @@
 ---
 title: CLI
-description: Commands and flags the insidia binary accepts.
+description: Reference Insidia CLI commands, global flags, exit codes, scan policies, engine management, reports, reruns, and the local MCP server for coding agents.
 ---
 
 Global flags, accepted on every command, before or after it (`insidia --json doctor` and `insidia doctor --json` are the same):

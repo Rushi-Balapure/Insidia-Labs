@@ -1,6 +1,6 @@
 ---
 title: Report
-description: The files a scan writes, and how to open the HTML report.
+description: Read Insidia scan findings, evidence, remediation guidance, and skipped checks. Open the HTML report or use JSON, SARIF, and benchmark output in automation.
 ---
 
 ```bash

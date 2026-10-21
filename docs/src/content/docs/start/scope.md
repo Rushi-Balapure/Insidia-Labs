@@ -1,6 +1,6 @@
 ---
 title: Scope
-description: Insidia scans only hosts you list, and non-local hosts need authorized true.
+description: Define which hosts Insidia may scan in insidia.yaml. Start on localhost and explicitly authorize deployed targets with authorized true and scan confirmation.
 ---
 
 Every URL Insidia calls must sit on a host in `scope`. `insidia init` writes:

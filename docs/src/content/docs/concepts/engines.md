@@ -1,6 +1,6 @@
 ---
 title: Engines
-description: The open-source engines Insidia runs, and the modules Insidia builds.
+description: Choose and install Insidia security engines, including garak, ZAP, and Nuclei. Understand engine requirements, pinned downloads, coverage, and skipped checks.
 ---
 
 Insidia runs these projects and names them on each finding. Each keeps its own license.

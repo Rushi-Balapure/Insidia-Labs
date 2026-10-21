@@ -4,6 +4,9 @@ The site is static Astro. `npm run build` also builds the sibling `docs/`
 project and copies its output into `public/docs/`, so one Vercel project serves
 both the marketing site and `/docs/`.
 
+Both projects import dependency-free SEO helpers from `../shared/`.
+The docs project builds with only its own dependencies installed.
+
 ## Check locally
 
 From `site/`, with Node.js 22:
@@ -13,12 +16,20 @@ npm ci
 npm test
 npm run build
 npm run links
+npm run seo
 node scripts/secrets.mjs dist
 ```
 
 The build installs the docs dependencies with `npm ci` when needed. The
 static build succeeds with no environment variables. Web Analytics is included
 in production builds and stays off in the development server. See [Web Analytics](#web-analytics).
+
+`npm run seo` checks the built marketing pages and docs for canonical URLs,
+unique metadata, social images, structured data, visible FAQ answers, sitemap
+coverage, and AI documentation links. CI runs it after the build.
+`npm run seo:external` independently validates structured data with Adobe's
+validator and the current Schema.org vocabulary (network access required).
+See [SEO and answer-engine audit](SEO.md) for measurements and reproduction steps.
 
 ## Deploy through Vercel's GitHub integration
 
@@ -43,7 +54,7 @@ lets `esbuild` and `sharp` run their install scripts. npm 12 blocks those
 scripts otherwise, and `npm ci` exits 1 when `strict-allow-scripts` is on.
 
 4. Enable **Include source files outside of the Root Directory in the Build
-   Step**. The build needs `../docs/`. If this option is only available after
+   Step**. The build needs `../docs/` and `../shared/`. If this option is only available after
    import, save it under **Settings → Build and Deployment → Root Directory**
    and redeploy.
 5. Deploy. Confirm **Settings → Environments → Production → Branch Tracking**
@@ -59,8 +70,10 @@ server adapter. Subsequent pushes to the production branch trigger deployments.
 ## Connect insidialabs.com
 
 1. Open the Vercel project, then **Settings → Domains**.
-2. Add `insidialabs.com` and `www.insidialabs.com`. Configure `www` to redirect
-   to `insidialabs.com`, matching the canonical URL in `astro.config.mjs`.
+2. Add `insidialabs.com` and `www.insidialabs.com`. Configure `insidialabs.com`
+   to redirect to `www.insidialabs.com`, matching the live deployment and the
+   canonical URLs in both Astro configurations. Vercel's `trailingSlash: true`
+   keeps directory URLs consistent with the generated sitemaps.
 3. At your DNS provider, enter the exact records Vercel displays for each domain.
    Replace conflicting records for those names; preserve email/MX records.
 4. Wait for both domains to verify and HTTPS to become available. Repeat the

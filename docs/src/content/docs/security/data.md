@@ -1,6 +1,6 @@
 ---
 title: Data handling
-description: What a local Insidia scan sends, and what it writes down.
+description: Learn what Insidia sends to scan targets and model endpoints, which reports stay local, how secrets are masked, and how to handle saved security evidence.
 ---
 
 A CLI scan sends traffic to the targets in `insidia.yaml` and, if you configured them, to your attacker and judge endpoints. Insidia itself does not phone home. There is no telemetry switch in this pre-release because there is no telemetry.

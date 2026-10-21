@@ -1,6 +1,6 @@
 ---
 title: What it tests
-description: AI-layer checks, application checks, and scripted chains between them.
+description: See what Insidia tests across AI apps, agents, web apps, and APIs, from prompt injection to application vulnerabilities. Review current support and limitations.
 ---
 
 One scan covers two layers.
