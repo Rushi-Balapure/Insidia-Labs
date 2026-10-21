@@ -4,6 +4,9 @@ The site is static Astro. `npm run build` also builds the sibling `docs/`
 project and copies its output into `public/docs/`, so one Vercel project serves
 both the marketing site and `/docs/`.
 
+Both projects import dependency-free SEO helpers from `../shared/`.
+The docs project builds with only its own dependencies installed.
+
 ## Check locally
 
 From `site/`, with Node.js 22:
@@ -51,7 +54,7 @@ lets `esbuild` and `sharp` run their install scripts. npm 12 blocks those
 scripts otherwise, and `npm ci` exits 1 when `strict-allow-scripts` is on.
 
 4. Enable **Include source files outside of the Root Directory in the Build
-   Step**. The build needs `../docs/`. If this option is only available after
+   Step**. The build needs `../docs/` and `../shared/`. If this option is only available after
    import, save it under **Settings → Build and Deployment → Root Directory**
    and redeploy.
 5. Deploy. Confirm **Settings → Environments → Production → Branch Tracking**

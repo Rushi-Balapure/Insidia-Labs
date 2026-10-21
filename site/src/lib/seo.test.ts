@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pageGraph, serializeJsonLd } from "./seo";
+import { pageGraph, serializeJsonLd } from "../../../shared/seo";
 
 const site = new URL("https://site.example/");
 

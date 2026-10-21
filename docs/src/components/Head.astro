@@ -1,6 +1,6 @@
 ---
 import DefaultHead from "@astrojs/starlight/components/Head.astro";
-import { pageGraph, serializeJsonLd } from "../../../site/src/lib/seo";
+import { pageGraph, serializeJsonLd } from "../../../shared/seo";
 
 const { entry, head } = Astro.locals.starlightRoute;
 const noindex = head.some(({ attrs }) => attrs?.name === "robots" && String(attrs.content).includes("noindex"));
