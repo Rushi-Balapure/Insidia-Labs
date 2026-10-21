@@ -2,6 +2,7 @@
   "framework": "astro",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "trailingSlash": true,
   "redirects": [
     { "source": "/licenses", "destination": "/credits", "permanent": true }
   ]

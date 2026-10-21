@@ -2,7 +2,7 @@ import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
 
 export default defineConfig({
-  site: "https://insidialabs.com",
+  site: "https://www.insidialabs.com",
   base: "/docs",
   trailingSlash: "always",
   integrations: [
