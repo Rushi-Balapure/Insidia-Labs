@@ -1,6 +1,6 @@
 ---
 title: insidia.yaml
-description: Every field insidia init writes, and what you change before a real scan.
+description: Configure insidia.yaml for AI and application security scans. Set targets, request formats, allowed hosts, credentials, model endpoints, and engine options.
 ---
 
 `insidia init` writes `insidia.yaml` in the current directory. A scan reads that file and nothing else. There is no URL argument on `insidia scan`.

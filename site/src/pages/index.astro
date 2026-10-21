@@ -17,8 +17,9 @@ import { howtoVideo } from "../lib/video";
 import PageAnalytics from "../components/PageAnalytics.astro";
 import { TRACKED_PATHS } from "../lib/analytics";
 import { docsAgent, docsQuickstart, docsTests } from "../lib/paths";
+import { serializeJsonLd } from "../lib/seo";
 
-const description = "Check your AI app, agent, or API for security issues. Run Insidia locally or through your coding agent, then review the findings and suggested fixes in one report.";
+const description = "Test AI apps, agents, web apps, and APIs for prompt injection, data leakage, and vulnerabilities. Run Insidia's free CLI locally and review evidence in one report.";
 const skillInstall = `npx skills add ${GITHUB_REPO}`;
 const skillPrompt = `Use the Insidia skill to test my app at http://127.0.0.1:8080/chat.
 Only scan localhost. Review the findings and open the report when you're done.`;
@@ -34,23 +35,26 @@ const jsonLd = {
   "@context": "https://schema.org",
   "@graph": [
     {
-      "@type": "Organization",
-      name: "Insidia Labs",
-      url: Astro.site?.href,
-      logo: new URL("/brand/mark-small.svg", Astro.site).href,
-      email: "insidialabs@gmail.com",
-      description,
-    },
-    {
       "@type": "SoftwareApplication",
+      "@id": new URL("/#software", Astro.site).href,
       name: "Insidia",
+      url: Astro.site?.href,
       applicationCategory: "SecurityApplication",
       operatingSystem: "Linux, macOS, Windows",
+      publisher: { "@id": new URL("/#organization", Astro.site).href },
+      mainEntityOfPage: { "@id": new URL("/#webpage", Astro.site).href },
+      softwareRequirements: "Python 3.12 or newer",
+      installUrl: new URL("/docs/start/install/", Astro.site).href,
+      softwareHelp: { "@type": "WebPage", url: new URL("/docs/", Astro.site).href },
+      license: "https://github.com/Rushi-Balapure/Insidia-Labs/blob/main/LICENSE",
+      isAccessibleForFree: true,
       offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
       description: "CLI for security testing of AI apps, agents, web apps, and APIs. Runs on your machine. Every finding names the engine that produced it.",
     },
     {
       "@type": "FAQPage",
+      "@id": new URL("/#faq", Astro.site).href,
+      isPartOf: { "@id": new URL("/#webpage", Astro.site).href },
       mainEntity: faqs.map(([name, text]) => ({
         "@type": "Question",
         name,
@@ -60,9 +64,9 @@ const jsonLd = {
   ],
 };
 ---
-<Base title="Insidia Labs | Security testing for AI apps and agents" description={description}>
+<Base title="AI Security Testing for Apps & Agents | Insidia Labs" description={description}>
   <Fragment slot="head">
-    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+    <script type="application/ld+json" set:html={serializeJsonLd(jsonLd)} />
   </Fragment>
   <Header />
   <main id="content" class="home">

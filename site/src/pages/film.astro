@@ -6,7 +6,7 @@ import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 import { filmVideo } from "../lib/video";
 
-const description = "A three-minute film of an Insidia scan: the finding, the evidence, and the rerun.";
+const description = "Watch a three-minute Insidia security scan walkthrough, from finding and evidence to report and rerun. Includes captions, chapters, and a readable transcript.";
 const transcriptPath = fileURLToPath(new URL("../../public/video/film-transcript.md", import.meta.url));
 const transcript = existsSync(transcriptPath) ? readFileSync(transcriptPath, "utf8") : "";
 const sections = transcript
@@ -21,7 +21,7 @@ const sections = transcript
     };
   });
 ---
-<Base title="Film | Insidia Labs" description={description} path="/film">
+<Base title="AI Security Scan Walkthrough & Transcript | Insidia Labs" description={description} path="/film">
   <Header />
   <main id="content" class="wrap page">
     <h1>Insidia, in about three minutes.</h1>

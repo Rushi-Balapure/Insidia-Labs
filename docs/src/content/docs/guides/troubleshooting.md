@@ -1,6 +1,6 @@
 ---
 title: Troubleshooting
-description: Resolve configuration errors, unreachable targets, incomplete scans, and rerun problems.
+description: Troubleshoot Insidia configuration errors, unreachable targets, missing engines, incomplete scans, and rerun problems. Use doctor and exit codes to diagnose issues.
 ---
 
 Start with the command's error message and the latest report. A scan that exits `2` needs attention even when it has no findings.

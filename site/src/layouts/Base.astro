@@ -1,14 +1,19 @@
 ---
 import "../styles/global.css";
+import { pageGraph, serializeJsonLd } from "../lib/seo";
 
 interface Props {
   title: string;
   description: string;
   path?: string;
+  noindex?: boolean;
 }
-const { title, description, path = "/" } = Astro.props;
+const { title, description, path = "/", noindex = false } = Astro.props;
 const canonical = new URL(path === "/" ? "/" : path.endsWith("/") ? path : `${path}/`, Astro.site);
 const image = new URL("/og-image.png", Astro.site);
+const graph = pageGraph(Astro.site!, {
+  path: canonical.pathname, title: title.replace(/ \| Insidia Labs$/, ""), description,
+});
 ---
 <!doctype html>
 <html lang="en">
@@ -17,13 +22,17 @@ const image = new URL("/og-image.png", Astro.site);
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
-    <link rel="canonical" href={canonical} />
+    {!noindex && <link rel="canonical" href={canonical} />}
+    <meta name="robots" content={noindex ? "noindex, follow" : "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"} />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+    <link rel="alternate" type="text/plain" href="/llms.txt" title="Insidia documentation for language models" />
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="theme-color" content="#101028" />
     <meta property="og:site_name" content="Insidia Labs" />
+    <meta property="og:locale" content="en_US" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
@@ -36,6 +45,8 @@ const image = new URL("/og-image.png", Astro.site);
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={image} />
+    <meta name="twitter:image:alt" content="Insidia Labs logo with the headline: Your AI agent is your newest attack surface." />
+    {!noindex && <script type="application/ld+json" set:html={serializeJsonLd(graph)} />}
     <slot name="head" />
     <script is:inline>
       (() => {
