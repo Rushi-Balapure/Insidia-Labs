@@ -529,7 +529,7 @@ def test_scan_finds_the_sandbox_plants_and_passes_a_clean_target(tmp_path: Path)
         assert attacks == {"ai.data_leakage", "web.ssti"}
         report = _latest(tmp_path, "report.html").read_text(encoding="utf-8")
         assert "insidia.ai.data_leakage" in report
-        assert "<table>" in report
+        assert '<table class="framework-scores">' in report
 
         clean = ThreadingHTTPServer(("127.0.0.1", 0), _Ok)
         threading.Thread(target=clean.serve_forever, daemon=True).start()
