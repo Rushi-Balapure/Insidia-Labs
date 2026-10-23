@@ -999,7 +999,11 @@ _CVE_ID = re.compile(r"CVE-\d{4}-\d{4,7}")
 def _finding_cards(findings: list[Finding], run_id: str, target_names: list[str]) -> str:
     """Cards for each hit. A busy check collapses, and two targets can be filtered."""
     if not findings:
-        return '<p class="note">No findings.</p>'
+        return (
+            '<div class="empty-findings"><strong>No findings detected in the checks performed.</strong>'
+            '<p>Review untested checks and coverage limitations before interpreting this result.</p>'
+            '<a href="#coverage">Review check coverage →</a></div>'
+        )
     names = list(target_names)
     for finding in findings:
         if finding.target and finding.target not in names:
@@ -1296,7 +1300,7 @@ def _plugin_source(finding: Finding) -> str:
 
 def _remediation_table(findings: list[Finding]) -> str:
     if not findings:
-        return '<p class="note">Nothing to fix.</p>'
+        return '<p class="note">No remediation actions were recorded for this run.</p>'
     grouped: dict[str, list[Finding]] = {}
     for finding in findings:
         grouped.setdefault(finding.remediation, []).append(finding)

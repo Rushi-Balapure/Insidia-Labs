@@ -169,6 +169,10 @@ summary.bar {
   flex-wrap: wrap;
   align-items: baseline;
 }
+.empty-findings { background: var(--card); border: 1px solid var(--line);
+  border-left: 4px solid var(--info); border-radius: 8px; padding: 1.25rem; }
+.empty-findings p { color: var(--muted); margin: 0.5rem 0; }
+.empty-findings a { color: var(--info); font-weight: 600; }
 .finding dl { margin: 0; padding: 1rem 1.25rem; }
 .finding dt { font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.04em; color: var(--muted); margin-top: 1rem; }
