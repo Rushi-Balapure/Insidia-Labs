@@ -147,3 +147,33 @@ def framework_item_table(rows: Sequence[tuple[str, str, str]]) -> str:
         '<table class="framework-items"><thead><tr><th>Control</th><th>Title</th>'
         f'<th>Result</th></tr></thead><tbody>\n{"\n".join(body)}\n</tbody></table>'
     )
+
+
+def coverage_filter(content: str, counts: CheckCounts, *, prefix: str, unit: str) -> str:
+    options = [("all", "All", counts.total), ("fail", "Failed", counts.failed),
+               ("nt", "Not tested", counts.untested), ("pass", "Passed", counts.passed)]
+    if counts.info:
+        options.append(("info", "Informational", counts.info))
+    controls, styles, empty = [], [], []
+    for value, label, count in options:
+        selected = " checked" if value == "all" else ""
+        control_id = f"{prefix}-{value}"
+        controls.append(
+            f'<input type="radio" id="{control_id}" name="{prefix}" value="{value}"'
+            f'{selected}><label for="{control_id}">{label} ({count})</label>'
+        )
+        if value != "all":
+            outcome = "not tested" if value == "nt" else value
+            styles.append(
+                f'#{control_id}:checked ~ .filter-content .coverage-row'
+                f':not([data-result="{outcome}"]) {{ display: none; }}'
+            )
+        if count == 0:
+            empty.append(f'<p class="filter-empty empty-{value}">No {label.lower()} {unit}.</p>')
+            styles.append(f'#{control_id}:checked ~ .filter-content .empty-{value}'
+                          ' { display: block; }')
+    return (
+        f'<fieldset class="coverage-filter"><legend>Filter {unit} by result</legend>'
+        f'<style>{"".join(styles)}</style>{"".join(controls)}'
+        f'<div class="filter-content">{"".join(empty)}{content}</div></fieldset>'
+    )

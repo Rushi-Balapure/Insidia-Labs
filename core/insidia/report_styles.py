@@ -64,6 +64,16 @@ h2 {
 .verdict-strip dt { font-size: 0.8rem; color: var(--muted); }
 .verdict-strip dd { margin: 0.3rem 0 0; }
 .note, .muted { color: var(--muted); }
+.coverage-filter { border: 0; padding: 0; margin: 1rem 0; min-width: 0; }
+.coverage-filter legend { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.5rem; }
+.coverage-filter > input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.coverage-filter > label { display: inline-block; cursor: pointer; margin: 0 0.3rem 0.5rem 0;
+  padding: 0.35rem 0.7rem; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--card); font-size: 0.85rem; }
+.coverage-filter > input:checked + label { background: var(--ink); color: var(--card); }
+.coverage-filter > input:focus-visible + label { outline: 3px solid var(--info);
+  outline-offset: 2px; }
+.filter-empty { display: none; padding: 1rem; background: var(--card); }
 .framework-group { margin: 0.75rem 0; border: 1px solid var(--line);
   border-radius: 8px; padding: 0.7rem; }
 .framework-group > summary { cursor: pointer; font-weight: 650; }

@@ -23,7 +23,9 @@ from insidia.findings import Finding, prepare_findings
 from insidia.mask import SECRET_PATTERNS, mask
 from insidia.report_styles import REPORT_CSS as _CSS
 from insidia.report_ui import (
+    CheckCounts,
     check_counts,
+    coverage_filter,
     framework_bar,
     framework_groups,
     status_badge,
@@ -760,7 +762,12 @@ def _render(
         "</table>",
         "<details>",
         "<summary>OWASP item list</summary>",
-        framework_groups(controls, scores),
+        coverage_filter(
+            framework_groups(controls, scores),
+            CheckCounts(sum(s.passed for s in scores), sum(s.failed for s in scores), 0,
+                        sum(s.not_tested for s in scores)),
+            prefix="framework-filter", unit="framework items",
+        ),
         "</details>",
         '<h2 id="scaninfo">Scan information</h2>',
         _scan_table(
@@ -1341,7 +1348,7 @@ def _coverage_by_target(controls: list[dict[str, str | int]], skips: list[str]) 
             badge = status_badge(result, uppercase=True)
             why = _coverage_why(control, skips)
             body.append(
-                "<tr>"
+                f'<tr class="coverage-row" data-result="{_escape(_control_outcome(control))}">'
                 f'<td data-l="Check"><code>{_escape(str(control.get("id", "")))}</code></td>'
                 f'<td data-l="Result">{badge}</td>'
                 f'<td data-l="Why">{_escape(why)}</td>'
@@ -1354,7 +1361,14 @@ def _coverage_by_target(controls: list[dict[str, str | int]], skips: list[str]) 
             "<th>Check</th><th>Result</th><th>Why</th></tr></thead>"
             f"<tbody>{''.join(body)}</tbody></table>"
         )
-    return "\n".join(blocks)
+    return coverage_filter(
+        "\n".join(blocks), check_counts(controls), prefix="check-filter", unit="checks"
+    )
+
+
+def _control_outcome(control: dict[str, str | int]) -> str:
+    result = _control_text(control, "result")
+    return result if result in {"pass", "fail", "info"} else "not tested"
 
 
 # Same cause, so the same sentence. Different causes must not share this text.
