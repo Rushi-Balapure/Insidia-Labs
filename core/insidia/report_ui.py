@@ -205,3 +205,31 @@ def report_identity(
         f"<div><dt>{label}</dt><dd>{escape(value)}</dd></div>" for label, value in fields
     )
     return f'<dl class="report-identity">{body}</dl>'
+
+
+def tested_chart(counts: CheckCounts) -> str:
+    percentage = counts.tested / counts.total * 100 if counts.total else 0.0
+    headline = f"{percentage:.0f}%" if counts.total else "—"
+    description = f"Checks tested: {counts.tested} of {counts.total}; not tested: {counts.untested}"
+    return (
+        '<figure class="chart chart-tested"><figcaption>Test coverage</figcaption>'
+        f'<div class="donut-wrap"><svg viewBox="0 0 120 120" role="img" '
+        f'aria-label="{description}"><circle class="donut-track" cx="60" cy="60" r="48"/>'
+        f'<circle class="donut-tested" cx="60" cy="60" r="48" pathLength="100" '
+        f'stroke-dasharray="{percentage:.4f} 100" transform="rotate(-90 60 60)"/></svg>'
+        f'<div class="donut-label" aria-hidden="true"><strong>{headline}</strong>'
+        "<span>tested</span></div></div>"
+        f'<p class="chart-total">{counts.tested} / {counts.total} checks tested</p>'
+        + chart_legend((("Tested", counts.tested, "tested"), ("Not tested", counts.untested, "nt")))
+        + ('<p class="note">No checks were recorded.</p>' if not counts.total else "")
+        + "</figure>"
+    )
+
+
+def chart_legend(segments: Sequence[tuple[str, int, str]]) -> str:
+    items = "".join(
+        f'<li><span class="legend-dot segment-{css}" aria-hidden="true"></span>'
+        f"{escape(label)} <strong>{count}</strong></li>"
+        for label, count, css in segments
+    )
+    return f'<ul class="chart-legend">{items}</ul>'

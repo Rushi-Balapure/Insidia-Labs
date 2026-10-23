@@ -98,6 +98,25 @@ h2 {
 .framework-group > summary { cursor: pointer; font-weight: 650; }
 .framework-items td:first-child { white-space: nowrap; font-family: ui-monospace, monospace;
   font-size: 0.85rem; }
+.charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 1rem; margin: 1rem 0; }
+.chart { margin: 0; background: var(--card); padding: 1.25rem;
+  border: 1px solid var(--line); border-radius: 10px; min-width: 0; }
+.chart figcaption { font-size: 1rem; font-weight: 700; margin-bottom: 1rem; }
+.chart-total { font-size: 0.95rem; font-weight: 650; margin: 0.5rem 0; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem;
+  margin: 0.75rem 0 0; padding: 0; list-style: none; font-size: 0.8rem; }
+.chart-legend li { display: flex; align-items: center; gap: 0.4rem; }
+.legend-dot { display: inline-block; width: 0.65rem; height: 0.65rem; border-radius: 50%; }
+.donut-wrap { position: relative; width: 170px; margin: auto; }
+.donut-wrap svg { width: 100%; height: auto; display: block; }
+.donut-wrap circle { fill: none; stroke-width: 13; }
+.donut-track { stroke: #D9A21B; }
+.donut-tested { stroke: var(--info); }
+.donut-label { position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; }
+.donut-label strong { font-size: 2rem; font-variant-numeric: tabular-nums; }
+.donut-label span { font-size: 0.8rem; color: var(--muted); }
 .bar-track { display: flex; width: 100%; height: 0.8rem; overflow: hidden;
   border-radius: 999px; background: var(--line); }
 .segment { display: block; height: 100%; flex-shrink: 0; }

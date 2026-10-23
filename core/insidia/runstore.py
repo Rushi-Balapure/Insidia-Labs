@@ -31,6 +31,7 @@ from insidia.report_ui import (
     report_identity,
     status_badge,
     summary_metrics,
+    tested_chart,
     untested_reason,
     verdict_strip,
 )
@@ -736,6 +737,9 @@ def _render(
         f'<p class="status {status}">{_escape(summary)}</p>',
         verdict_strip(execution_status, policy, verdict, check_counts(controls)),
         summary_metrics(check_counts(controls), len(findings)),
+        '<div class="charts-grid">',
+        tested_chart(check_counts(controls)),
+        '</div>',
         tiles,
         '<h2 id="findings">Findings by severity</h2>',
         _finding_cards(findings, run_id, names),
