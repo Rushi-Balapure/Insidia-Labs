@@ -22,6 +22,7 @@ from insidia.errors import CliError
 from insidia.findings import Finding, prepare_findings
 from insidia.mask import SECRET_PATTERNS, mask
 from insidia.report_styles import REPORT_CSS as _CSS
+from insidia.report_ui import status_badge
 from insidia.results import SCHEMA_VERSION, legacy_passed
 from insidia.score import Score, coverage, score_frameworks, severity_rank
 
@@ -611,13 +612,13 @@ def _score_rows(scores: tuple[Score, ...]) -> str:
 
 def _coverage_rows(controls: list[dict[str, str | int]]) -> str:
     lines = []
-    labels = ("Control", "Title", "Result")
-    for row in coverage(controls):
-        pairs = zip(labels, row, strict=True)
-        cells = "".join(
-            f'<td data-l="{label}">{_escape(value)}</td>' for label, value in pairs
+    for control_id, title, result in coverage(controls):
+        lines.append(
+            "<tr>"
+            f'<td data-l="Control">{_escape(control_id)}</td>'
+            f'<td data-l="Title">{_escape(title)}</td>'
+            f'<td data-l="Result">{status_badge(result)}</td></tr>'
         )
-        lines.append(f"<tr>{cells}</tr>")
     return "\n".join(lines)
 
 
@@ -1325,19 +1326,14 @@ def _coverage_by_target(controls: list[dict[str, str | int]], skips: list[str]) 
         body = []
         for control in rows:
             result = _control_text(control, "result")
-            label, css = {
-                "fail": ("FAIL", "fail"),
-                "pass": ("PASS", "pass"),
-                "info": ("INFO", "info"),
-                "not tested": ("NOT TESTED", "nt"),
-            }.get(result, (result.upper() or "NOT TESTED", "nt"))
             if result == "pass" and _control_text(control, "assurance") == "low":
-                label, css = "PASS (low assurance)", "low"
+                result = "pass (low assurance)"
+            badge = status_badge(result, uppercase=True)
             why = _coverage_why(control, skips)
             body.append(
                 "<tr>"
                 f'<td data-l="Check"><code>{_escape(str(control.get("id", "")))}</code></td>'
-                f'<td data-l="Result"><span class="res res-{css}">{label}</span></td>'
+                f'<td data-l="Result">{badge}</td>'
                 f'<td data-l="Why">{_escape(why)}</td>'
                 "</tr>"
             )

@@ -82,7 +82,7 @@ code { font-family: ui-monospace, monospace; word-break: break-all; }
 .sev, .res {
   display: inline-block;
   padding: 0.05rem 0.45rem;
-  border-radius: 4px;
+  border-radius: 999px;
   font-size: 0.75rem;
   font-weight: 700;
 }
@@ -95,7 +95,13 @@ code { font-family: ui-monospace, monospace; word-break: break-all; }
 .res-pass { background: var(--pass); color: #fff; }
 .res-low { background: var(--low); color: #222; }
 .res-info { background: var(--info); color: #fff; }
-.res-nt { background: #E4E4EE; color: #454573; }
+.res-nt { background: #FFF0BD; color: #624500; }
+.res::before { margin-right: 0.35em; }
+.res-pass::before { content: "✓"; }
+.res-fail::before { content: "✕"; }
+.res-nt::before { content: "—"; }
+.res-low::before { content: "!"; }
+.res-info::before { content: "i"; }
 details.finding {
   background: var(--card);
   border: 1px solid var(--line);
@@ -174,7 +180,7 @@ footer {
   .note, .muted, th, footer { color: #B2B2D1; }
   th, td, footer { border-bottom-color: #2E2E56; }
   pre { background: #101028; color: #F6F6FB; }
-  .res-nt { background: #2E2E56; color: #F6F6FB; }
+  .res-nt { background: #594512; color: #FFE5A0; }
 }
 @media (max-width:700px) {
   header, nav, main { padding-left: 1rem; padding-right: 1rem; }

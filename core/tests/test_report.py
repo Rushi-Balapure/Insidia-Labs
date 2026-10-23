@@ -1085,7 +1085,10 @@ def _coverage_badge(html: str, check_id: str) -> str:
 def _owasp_result(html: str, control_id: str) -> str:
     row = next(line for line in html.splitlines() if f">{control_id}<" in line)
     cells = row.split("<td")
-    return cells[-1].split(">", 1)[1].split("<", 1)[0]
+    import re
+
+    cell = cells[-1].split(">", 1)[1].split("</td>", 1)[0]
+    return re.sub(r"<[^>]+>", "", cell)
 
 
 def _score_line(html: str, title: str) -> tuple[str, str, str]:
