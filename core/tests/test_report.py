@@ -160,13 +160,13 @@ def test_report_sections_follow_the_nessus_order(tmp_path: Path) -> None:
         "Findings by severity",
         "Remediation summary",
         "Coverage by target",
-        "Framework mapping",
+        "Framework coverage",
         "Scan information",
     ]
     assert html.index("Executive summary") < html.index("Findings by severity")
     assert html.index("Findings by severity") < html.index("Coverage by target")
     assert "OWASP item list" in html
-    assert html.index("Framework mapping") < html.index("OWASP item list")
+    assert html.index("Framework coverage") < html.index("OWASP item list")
     for label in ("Critical", "High", "Medium", "Low", "Info"):
         assert label in html
     payload = json.loads((directory / "findings.json").read_text())

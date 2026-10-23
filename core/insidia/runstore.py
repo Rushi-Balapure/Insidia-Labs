@@ -747,7 +747,9 @@ def _render(
         _remediation_table(findings),
         '<h2 id="coverage">Coverage by target</h2>',
         _coverage_by_target(controls, skips),
-        '<h2 id="frameworks">Framework mapping</h2>',
+        '<h2 id="frameworks">Framework coverage</h2>',
+        '<p class="note">Counts below are mapped framework items, not individual checks. '
+        'An item can contain multiple checks. This is coverage, not a security rating.</p>',
         '<table class="framework-scores">',
         (
             "<thead><tr><th>Framework</th><th>Failed</th>"
