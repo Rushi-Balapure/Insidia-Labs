@@ -128,7 +128,11 @@ h2 {
 .segment-fail { background: var(--high); }
 .segment-nt { background: #D9A21B; }
 .segment-info, .segment-tested { background: var(--info); }
-.framework-scores td:last-child { min-width: 150px; text-align: left; }
+.framework-chart-row { display: grid; grid-template-columns: minmax(180px, 1fr) 2fr;
+  gap: 0.4rem 1.5rem; margin: 1rem 0; align-items: center; }
+.framework-chart-row strong { font-size: 0.9rem; }
+.framework-chart-row p { grid-column: 2; margin: 0; font-size: 0.8rem; }
+.framework-chart-row small { display: block; margin-top: 0.25rem; }
 .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 0.75rem; margin: 1.25rem 0 0.5rem; }
 .metric { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
@@ -293,6 +297,8 @@ footer {
 }
 @media (max-width:700px) {
   header, nav, main { padding-left: 1rem; padding-right: 1rem; }
+  .framework-chart-row { grid-template-columns: 1fr; gap: 0.4rem; }
+  .framework-chart-row p { grid-column: 1; }
   .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .verdict-strip { flex-direction: column; gap: 0.6rem; }
   .framework-items td:first-child { white-space: normal; }

@@ -26,7 +26,7 @@ from insidia.report_ui import (
     CheckCounts,
     check_counts,
     coverage_filter,
-    framework_bar,
+    framework_chart,
     framework_groups,
     outcomes_chart,
     report_identity,
@@ -614,7 +614,6 @@ def _score_rows(scores: tuple[Score, ...]) -> str:
             f'<td class="number count-pass" data-l="Passed">'
             f"{_escape(_passed_text(score.passed, score.low_assurance))}</td>"
             f'<td class="number count-nt" data-l="Not tested">{score.not_tested}</td>'
-            f'<td data-l="Coverage">{framework_bar(score)}</td>'
             "</tr>"
         )
     return "\n".join(lines)
@@ -755,10 +754,11 @@ def _render(
         '<h2 id="frameworks">Framework coverage</h2>',
         '<p class="note">Counts below are mapped framework items, not individual checks. '
         "An item can contain multiple checks. This is coverage, not a security rating.</p>",
+        framework_chart(scores),
         '<table class="framework-scores">',
         (
             "<thead><tr><th>Framework</th><th>Failed</th>"
-            "<th>Passed</th><th>Not tested</th><th>Coverage</th></tr></thead>"
+            "<th>Passed</th><th>Not tested</th></tr></thead>"
         ),
         f"<tbody>\n{_score_rows(scores)}\n</tbody>",
         "</table>",

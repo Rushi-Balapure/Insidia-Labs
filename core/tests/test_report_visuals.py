@@ -4,12 +4,14 @@ import pytest
 from insidia.report_ui import (
     CheckCounts,
     check_counts,
+    framework_chart,
     outcomes_chart,
     verdict_strip,
 )
 from insidia.report_ui import (
     tested_chart as render_tested_chart,
 )
+from insidia.score import Score
 
 
 def test_check_counts_do_not_count_taxonomy_tags_as_checks() -> None:
@@ -60,3 +62,13 @@ def test_outcome_chart_retains_informational_and_low_assurance_counts() -> None:
     assert "width:20.0000%" in html
     assert "width:30.0000%" in html
     assert "<strong>10</strong> recorded checks" in html
+
+
+
+def test_framework_chart_uses_item_counts_and_escapes_titles() -> None:
+    html = framework_chart([Score("web", "Web <script>", 1, 2, 7, 1)])
+    assert "Web &lt;script&gt;" in html
+    assert "3 / 10 items tested" in html
+    assert "Framework items: Passed: 2; Failed: 1; Not tested: 7" in html
+    assert "2 passed · 1 failed · 7 not tested · 1 low assurance" in html
+    assert "<script>" not in html

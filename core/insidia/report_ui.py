@@ -253,3 +253,26 @@ def outcomes_chart(counts: CheckCounts) -> str:
         + ('<p class="note">No checks were recorded.</p>' if not counts.total else "")
         + "</figure>"
     )
+
+
+def framework_chart(scores: Sequence[Score]) -> str:
+    rows = "".join(
+        f'<div class="framework-chart-row"><strong>{escape(score.title)}</strong>'
+        f"{framework_bar(score)}"
+        f'<p class="muted">{score.passed} passed · {score.failed} failed · '
+        f"{score.not_tested} not tested · {score.low_assurance} low assurance</p></div>"
+        for score in scores
+    )
+    return (
+        '<figure class="chart chart-frameworks"><figcaption>Coverage by framework</figcaption>'
+        + rows
+        + chart_legend(
+            (
+                ("Passed", sum(s.passed for s in scores), "pass"),
+                ("Failed", sum(s.failed for s in scores), "fail"),
+                ("Not tested", sum(s.not_tested for s in scores), "nt"),
+            )
+        )
+        + '<p class="note">Counts represent mapped framework items. '
+        "Each item may include multiple checks; coverage is not a security score.</p></figure>"
+    )

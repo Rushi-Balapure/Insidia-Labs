@@ -1092,7 +1092,8 @@ def _owasp_result(html: str, control_id: str) -> str:
 
 
 def _score_line(html: str, title: str) -> tuple[str, str, str]:
-    row = next(line for line in html.splitlines() if title in line)
+    table = html.split('<table class="framework-scores">', 1)[1].split("</table>", 1)[0]
+    row = next(line for line in table.splitlines() if title in line)
     cells = row.split("<td")
     values = [cell.split(">", 1)[1].split("<", 1)[0] for cell in cells[1:]]
     assert values[0] == title
