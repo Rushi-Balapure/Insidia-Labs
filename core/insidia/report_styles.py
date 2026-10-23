@@ -91,6 +91,14 @@ th, td {
   vertical-align: top;
 }
 th { color: var(--muted); font-weight: 600; }
+thead th { background: #ECECF5; color: var(--ink); }
+tbody tr:nth-child(even) { background: #F8F8FC; }
+.framework-scores td:first-child { font-weight: 650; }
+.number, .framework-scores th:not(:first-child) { text-align: right;
+  font-variant-numeric: tabular-nums; }
+.count-fail { color: #A12830; }
+.count-pass { color: #21653F; }
+.count-nt { color: #765300; }
 code { font-family: ui-monospace, monospace; word-break: break-all; }
 .sev, .res {
   display: inline-block;

@@ -602,9 +602,10 @@ def _score_rows(scores: tuple[Score, ...]) -> str:
         lines.append(
             "<tr>"
             f'<td data-l="Framework">{_escape(score.title)}</td>'
-            f'<td data-l="Failed">{score.failed}</td>'
-            f'<td data-l="Passed">{_escape(_passed_text(score.passed, score.low_assurance))}</td>'
-            f'<td data-l="Not tested">{score.not_tested}</td>'
+            f'<td class="number count-fail" data-l="Failed">{score.failed}</td>'
+            f'<td class="number count-pass" data-l="Passed">'
+            f'{_escape(_passed_text(score.passed, score.low_assurance))}</td>'
+            f'<td class="number count-nt" data-l="Not tested">{score.not_tested}</td>'
             "</tr>"
         )
     return "\n".join(lines)
@@ -740,7 +741,7 @@ def _render(
         '<h2 id="coverage">Coverage by target</h2>',
         _coverage_by_target(controls, skips),
         '<h2 id="frameworks">Framework mapping</h2>',
-        "<table>",
+        '<table class="framework-scores">',
         (
             "<thead><tr><th>Framework</th><th>Failed</th>"
             "<th>Passed</th><th>Not tested</th></tr></thead>"
