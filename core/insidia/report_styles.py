@@ -64,6 +64,14 @@ h2 {
 .verdict-strip dt { font-size: 0.8rem; color: var(--muted); }
 .verdict-strip dd { margin: 0.3rem 0 0; }
 .note, .muted { color: var(--muted); }
+.bar-track { display: flex; width: 100%; height: 0.8rem; overflow: hidden;
+  border-radius: 999px; background: var(--line); }
+.segment { display: block; height: 100%; flex-shrink: 0; }
+.segment-pass { background: var(--pass); }
+.segment-fail { background: var(--high); }
+.segment-nt { background: #D9A21B; }
+.segment-info, .segment-tested { background: var(--info); }
+.framework-scores td:last-child { min-width: 150px; text-align: left; }
 .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 0.75rem; margin: 1.25rem 0 0.5rem; }
 .metric { background: var(--card); border: 1px solid var(--line); border-radius: 10px;

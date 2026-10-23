@@ -22,7 +22,13 @@ from insidia.errors import CliError
 from insidia.findings import Finding, prepare_findings
 from insidia.mask import SECRET_PATTERNS, mask
 from insidia.report_styles import REPORT_CSS as _CSS
-from insidia.report_ui import check_counts, status_badge, summary_metrics, verdict_strip
+from insidia.report_ui import (
+    check_counts,
+    framework_bar,
+    status_badge,
+    summary_metrics,
+    verdict_strip,
+)
 from insidia.results import SCHEMA_VERSION, legacy_passed
 from insidia.score import Score, coverage, score_frameworks, severity_rank
 
@@ -606,6 +612,7 @@ def _score_rows(scores: tuple[Score, ...]) -> str:
             f'<td class="number count-pass" data-l="Passed">'
             f'{_escape(_passed_text(score.passed, score.low_assurance))}</td>'
             f'<td class="number count-nt" data-l="Not tested">{score.not_tested}</td>'
+            f'<td data-l="Coverage">{framework_bar(score)}</td>'
             "</tr>"
         )
     return "\n".join(lines)
@@ -744,7 +751,7 @@ def _render(
         '<table class="framework-scores">',
         (
             "<thead><tr><th>Framework</th><th>Failed</th>"
-            "<th>Passed</th><th>Not tested</th></tr></thead>"
+            "<th>Passed</th><th>Not tested</th><th>Coverage</th></tr></thead>"
         ),
         f"<tbody>\n{_score_rows(scores)}\n</tbody>",
         "</table>",

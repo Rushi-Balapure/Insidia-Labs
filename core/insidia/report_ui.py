@@ -4,6 +4,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from html import escape
 
+from insidia.score import Score
+
 
 def status_badge(result: str, *, uppercase: bool = False) -> str:
     """Keep an explicit label alongside each status color and symbol."""
@@ -84,3 +86,31 @@ def summary_metrics(counts: CheckCounts, findings: int) -> str:
     if counts.info:
         note += f" {counts.info} tested checks are informational."
     return f'<dl class="metrics">{body}</dl><p class="note">{note}</p>'
+
+
+def stacked_bar(segments: Sequence[tuple[str, int, str]], *, unit: str) -> str:
+    """A proportional bar with a complete textual alternative, including zero counts."""
+    total = sum(count for _label, count, _css in segments)
+    description = "; ".join(f"{label}: {count}" for label, count, _css in segments)
+    bars = "".join(
+        f'<span class="segment segment-{css}" style="width:{count / total * 100:.4f}%">'
+        "</span>" for _label, count, css in segments if count and total
+    )
+    return (
+        f'<div class="stacked-bar" role="img" aria-label="{escape(unit)}: '
+        f'{escape(description)}"><div class="bar-track" aria-hidden="true">{bars}</div></div>'
+    )
+
+
+def framework_bar(score: Score) -> str:
+    segments = (
+        ("Passed", score.passed, "pass"),
+        ("Failed", score.failed, "fail"),
+        ("Not tested", score.not_tested, "nt"),
+    )
+    total = score.passed + score.failed + score.not_tested
+    tested = score.passed + score.failed
+    return (
+        stacked_bar(segments, unit="Framework items")
+        + f'<small class="muted">{tested} / {total} items tested</small>'
+    )
