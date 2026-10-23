@@ -1051,7 +1051,7 @@ def _finding_card(finding: Finding, index: int, run_id: str, token: str = "") ->
     right = f"{finding.target} · {label} {finding.risk_score:.1f}"
     return (
         f'<details class="finding"{target_attr}{opened}>'
-        f"{_finding_summary(css, check, title, right)}"
+        f"{_finding_summary(css, check, title, right, finding.engine)}"
         f"<dl>{_finding_body(finding, run_id)}</dl></details>"
     )
 
@@ -1083,16 +1083,17 @@ def _grouped_finding_card(
     )
     return (
         f'<details class="finding"{target_attr}{opened}>'
-        f"{_finding_summary(css, check, title, right)}"
+        f"{_finding_summary(css, check, title, right, worst.engine)}"
         f'<ul class="locations">{rows}</ul>'
         f"<dl>{_finding_body(worst, run_id)}</dl></details>"
     )
 
 
-def _finding_summary(css: str, check: str, title: str, right: str) -> str:
+def _finding_summary(css: str, check: str, title: str, right: str, engine: str) -> str:
     return (
         f'<summary class="bar bar-{css}">'
         f'<span class="pid">{_escape(check)}</span> {_escape(title)}'
+        f'<span class="finding-engine">Engine: {_escape(engine)}</span>'
         f'<span class="right">{_escape(right)}</span>'
         f"</summary>"
     )

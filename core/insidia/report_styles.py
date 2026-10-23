@@ -164,6 +164,12 @@ summary.bar {
   flex-wrap: wrap;
   align-items: baseline;
 }
+.finding dl { margin: 0; padding: 1rem 1.25rem; }
+.finding dt { font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.04em; color: var(--muted); margin-top: 1rem; }
+.finding dt:first-child { margin-top: 0; }
+.finding dd { margin: 0.3rem 0 0; overflow-wrap: anywhere; }
+.finding-engine { font-size: 0.8rem; font-weight: 500; }
 .pid { font-family: ui-monospace, monospace; }
 .right { margin-left: auto; font-size: 0.85rem; }
 .by-target { position: relative; margin: 0.2rem 0 0.8rem; }
