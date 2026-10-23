@@ -64,6 +64,8 @@ h2 {
 .verdict-strip dt { font-size: 0.8rem; color: var(--muted); }
 .verdict-strip dd { margin: 0.3rem 0 0; }
 .note, .muted { color: var(--muted); }
+.coverage-reason summary { cursor: pointer; color: #765300; font-weight: 600; }
+.coverage-reason p { margin: 0.5rem 0; }
 .coverage-filter { border: 0; padding: 0; margin: 1rem 0; min-width: 0; }
 .coverage-filter legend { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.5rem; }
 .coverage-filter > input { position: absolute; width: 1px; height: 1px; opacity: 0; }

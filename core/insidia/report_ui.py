@@ -45,9 +45,7 @@ def check_counts(controls: Sequence[Mapping[str, str | int]]) -> CheckCounts:
     passed = sum(row.get("result") == "pass" for row in controls)
     failed = sum(row.get("result") == "fail" for row in controls)
     info = sum(row.get("result") == "info" for row in controls)
-    weak = sum(
-        row.get("result") == "pass" and row.get("assurance") == "low" for row in controls
-    )
+    weak = sum(row.get("result") == "pass" and row.get("assurance") == "low" for row in controls)
     return CheckCounts(passed, failed, info, len(controls) - passed - failed - info, weak)
 
 
@@ -65,7 +63,8 @@ def verdict_strip(execution: str, policy: str, verdict: str, counts: CheckCounts
     )
     body = "".join(
         f'<div><dt>{escape(label)}</dt><dd><span class="res res-{css}">'
-        f"{escape(value)}</span></dd></div>" for label, value, css in cells
+        f"{escape(value)}</span></dd></div>"
+        for label, value, css in cells
     )
     return f'<dl class="verdict-strip">{body}</dl>'
 
@@ -93,8 +92,9 @@ def stacked_bar(segments: Sequence[tuple[str, int, str]], *, unit: str) -> str:
     total = sum(count for _label, count, _css in segments)
     description = "; ".join(f"{label}: {count}" for label, count, _css in segments)
     bars = "".join(
-        f'<span class="segment segment-{css}" style="width:{count / total * 100:.4f}%">'
-        "</span>" for _label, count, css in segments if count and total
+        f'<span class="segment segment-{css}" style="width:{count / total * 100:.4f}%"></span>'
+        for _label, count, css in segments
+        if count and total
     )
     return (
         f'<div class="stacked-bar" role="img" aria-label="{escape(unit)}: '
@@ -114,7 +114,6 @@ def framework_bar(score: Score) -> str:
         stacked_bar(segments, unit="Framework items")
         + f'<small class="muted">{tested} / {total} items tested</small>'
     )
-
 
 
 def framework_groups(controls: Sequence[Mapping[str, str | int]], scores: Sequence[Score]) -> str:
@@ -145,13 +144,17 @@ def framework_item_table(rows: Sequence[tuple[str, str, str]]) -> str:
         )
     return (
         '<table class="framework-items"><thead><tr><th>Control</th><th>Title</th>'
-        f'<th>Result</th></tr></thead><tbody>\n{"\n".join(body)}\n</tbody></table>'
+        f"<th>Result</th></tr></thead><tbody>\n{'\n'.join(body)}\n</tbody></table>"
     )
 
 
 def coverage_filter(content: str, counts: CheckCounts, *, prefix: str, unit: str) -> str:
-    options = [("all", "All", counts.total), ("fail", "Failed", counts.failed),
-               ("nt", "Not tested", counts.untested), ("pass", "Passed", counts.passed)]
+    options = [
+        ("all", "All", counts.total),
+        ("fail", "Failed", counts.failed),
+        ("nt", "Not tested", counts.untested),
+        ("pass", "Passed", counts.passed),
+    ]
     if counts.info:
         options.append(("info", "Informational", counts.info))
     controls, styles, empty = [], [], []
@@ -165,15 +168,24 @@ def coverage_filter(content: str, counts: CheckCounts, *, prefix: str, unit: str
         if value != "all":
             outcome = "not tested" if value == "nt" else value
             styles.append(
-                f'#{control_id}:checked ~ .filter-content .coverage-row'
+                f"#{control_id}:checked ~ .filter-content .coverage-row"
                 f':not([data-result="{outcome}"]) {{ display: none; }}'
             )
         if count == 0:
             empty.append(f'<p class="filter-empty empty-{value}">No {label.lower()} {unit}.</p>')
-            styles.append(f'#{control_id}:checked ~ .filter-content .empty-{value}'
-                          ' { display: block; }')
+            styles.append(
+                f"#{control_id}:checked ~ .filter-content .empty-{value} {{ display: block; }}"
+            )
     return (
         f'<fieldset class="coverage-filter"><legend>Filter {unit} by result</legend>'
-        f'<style>{"".join(styles)}</style>{"".join(controls)}'
+        f"<style>{''.join(styles)}</style>{''.join(controls)}"
         f'<div class="filter-content">{"".join(empty)}{content}</div></fieldset>'
+    )
+
+
+def untested_reason(reason: str) -> str:
+    return (
+        '<details class="coverage-reason"><summary>Why this was not tested</summary>'
+        f'<p>{escape(reason)}</p><p class="muted">Review the recorded limitation, '
+        "scan configuration, and engine availability before scanning again.</p></details>"
     )

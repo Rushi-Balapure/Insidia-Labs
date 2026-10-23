@@ -30,6 +30,7 @@ from insidia.report_ui import (
     framework_groups,
     status_badge,
     summary_metrics,
+    untested_reason,
     verdict_strip,
 )
 from insidia.results import SCHEMA_VERSION, legacy_passed
@@ -504,14 +505,11 @@ def verdict_text(
     label = "finding" if findings == 1 else "findings"
     if execution_status == "cancelled":
         return (
-            f"Scan cancelled. Policy {policy} has no verdict. "
-            f"{findings} {label} before it stopped."
+            f"Scan cancelled. Policy {policy} has no verdict. {findings} {label} before it stopped."
         )
     if execution_status != "complete":
         if verdict == "fail":
-            return (
-                f"The scan did not finish. Policy {policy} did not pass. {findings} {label}."
-            )
+            return f"The scan did not finish. Policy {policy} did not pass. {findings} {label}."
         return f"The scan did not finish. Policy {policy} is inconclusive."
     if verdict == "pass" and untested:
         checks = "check was" if untested == 1 else "checks were"
@@ -528,9 +526,7 @@ def verdict_text(
 
 def _mark() -> str:
     return (
-        (Path(__file__).resolve().parent / "brand" / "mark.svg")
-        .read_text(encoding="utf-8")
-        .strip()
+        (Path(__file__).resolve().parent / "brand" / "mark.svg").read_text(encoding="utf-8").strip()
     )
 
 
@@ -613,7 +609,7 @@ def _score_rows(scores: tuple[Score, ...]) -> str:
             f'<td data-l="Framework">{_escape(score.title)}</td>'
             f'<td class="number count-fail" data-l="Failed">{score.failed}</td>'
             f'<td class="number count-pass" data-l="Passed">'
-            f'{_escape(_passed_text(score.passed, score.low_assurance))}</td>'
+            f"{_escape(_passed_text(score.passed, score.low_assurance))}</td>"
             f'<td class="number count-nt" data-l="Not tested">{score.not_tested}</td>'
             f'<td data-l="Coverage">{framework_bar(score)}</td>'
             "</tr>"
@@ -752,7 +748,7 @@ def _render(
         _coverage_by_target(controls, skips),
         '<h2 id="frameworks">Framework coverage</h2>',
         '<p class="note">Counts below are mapped framework items, not individual checks. '
-        'An item can contain multiple checks. This is coverage, not a security rating.</p>',
+        "An item can contain multiple checks. This is coverage, not a security rating.</p>",
         '<table class="framework-scores">',
         (
             "<thead><tr><th>Framework</th><th>Failed</th>"
@@ -762,11 +758,18 @@ def _render(
         "</table>",
         "<details>",
         "<summary>OWASP item list</summary>",
+        '<p class="note">Not tested means no passing or failing check mapped to this item. '
+        "See Coverage by target for recorded check limitations.</p>",
         coverage_filter(
             framework_groups(controls, scores),
-            CheckCounts(sum(s.passed for s in scores), sum(s.failed for s in scores), 0,
-                        sum(s.not_tested for s in scores)),
-            prefix="framework-filter", unit="framework items",
+            CheckCounts(
+                sum(s.passed for s in scores),
+                sum(s.failed for s in scores),
+                0,
+                sum(s.not_tested for s in scores),
+            ),
+            prefix="framework-filter",
+            unit="framework items",
         ),
         "</details>",
         '<h2 id="scaninfo">Scan information</h2>',
@@ -927,9 +930,7 @@ def _tiles(findings: list[Finding]) -> str:
     for bucket in _BUCKETS:
         css = _BUCKET_CLASS[bucket]
         label = _BUCKET_LABEL[bucket]
-        cells.append(
-            f'<div class="tile t-{css}"><b>{counts[bucket]}</b><span>{label}</span></div>'
-        )
+        cells.append(f'<div class="tile t-{css}"><b>{counts[bucket]}</b><span>{label}</span></div>')
     return '<div class="tiles">' + "".join(cells) + "</div>"
 
 
@@ -967,8 +968,8 @@ def _targets_table(
             f'<td data-l="{_BUCKET_LABEL[bucket]}">{counts[bucket]}</td>' for bucket in _BUCKETS
         )
         summary = (
-            f'{tallies["fail"]} fail · {_passed_text(tallies["pass"], low)} · '
-            f'{tallies["not tested"]} not tested'
+            f"{tallies['fail']} fail · {_passed_text(tallies['pass'], low)} · "
+            f"{tallies['not tested']} not tested"
         )
         rows.append(
             "<tr>"
@@ -984,7 +985,7 @@ def _targets_table(
         "<th>Crit</th><th>High</th><th>Med</th><th>Low</th><th>Info</th>"
         "<th>Checks</th></tr>"
     )
-    return f"<table class=\"targets\"><thead>{head}</thead><tbody>{''.join(rows)}</tbody></table>"
+    return f'<table class="targets"><thead>{head}</thead><tbody>{"".join(rows)}</tbody></table>'
 
 
 # A check with three or fewer hits stays a flat card. More than three share one header.
@@ -1202,8 +1203,7 @@ def _by_target_filter(cards: list[str], names: list[str]) -> str:
             "{display:none}"
         )
         rules.append(
-            f'#flt-{index}:checked ~ .finding .loc:not([data-target="{token}"])'
-            "{display:none}"
+            f'#flt-{index}:checked ~ .finding .loc:not([data-target="{token}"]){{display:none}}'
         )
     style = "<style>" + " ".join(rules) + "</style>"
     return '<div class="by-target">' + "".join(controls) + style + "\n".join(cards) + "</div>"
@@ -1347,11 +1347,14 @@ def _coverage_by_target(controls: list[dict[str, str | int]], skips: list[str]) 
                 result = "pass (low assurance)"
             badge = status_badge(result, uppercase=True)
             why = _coverage_why(control, skips)
+            explanation = (
+                untested_reason(why) if _control_outcome(control) == "not tested" else _escape(why)
+            )
             body.append(
                 f'<tr class="coverage-row" data-result="{_escape(_control_outcome(control))}">'
                 f'<td data-l="Check"><code>{_escape(str(control.get("id", "")))}</code></td>'
                 f'<td data-l="Result">{badge}</td>'
-                f'<td data-l="Why">{_escape(why)}</td>'
+                f'<td data-l="Why">{explanation}</td>'
                 "</tr>"
             )
         blocks.append(
@@ -1523,7 +1526,7 @@ def _scan_table(
     body = "".join(
         f"<tr><th>{_escape(label)}</th><td>{_escape(value)}</td></tr>" for label, value in rows
     )
-    return f"<table class=\"scan\">{body}</table>"
+    return f'<table class="scan">{body}</table>'
 
 
 def _sarif_level(severity: str) -> str:
@@ -1583,9 +1586,7 @@ def _endpoint_location(target: str, endpoint: str) -> dict[str, object]:
             "artifactLocation": {"uri": _relative_endpoint_uri(target, endpoint)},
             "region": {"startLine": 1, "snippet": {"text": endpoint}},
         },
-        "logicalLocations": [
-            {"kind": "endpoint", "name": target, "fullyQualifiedName": endpoint}
-        ],
+        "logicalLocations": [{"kind": "endpoint", "name": target, "fullyQualifiedName": endpoint}],
     }
 
 
@@ -1597,11 +1598,7 @@ def _relative_endpoint_uri(target: str, endpoint: str) -> str:
         return f"insidia-endpoints/{_safe_part(target)}"
     parsed = urlparse(url)
     host = _safe_part(parsed.netloc or "unknown")
-    parts = [
-        _safe_part(part)
-        for part in parsed.path.split("/")
-        if part not in {"", ".", ".."}
-    ]
+    parts = [_safe_part(part) for part in parsed.path.split("/") if part not in {"", ".", ".."}]
     suffix = "/".join(parts) if parts else "root"
     return f"insidia-endpoints/{host}/{suffix}"
 
