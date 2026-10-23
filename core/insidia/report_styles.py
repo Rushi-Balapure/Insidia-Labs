@@ -32,6 +32,10 @@ header {
 header svg { width: 48px; height: 48px; }
 header h1 { margin: 0; font-size: 1.4rem; font-weight: 600; }
 .brand { margin: 0; color: #B2B2D1; font-size: 0.85rem; }
+.report-identity { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem;
+  margin: 0.75rem 0 0; font-size: 0.75rem; }
+.report-identity dt { color: #B2B2D1; }
+.report-identity dd { margin: 0.15rem 0 0; overflow-wrap: anywhere; }
 nav {
   background: #fff;
   border-bottom: 1px solid var(--line);

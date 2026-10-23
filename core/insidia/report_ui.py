@@ -189,3 +189,19 @@ def untested_reason(reason: str) -> str:
         f'<p>{escape(reason)}</p><p class="muted">Review the recorded limitation, '
         "scan configuration, and engine availability before scanning again.</p></details>"
     )
+
+
+def report_identity(
+    run_id: str, started: str, policy: str, version: str, engines: Sequence[str]
+) -> str:
+    fields = (
+        ("Run", run_id),
+        ("Started", started or "Not recorded"),
+        ("Policy", policy),
+        ("Scanner", version),
+        ("Engines", ", ".join(engines) or "Not recorded"),
+    )
+    body = "".join(
+        f"<div><dt>{label}</dt><dd>{escape(value)}</dd></div>" for label, value in fields
+    )
+    return f'<dl class="report-identity">{body}</dl>'

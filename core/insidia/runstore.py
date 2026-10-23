@@ -28,6 +28,7 @@ from insidia.report_ui import (
     coverage_filter,
     framework_bar,
     framework_groups,
+    report_identity,
     status_badge,
     summary_metrics,
     untested_reason,
@@ -724,10 +725,7 @@ def _render(
         "<div>",
         '<p class="brand">Insidia Labs</p>',
         f"<h1>{_escape(title)}</h1>",
-        (
-            f'<p class="brand">Run {_escape(run_id)} · {_escape(started_at)}'
-            f" · Policy {_escape(policy)} · {_escape(version)}</p>"
-        ),
+        report_identity(run_id, started_at, policy, version, engines),
         "</div>",
         "</header>",
         nav,
@@ -1000,8 +998,10 @@ def _finding_cards(findings: list[Finding], run_id: str, target_names: list[str]
     """Cards for each hit. A busy check collapses, and two targets can be filtered."""
     if not findings:
         return (
-            '<div class="empty-findings"><strong>No findings detected in the checks performed.</strong>'
-            '<p>Review untested checks and coverage limitations before interpreting this result.</p>'
+            '<div class="empty-findings"><strong>No findings detected '
+            'in the checks performed.</strong>'
+            '<p>Review untested checks and coverage limitations '
+            'before interpreting this result.</p>'
             '<a href="#coverage">Review check coverage →</a></div>'
         )
     names = list(target_names)
