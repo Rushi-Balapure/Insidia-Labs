@@ -30,7 +30,10 @@ a { color: var(--info); }
   background: var(--card); color: var(--ink); z-index: 10; }
 .skip-link:focus { top: 0.5rem; }
 header > div { min-width: 0; }
-header svg { flex-shrink: 0; }
+.report-logo { display: block; flex: 0 0 260px; line-height: 0; }
+.report-logo svg { display: block; width: 260px; max-width: 100%; height: auto; }
+.report-logo-light { display: none; }
+.report-heading { flex: 1; }
 nav { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; z-index: 5; }
 nav a { padding: 0.35rem 0; }
 summary { min-height: 2rem; }
@@ -49,9 +52,7 @@ header {
   color: #fff;
   background: #101028;
 }
-header svg { width: 48px; height: 48px; }
 header h1 { margin: 0; font-size: 1.4rem; font-weight: 600; }
-.brand { margin: 0; color: #B2B2D1; font-size: 0.85rem; }
 .report-identity { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem;
   margin: 0.75rem 0 0; font-size: 0.75rem; }
 .report-identity dt { color: #B2B2D1; }
@@ -310,6 +311,8 @@ footer {
   .res-nt { background: #594512; color: #FFE5A0; }
 }
 @media (max-width:700px) {
+  header { flex-direction: column; align-items: flex-start; }
+  .report-logo { flex-basis: auto; width: 260px; max-width: 100%; }
   html { scroll-padding-top: 1rem; }
   nav { position: static; }
   header, nav, main { padding-left: 1rem; padding-right: 1rem; }
@@ -362,6 +365,10 @@ footer {
   table td[data-l]::before { flex: none; }
 }
 @media print {
+  header { background: #fff; color: #101028; padding: 0 0 1rem; }
+  .report-logo-dark { display: none; }
+  .report-logo-light { display: block; }
+  .report-identity dt { color: #454573; }
   :root { --ink: #101028; --bg: #fff; --card: #fff; --line: #DADAE8;
     --muted: #454573; color-scheme: light;
     --plot-pass: #21683E; --plot-fail: #B52D35; --plot-nt: #AA7900;

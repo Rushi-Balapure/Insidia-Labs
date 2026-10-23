@@ -530,9 +530,18 @@ def verdict_text(
     return f"The scan ran. Policy {policy} did not pass. {findings} {label}."
 
 
-def _mark() -> str:
+def _brand_lockup(variant: str) -> str:
+    """Embed the approved outlined logo, with document-unique SVG identifiers."""
+    svg = (Path(__file__).resolve().parent / "brand" / f"lockup-{variant}.svg").read_text()
+    for identifier in re.findall(r'\bid="([^"]+)"', svg):
+        qualified = f"report-logo-{variant}-{identifier}"
+        svg = svg.replace(f'id="{identifier}"', f'id="{qualified}"')
+        svg = svg.replace(f"url(#{identifier})", f"url(#{qualified})")
+        svg = svg.replace(f'href="#{identifier}"', f'href="#{qualified}"')
+    svg = svg.replace("<svg ", '<svg aria-hidden="true" focusable="false" ', 1)
     return (
-        (Path(__file__).resolve().parent / "brand" / "mark.svg").read_text(encoding="utf-8").strip()
+        f'<span class="report-logo report-logo-{variant}" role="img" '
+        f'aria-label="Insidia Labs">{svg.strip()}</span>'
     )
 
 
@@ -706,8 +715,9 @@ def _report_head(report: _ReportData, title: str) -> str:
             f"<title>{_escape(title)}</title><style>{_CSS}</style></head><body>",
             '<a class="skip-link" href="#main">Skip to report</a>',
             "<header>",
-            _mark(),
-            '<div><p class="brand">Insidia Labs</p>',
+            _brand_lockup("dark"),
+            _brand_lockup("light"),
+            '<div class="report-heading">',
             f"<h1>{_escape(title)}</h1>",
             report_identity(
                 report.run_id, report.started_at, report.policy, report.version, report.engines

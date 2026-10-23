@@ -106,4 +106,27 @@ def test_generated_report_separates_check_totals_from_framework_items(tmp_path: 
     assert "Insidia ran 2 of 3 checks" in html
     assert 'id="check-filter-nt"' in html
     assert 'id="framework-filter-nt"' in html
-    assert "<script" not in html and '<link' not in html and '<img' not in html
+    assert "<script" not in html and "<link" not in html and "<img" not in html
+
+
+def test_full_brand_lockups_are_embedded_with_unique_svg_references(tmp_path: Path) -> None:
+    import re
+    from xml.etree import ElementTree
+
+    from insidia.runstore import write_run
+
+    directory = write_run(tmp_path, "brand-example", "L1", True, [], [], [])
+    html = (directory / "report.html").read_text()
+    header = html.split("<header>", 1)[1].split("</header>", 1)[0]
+    assert header.count('aria-label="Insidia Labs"') == 2
+    assert 'class="report-logo report-logo-dark"' in header
+    assert 'class="report-logo report-logo-light"' in header
+    ids = re.findall(r'\bid="([^"]+)"', header)
+    assert len(ids) == len(set(ids))
+    for reference in re.findall(r'url\(#([^)]+)\)|href="#([^"]+)"', header):
+        assert (reference[0] or reference[1]) in ids
+    for svg in re.findall(r"<svg\b.*?</svg>", header, re.S):
+        root = ElementTree.fromstring(svg)
+        assert root.attrib["viewBox"] == "0 0 8718 2445"
+        assert not list(root.iter("{http://www.w3.org/2000/svg}image"))
+        assert not list(root.iter("{http://www.w3.org/2000/svg}text"))
