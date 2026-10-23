@@ -109,7 +109,7 @@ def test_report_scores_frameworks_and_names_the_engine(tmp_path: Path) -> None:
     assert run["results"][0]["properties"]["engine"] == "insidia"
 
 
-def test_report_sections_follow_the_nessus_order(tmp_path: Path) -> None:
+def test_report_sections_prioritize_findings(tmp_path: Path) -> None:
     import re
 
     chat = _bare(
@@ -156,9 +156,9 @@ def test_report_sections_follow_the_nessus_order(tmp_path: Path) -> None:
     headings = re.findall(r"<h2[^>]*>([^<]+)</h2>", html)
     assert headings == [
         "Executive summary",
-        "Targets",
         "Findings by severity",
         "Remediation summary",
+        "Targets",
         "Coverage by target",
         "Framework coverage",
         "Scan information",
