@@ -245,6 +245,14 @@ footer {
   color: var(--muted);
 }
 @media (prefers-color-scheme: dark) {
+  :root { --ink: #F6F6FB; --bg: #101028; --card: #181839; --line: #393958;
+    --muted: #B8B8D1; }
+  thead th { background: #252545; color: var(--ink); }
+  tbody tr:nth-child(even) { background: #202040; }
+  .count-fail { color: #FFB4BA; }
+  .count-pass { color: #97E3B3; }
+  .count-nt, .coverage-reason summary { color: #FFE5A0; }
+  a, .empty-findings a { color: #9BCFFF; }
   body { color: #F6F6FB; background: #101028; }
   nav, .status, table, details.finding, .by-target label { background: #181839; color: #F6F6FB; }
   .by-target label { border-color: #2E2E56; }
@@ -262,6 +270,12 @@ footer {
 }
 @media (max-width:700px) {
   header, nav, main { padding-left: 1rem; padding-right: 1rem; }
+  .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .verdict-strip { flex-direction: column; gap: 0.6rem; }
+  .framework-items td:first-child { white-space: normal; }
+  .framework-scores td:last-child { min-width: 0; }
+  .framework-scores td:last-child .stacked-bar { flex: 1; min-width: 0; }
+  .number { text-align: left; }
   .tiles { gap: 0.3rem; }
   .tile { padding: 0.35rem 0.15rem; }
   .tile b { font-size: 1.3rem; }
@@ -307,7 +321,26 @@ footer {
   table td[data-l]::before { flex: none; }
 }
 @media print {
+  :root { --ink: #101028; --bg: #fff; --card: #fff; --line: #DADAE8;
+    --muted: #454573; color-scheme: light; }
+  body, main { background: #fff; color: #101028; padding: 0; }
+  a, .count-fail, .count-pass, .count-nt { color: #101028; }
+  thead th { background: #ECECF5; color: #101028; }
+  tbody tr:nth-child(even) { background: #F8F8FC; }
   nav { display: none; }
+  .skip-link, .coverage-filter > input, .coverage-filter > label,
+  .coverage-filter > legend, .filter-empty { display: none !important; }
+  .coverage-filter .coverage-row { display: table-row !important; }
+  table { display: table; }
+  thead { display: table-header-group !important; }
+  tbody { display: table-row-group; }
+  table tr { display: table-row; }
+  table td, table th, table.scan th { display: table-cell; }
+  table td::before { display: none; }
+  details::details-content { content-visibility: visible !important; display: block !important; }
+  .segment, .tile, .sev, .res { print-color-adjust: exact; }
+  .framework-group, .finding { background: #fff !important; color: #101028; }
+  .finding dt, .coverage-reason summary { color: #454573; }
   .by-target input, .by-target label { display: none; }
   .by-target .finding { display: block !important; }
   .by-target .loc { display: list-item !important; }
