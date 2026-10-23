@@ -13,11 +13,19 @@ REPORT_CSS = """
   --card: #fff;
   --line: #DADAE8;
   --muted: #5A5A80;
+  --focus: #0066CC;
+  --plot-pass: #21683E;
+  --plot-fail: #B52D35;
+  --plot-nt: #AA7900;
+  --plot-info: #23669C;
+  --plot-critical: #8E1B3E;
+  --plot-medium: #A34D00;
+  --plot-low: #927000;
 }
 * { box-sizing: border-box; }
 html { scroll-padding-top: 7rem; }
 a { color: var(--info); }
-:focus-visible { outline: 3px solid var(--info); outline-offset: 3px; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
 .skip-link { position: absolute; top: -100px; left: 1rem; padding: 0.6rem 1rem;
   background: var(--card); color: var(--ink); z-index: 10; }
 .skip-link:focus { top: 0.5rem; }
@@ -92,7 +100,7 @@ h2 {
   padding: 0.35rem 0.7rem; border: 1px solid var(--line); border-radius: 999px;
   background: var(--card); font-size: 0.85rem; }
 .coverage-filter > input:checked + label { background: var(--ink); color: var(--card); }
-.coverage-filter > input:focus-visible + label { outline: 3px solid var(--info);
+.coverage-filter > input:focus-visible + label { outline: 3px solid var(--focus);
   outline-offset: 2px; }
 .filter-empty { display: none; padding: 1rem; background: var(--card); }
 .framework-group { margin: 0.75rem 0; border: 1px solid var(--line);
@@ -118,9 +126,9 @@ h2 {
 .donut-wrap { position: relative; width: 170px; margin: auto; }
 .donut-wrap svg { width: 100%; height: auto; display: block; }
 .donut-wrap circle { fill: none; stroke-width: 13; }
-.donut-track { stroke: #D9A21B; }
+.donut-track { stroke: var(--plot-nt); }
 .chart-empty .donut-track { stroke: var(--line); }
-.donut-tested { stroke: var(--info); }
+.donut-tested { stroke: var(--plot-info); }
 .donut-label { position: absolute; inset: 0; display: flex; flex-direction: column;
   align-items: center; justify-content: center; }
 .donut-label strong { font-size: 2rem; font-variant-numeric: tabular-nums; }
@@ -128,17 +136,17 @@ h2 {
 .bar-track { display: flex; width: 100%; height: 0.8rem; overflow: hidden;
   border-radius: 999px; background: var(--line); }
 .segment { display: block; height: 100%; flex-shrink: 0; }
-.segment-pass { background: var(--pass); }
-.segment-fail { background: var(--high); }
-.segment-nt { background: #D9A21B; }
-.segment-info, .segment-tested { background: var(--info); }
+.segment-pass { background: var(--plot-pass); }
+.segment-fail { background: var(--plot-fail); }
+.segment-nt { background: var(--plot-nt); }
+.segment-info, .segment-tested { background: var(--plot-info); }
 .severity-row { display: grid; grid-template-columns: 5.5rem 1fr 2rem;
   align-items: center; gap: 1rem; margin: 0.8rem 0; font-size: 0.85rem; }
 .severity-row strong { text-align: right; font-variant-numeric: tabular-nums; }
-.segment-critical { background: var(--crit); }
-.segment-high { background: var(--high); }
-.segment-medium { background: var(--med); }
-.segment-low { background: var(--low); }
+.segment-critical { background: var(--plot-critical); }
+.segment-high { background: var(--plot-fail); }
+.segment-medium { background: var(--plot-medium); }
+.segment-low { background: var(--plot-low); }
 .chart-severity { margin-bottom: 1rem; }
 .framework-chart-row { display: grid; grid-template-columns: minmax(180px, 1fr) 2fr;
   gap: 0.4rem 1.5rem; margin: 1rem 0; align-items: center; }
@@ -255,7 +263,7 @@ summary.bar {
   border-color: #101028;
 }
 .by-target input:focus-visible + label {
-  outline: 2px solid var(--info);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 ul.locations { margin: 0.7rem 1rem 0.2rem; padding-left: 1.2rem; }
@@ -276,7 +284,10 @@ footer {
 }
 @media (prefers-color-scheme: dark) {
   :root { --ink: #F6F6FB; --bg: #101028; --card: #181839; --line: #393958;
-    --muted: #B8B8D1; }
+    --muted: #B8B8D1; --focus: #9BCFFF;
+    --plot-pass: #66C790; --plot-fail: #F07580; --plot-nt: #EAC454;
+    --plot-info: #76BDF0; --plot-critical: #E5749D;
+    --plot-medium: #E7A56F; --plot-low: #E1D06C; }
   thead th { background: #252545; color: var(--ink); }
   tbody tr:nth-child(even) { background: #202040; }
   .count-fail { color: #FFB4BA; }
@@ -352,7 +363,10 @@ footer {
 }
 @media print {
   :root { --ink: #101028; --bg: #fff; --card: #fff; --line: #DADAE8;
-    --muted: #454573; color-scheme: light; }
+    --muted: #454573; color-scheme: light;
+    --plot-pass: #21683E; --plot-fail: #B52D35; --plot-nt: #AA7900;
+    --plot-info: #23669C; --plot-critical: #8E1B3E;
+    --plot-medium: #A34D00; --plot-low: #927000; }
   body, main { background: #fff; color: #101028; padding: 0; }
   a, .count-fail, .count-pass, .count-nt { color: #101028; }
   thead th { background: #ECECF5; color: #101028; }
