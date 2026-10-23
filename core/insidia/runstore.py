@@ -1092,6 +1092,7 @@ def _grouped_finding_card(
 def _finding_summary(css: str, check: str, title: str, right: str, engine: str) -> str:
     return (
         f'<summary class="bar bar-{css}">'
+        f'<span class="sev sev-{css}">{css.upper()}</span>'
         f'<span class="pid">{_escape(check)}</span> {_escape(title)}'
         f'<span class="finding-engine">Engine: {_escape(engine)}</span>'
         f'<span class="right">{_escape(right)}</span>'

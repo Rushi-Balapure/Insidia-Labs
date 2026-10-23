@@ -3,11 +3,11 @@
 REPORT_CSS = """
 :root {
   --crit: #8E1B3E;
-  --high: #D43F3A;
-  --med: #EE8A33;
+  --high: #B52D35;
+  --med: #A34D00;
   --low: #F2C230;
-  --info: #3F8FD2;
-  --pass: #2E8B57;
+  --info: #23669C;
+  --pass: #21683E;
   --ink: #101028;
   --bg: #F6F6FB;
   --card: #fff;
@@ -132,11 +132,16 @@ code { font-family: ui-monospace, monospace; word-break: break-all; }
   font-size: 0.75rem;
   font-weight: 700;
 }
-.sev-critical, .bar-critical { background: var(--crit); color: #fff; }
-.sev-high, .bar-high { background: var(--high); color: #fff; }
-.sev-medium, .bar-medium { background: var(--med); color: #fff; }
-.sev-low, .bar-low { background: var(--low); color: #222; }
-.sev-info, .bar-info { background: var(--info); color: #fff; }
+.sev-critical { background: var(--crit); color: #fff; }
+.bar-critical { border-left: 5px solid var(--crit); }
+.sev-high { background: var(--high); color: #fff; }
+.bar-high { border-left: 5px solid var(--high); }
+.sev-medium { background: var(--med); color: #fff; }
+.bar-medium { border-left: 5px solid var(--med); }
+.sev-low { background: var(--low); color: #222; }
+.bar-low { border-left: 5px solid var(--low); }
+.sev-info { background: var(--info); color: #fff; }
+.bar-info { border-left: 5px solid var(--info); }
 .res-fail { background: var(--high); color: #fff; }
 .res-pass { background: var(--pass); color: #fff; }
 .res-low { background: var(--low); color: #222; }
