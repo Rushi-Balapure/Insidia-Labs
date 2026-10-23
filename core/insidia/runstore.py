@@ -22,7 +22,7 @@ from insidia.errors import CliError
 from insidia.findings import Finding, prepare_findings
 from insidia.mask import SECRET_PATTERNS, mask
 from insidia.report_styles import REPORT_CSS as _CSS
-from insidia.report_ui import status_badge
+from insidia.report_ui import check_counts, status_badge, verdict_strip
 from insidia.results import SCHEMA_VERSION, legacy_passed
 from insidia.score import Score, coverage, score_frameworks, severity_rank
 
@@ -727,6 +727,7 @@ def _render(
         "<main>",
         '<h2 id="summary">Executive summary</h2>',
         f'<p class="status {status}">{_escape(summary)}</p>',
+        verdict_strip(execution_status, policy, verdict, check_counts(controls)),
         tiles,
         '<h2 id="targets">Targets</h2>',
         _targets_table(findings, controls, targets),

@@ -60,6 +60,9 @@ h2 {
   border-radius: 8px;
 }
 .status.pass { border-left-color: var(--pass); }
+.verdict-strip { display: flex; flex-wrap: wrap; gap: 1rem 2rem; margin: 1rem 0; }
+.verdict-strip dt { font-size: 0.8rem; color: var(--muted); }
+.verdict-strip dd { margin: 0.3rem 0 0; }
 .note, .muted { color: var(--muted); }
 .tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.6rem; margin: 1rem 0; }
 .tile { color: #fff; border-radius: 8px; padding: 0.7rem; text-align: center; }
