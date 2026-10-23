@@ -128,6 +128,14 @@ h2 {
 .segment-fail { background: var(--high); }
 .segment-nt { background: #D9A21B; }
 .segment-info, .segment-tested { background: var(--info); }
+.severity-row { display: grid; grid-template-columns: 5.5rem 1fr 2rem;
+  align-items: center; gap: 1rem; margin: 0.8rem 0; font-size: 0.85rem; }
+.severity-row strong { text-align: right; font-variant-numeric: tabular-nums; }
+.segment-critical { background: var(--crit); }
+.segment-high { background: var(--high); }
+.segment-medium { background: var(--med); }
+.segment-low { background: var(--low); }
+.chart-severity { margin-bottom: 1rem; }
 .framework-chart-row { display: grid; grid-template-columns: minmax(180px, 1fr) 2fr;
   gap: 0.4rem 1.5rem; margin: 1rem 0; align-items: center; }
 .framework-chart-row strong { font-size: 0.9rem; }

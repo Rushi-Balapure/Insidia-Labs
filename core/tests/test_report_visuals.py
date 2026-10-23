@@ -6,6 +6,7 @@ from insidia.report_ui import (
     check_counts,
     framework_chart,
     outcomes_chart,
+    severity_chart,
     verdict_strip,
 )
 from insidia.report_ui import (
@@ -54,7 +55,6 @@ def test_tested_chart_handles_empty_and_boundary_counts(
     assert "nan" not in html and "<script" not in html
 
 
-
 def test_outcome_chart_retains_informational_and_low_assurance_counts() -> None:
     html = outcomes_chart(CheckCounts(2, 1, 3, 4, 1))
     assert "Passed: 2; Failed: 1; Not tested: 4; Informational: 3" in html
@@ -64,7 +64,6 @@ def test_outcome_chart_retains_informational_and_low_assurance_counts() -> None:
     assert "<strong>10</strong> recorded checks" in html
 
 
-
 def test_framework_chart_uses_item_counts_and_escapes_titles() -> None:
     html = framework_chart([Score("web", "Web <script>", 1, 2, 7, 1)])
     assert "Web &lt;script&gt;" in html
@@ -72,3 +71,17 @@ def test_framework_chart_uses_item_counts_and_escapes_titles() -> None:
     assert "Framework items: Passed: 2; Failed: 1; Not tested: 7" in html
     assert "2 passed · 1 failed · 7 not tested · 1 low assurance" in html
     assert "<script>" not in html
+
+
+def test_severity_chart_preserves_all_findings_and_handles_zero() -> None:
+    import re
+
+    html = severity_chart(["critical", "high", "high", "informational", "unspecified"])
+    counts = [int(value) for value in re.findall(r'data-count="(\d+)"', html)]
+    assert counts == [1, 2, 0, 0, 2]
+    assert sum(counts) == 5
+    assert "width:50.0000%" in html
+    empty = severity_chart([])
+    assert "No findings to chart" in empty
+    assert "0 findings total" in empty
+    assert "nan" not in empty

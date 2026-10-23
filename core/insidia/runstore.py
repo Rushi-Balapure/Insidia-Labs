@@ -30,6 +30,7 @@ from insidia.report_ui import (
     framework_groups,
     outcomes_chart,
     report_identity,
+    severity_chart,
     status_badge,
     summary_metrics,
     tested_chart,
@@ -703,7 +704,6 @@ def _render(
         still_open_count=still_open_count,
         fixed_count=fixed_count,
     )
-    tiles = _tiles(findings)
     nav = (
         '<nav aria-label="Report sections"><a href="#summary">Overview</a>'
         f'<a href="#findings">Findings ({len(findings)})</a>'
@@ -741,8 +741,8 @@ def _render(
         tested_chart(check_counts(controls)),
         outcomes_chart(check_counts(controls)),
         '</div>',
-        tiles,
         '<h2 id="findings">Findings by severity</h2>',
+        severity_chart([finding.severity for finding in findings]),
         _finding_cards(findings, run_id, names),
         _fixed_section(baseline_id, fixed),
         '<h2 id="remediation">Remediation summary</h2>',
@@ -926,18 +926,6 @@ def _fixed_section(baseline_id: str, fixed: tuple[_FixedFinding, ...]) -> str:
     body = "<ul>" + "".join(rows) + "</ul>"
     heading = _escape(mask(baseline_id))
     return f'<h2 id="fixed">Fixed since {heading}</h2>\n{body}'
-
-
-def _tiles(findings: list[Finding]) -> str:
-    counts = {bucket: 0 for bucket in _BUCKETS}
-    for finding in findings:
-        counts[_bucket(finding.severity)] += 1
-    cells = []
-    for bucket in _BUCKETS:
-        css = _BUCKET_CLASS[bucket]
-        label = _BUCKET_LABEL[bucket]
-        cells.append(f'<div class="tile t-{css}"><b>{counts[bucket]}</b><span>{label}</span></div>')
-    return '<div class="tiles">' + "".join(cells) + "</div>"
 
 
 def _targets_table(

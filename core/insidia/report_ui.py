@@ -276,3 +276,24 @@ def framework_chart(scores: Sequence[Score]) -> str:
         + '<p class="note">Counts represent mapped framework items. '
         "Each item may include multiple checks; coverage is not a security score.</p></figure>"
     )
+
+
+def severity_chart(severities: Sequence[str]) -> str:
+    bands = ("critical", "high", "medium", "low", "info")
+    counts = dict.fromkeys(bands, 0)
+    for severity in severities:
+        counts[severity if severity in bands else "info"] += 1
+    highest = max(counts.values(), default=0)
+    rows = []
+    for band, count in counts.items():
+        width = count / highest * 100 if highest else 0
+        rows.append(
+            f'<div class="severity-row" data-count="{count}"><span>{band.title()}</span>'
+            f'<div class="bar-track" aria-hidden="true"><span class="segment segment-{band}" '
+            f'style="width:{width:.4f}%"></span></div><strong>{count}</strong></div>'
+        )
+    body = "".join(rows) if severities else '<p class="note">No findings to chart for this run.</p>'
+    return (
+        '<figure class="chart chart-severity"><figcaption>Findings by severity</figcaption>'
+        f'{body}<p class="note">{len(severities)} findings total.</p></figure>'
+    )

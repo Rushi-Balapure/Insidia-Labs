@@ -171,7 +171,7 @@ def test_report_sections_prioritize_findings(tmp_path: Path) -> None:
         assert label in html
     payload = json.loads((directory / "findings.json").read_text())
     sarif = json.loads((directory / "results.sarif").read_text())["runs"][0]["results"]
-    shown = [int(item) for item in re.findall(r'class="tile t-[a-z]+"><b>(\d+)</b>', html)]
+    shown = [int(item) for item in re.findall(r'class="severity-row" data-count="(\d+)"', html)]
     assert sum(shown) == len(payload) == len(sarif) == 2
     manifest = json.loads((directory / "manifest.json").read_text())
     assert manifest["finished_at"]
