@@ -103,6 +103,10 @@ h2 {
 .chart { margin: 0; background: var(--card); padding: 1.25rem;
   border: 1px solid var(--line); border-radius: 10px; min-width: 0; }
 .chart figcaption { font-size: 1rem; font-weight: 700; margin-bottom: 1rem; }
+.outcome-total { margin: 1.5rem 0; color: var(--muted); }
+.outcome-total strong { display: block; color: var(--ink); font-size: 2.5rem;
+  font-variant-numeric: tabular-nums; }
+.chart-outcomes .bar-track { height: 1.5rem; }
 .chart-total { font-size: 0.95rem; font-weight: 650; margin: 0.5rem 0; }
 .chart-legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem;
   margin: 0.75rem 0 0; padding: 0; list-style: none; font-size: 0.8rem; }

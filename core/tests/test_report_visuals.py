@@ -4,6 +4,7 @@ import pytest
 from insidia.report_ui import (
     CheckCounts,
     check_counts,
+    outcomes_chart,
     verdict_strip,
 )
 from insidia.report_ui import (
@@ -49,3 +50,13 @@ def test_tested_chart_handles_empty_and_boundary_counts(
     assert f'stroke-dasharray="{dash}"' in html
     assert f"Checks tested: {counts.tested} of {counts.total}" in html
     assert "nan" not in html and "<script" not in html
+
+
+
+def test_outcome_chart_retains_informational_and_low_assurance_counts() -> None:
+    html = outcomes_chart(CheckCounts(2, 1, 3, 4, 1))
+    assert "Passed: 2; Failed: 1; Not tested: 4; Informational: 3" in html
+    assert "1 of the passed checks have low assurance" in html
+    assert "width:20.0000%" in html
+    assert "width:30.0000%" in html
+    assert "<strong>10</strong> recorded checks" in html

@@ -233,3 +233,23 @@ def chart_legend(segments: Sequence[tuple[str, int, str]]) -> str:
         for label, count, css in segments
     )
     return f'<ul class="chart-legend">{items}</ul>'
+
+
+def outcomes_chart(counts: CheckCounts) -> str:
+    segments = [
+        ("Passed", counts.passed, "pass"),
+        ("Failed", counts.failed, "fail"),
+        ("Not tested", counts.untested, "nt"),
+    ]
+    if counts.info:
+        segments.append(("Informational", counts.info, "info"))
+    return (
+        '<figure class="chart chart-outcomes"><figcaption>Check outcomes</figcaption>'
+        f'<p class="outcome-total"><strong>{counts.total}</strong> recorded checks</p>'
+        + stacked_bar(segments, unit="Checks")
+        + chart_legend(segments)
+        + f'<p class="note">{counts.low_assurance} of the passed checks have low assurance. '
+        "A passed check means its probes did not trigger.</p>"
+        + ('<p class="note">No checks were recorded.</p>' if not counts.total else "")
+        + "</figure>"
+    )
