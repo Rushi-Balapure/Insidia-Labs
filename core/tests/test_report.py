@@ -883,8 +883,7 @@ _NOT_A_CERTIFICATION = "This report is test evidence, not a certification."
 
 
 def _summary_paragraph(html: str) -> str:
-    block = html.split('<h2 id="summary">Executive summary</h2>', 1)[1]
-    paragraph = block.split("<p", 1)[1]
+    paragraph = html.split('<p class="status ', 1)[1]
     return paragraph.split(">", 1)[1].split("</p>", 1)[0]
 
 

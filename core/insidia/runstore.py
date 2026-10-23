@@ -38,7 +38,7 @@ from insidia.report_ui import (
     verdict_strip,
 )
 from insidia.results import SCHEMA_VERSION, legacy_passed
-from insidia.score import Score, coverage, score_frameworks, severity_rank
+from insidia.score import Score, score_frameworks, severity_rank
 
 _BEARER = re.compile(r"Bearer [A-Za-z0-9._\-]{8,}")
 
@@ -177,32 +177,34 @@ def write_run(
         if name != "report.html"
     }
     html = _render(
-        run_id=run_id,
-        policy=policy,
-        passed=passed,
-        findings=findings,
-        controls=controls,
-        skips=skips,
-        scores=scores,
-        targets=targets,
-        started_at=started_at,
-        finished_at=finished_at,
-        duration_s=duration_s,
-        version=version,
-        execution_status=execution_status,
-        verdict=verdict,
-        coverage_name=coverage,
-        scope_hosts=scope_hosts,
-        config_digest=config_digest,
-        judge=judge,
-        rate_limits=limits,
-        engines=tuple(ran),
-        artefacts=tuple(artefacts.items()),
-        baseline_id=baseline_id,
-        fixed=fixed,
-        new_count=sum(1 for item in tracked if item.state == "new"),
-        still_open_count=sum(1 for item in tracked if item.state == "still_open"),
-        fixed_count=len(fixed),
+        _ReportData(
+            run_id=run_id,
+            policy=policy,
+            passed=passed,
+            findings=findings,
+            controls=controls,
+            skips=skips,
+            scores=scores,
+            targets=targets,
+            started_at=started_at,
+            finished_at=finished_at,
+            duration_s=duration_s,
+            version=version,
+            execution_status=execution_status,
+            verdict=verdict,
+            coverage_name=coverage,
+            scope_hosts=scope_hosts,
+            config_digest=config_digest,
+            judge=judge,
+            rate_limits=limits,
+            engines=tuple(ran),
+            artefacts=tuple(artefacts.items()),
+            baseline_id=baseline_id,
+            fixed=fixed,
+            new_count=sum(1 for item in tracked if item.state == "new"),
+            still_open_count=sum(1 for item in tracked if item.state == "still_open"),
+            fixed_count=len(fixed),
+        )
     )
     (staging / "report.html").write_text(html, encoding="utf-8")
     artefacts["report.html"] = hashlib.sha256((staging / "report.html").read_bytes()).hexdigest()
@@ -620,18 +622,6 @@ def _score_rows(scores: tuple[Score, ...]) -> str:
     return "\n".join(lines)
 
 
-def _coverage_rows(controls: list[dict[str, str | int]]) -> str:
-    lines = []
-    for control_id, title, result in coverage(controls):
-        lines.append(
-            "<tr>"
-            f'<td data-l="Control">{_escape(control_id)}</td>'
-            f'<td data-l="Title">{_escape(title)}</td>'
-            f'<td data-l="Result">{status_badge(result)}</td></tr>'
-        )
-    return "\n".join(lines)
-
-
 _BUCKETS = ("critical", "high", "medium", "low", "informational")
 _BUCKET_LABEL = {
     "critical": "Critical",
@@ -657,159 +647,188 @@ def _bucket(severity: str) -> str:
     return "informational"
 
 
-def _render(
-    *,
-    run_id: str,
-    policy: str,
-    passed: bool,
-    findings: list[Finding],
-    controls: list[dict[str, str | int]],
-    skips: list[str],
-    scores: tuple[Score, ...],
-    targets: tuple[tuple[str, str, str], ...],
-    started_at: str,
-    finished_at: str,
-    duration_s: float,
-    version: str,
-    execution_status: str,
-    verdict: str,
-    coverage_name: str,
-    scope_hosts: tuple[str, ...],
-    config_digest: str,
-    judge: str,
-    rate_limits: list[dict[str, object]],
-    engines: tuple[str, ...],
-    artefacts: tuple[tuple[str, str], ...],
-    baseline_id: str = "",
-    fixed: tuple[_FixedFinding, ...] = (),
-    new_count: int = 0,
-    still_open_count: int = 0,
-    fixed_count: int = 0,
-) -> str:
-    names = _target_names(findings, controls, targets)
-    title = "Security scan report"
-    if names:
-        title = f"{title}: {', '.join(names)}"
-    status = "pass" if passed else "fail"
-    summary = _executive_summary(
-        run_id=run_id,
-        policy=policy,
-        findings=findings,
-        controls=controls,
-        targets=targets,
-        execution_status=execution_status,
-        verdict=verdict,
-        baseline_id=baseline_id,
-        new_count=new_count,
-        still_open_count=still_open_count,
-        fixed_count=fixed_count,
+@dataclass(frozen=True)
+class _ReportData:
+    run_id: str
+    policy: str
+    passed: bool
+    findings: list[Finding]
+    controls: list[dict[str, str | int]]
+    skips: list[str]
+    scores: tuple[Score, ...]
+    targets: tuple[tuple[str, str, str], ...]
+    started_at: str
+    finished_at: str
+    duration_s: float
+    version: str
+    execution_status: str
+    verdict: str
+    coverage_name: str
+    scope_hosts: tuple[str, ...]
+    config_digest: str
+    judge: str
+    rate_limits: list[dict[str, object]]
+    engines: tuple[str, ...]
+    artefacts: tuple[tuple[str, str], ...]
+    baseline_id: str = ""
+    fixed: tuple[_FixedFinding, ...] = ()
+    new_count: int = 0
+    still_open_count: int = 0
+    fixed_count: int = 0
+
+
+def _render(report: _ReportData) -> str:
+    names = _target_names(report.findings, report.controls, report.targets)
+    title = "Security scan report" + (f": {', '.join(names)}" if names else "")
+    parts = (
+        _report_head(report, title),
+        _report_navigation(len(report.findings)),
+        '<main id="main" tabindex="-1">',
+        _report_overview(report),
+        _report_findings(report, names),
+        '<h2 id="targets">Targets</h2>',
+        _targets_table(report.findings, report.controls, report.targets),
+        '<h2 id="coverage">Coverage by target</h2>',
+        _coverage_by_target(report.controls, report.skips),
+        _report_frameworks(report.controls, report.scores),
+        _report_scan_information(report),
+        _report_footer(report.run_id),
+        "</main></body></html>",
     )
-    nav = (
+    return "\n".join(part for part in parts if part) + "\n"
+
+
+def _report_head(report: _ReportData, title: str) -> str:
+    return "\n".join(
+        (
+            '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">',
+            '<meta name="viewport" content="width=device-width, initial-scale=1">',
+            f"<title>{_escape(title)}</title><style>{_CSS}</style></head><body>",
+            '<a class="skip-link" href="#main">Skip to report</a>',
+            "<header>",
+            _mark(),
+            '<div><p class="brand">Insidia Labs</p>',
+            f"<h1>{_escape(title)}</h1>",
+            report_identity(
+                report.run_id, report.started_at, report.policy, report.version, report.engines
+            ),
+            "</div></header>",
+        )
+    )
+
+
+def _report_navigation(findings: int) -> str:
+    return (
         '<nav aria-label="Report sections"><a href="#summary">Overview</a>'
-        f'<a href="#findings">Findings ({len(findings)})</a>'
+        f'<a href="#findings">Findings ({findings})</a>'
         '<a href="#remediation">Remediation</a><a href="#targets">Targets</a>'
-        '<a href="#coverage">Coverage</a>'
-        '<a href="#frameworks">Frameworks</a>'
+        '<a href="#coverage">Coverage</a><a href="#frameworks">Frameworks</a>'
         '<a href="#scaninfo">Scan info</a></nav>'
     )
-    parts = [
-        "<!DOCTYPE html>",
-        '<html lang="en">',
-        "<head>",
-        '<meta charset="utf-8">',
-        '<meta name="viewport" content="width=device-width, initial-scale=1">',
-        f"<title>{_escape(title)}</title>",
-        f"<style>{_CSS}</style>",
-        "</head>",
-        "<body>",
-        '<a class="skip-link" href="#main">Skip to report</a>',
-        "<header>",
-        _mark(),
-        "<div>",
-        '<p class="brand">Insidia Labs</p>',
-        f"<h1>{_escape(title)}</h1>",
-        report_identity(run_id, started_at, policy, version, engines),
-        "</div>",
-        "</header>",
-        nav,
-        '<main id="main" tabindex="-1">',
-        '<h2 id="summary">Executive summary</h2>',
-        f'<p class="status {status}">{_escape(summary)}</p>',
-        verdict_strip(execution_status, policy, verdict, check_counts(controls)),
-        summary_metrics(check_counts(controls), len(findings)),
-        '<div class="charts-grid">',
-        tested_chart(check_counts(controls)),
-        outcomes_chart(check_counts(controls)),
-        '</div>',
-        '<h2 id="findings">Findings by severity</h2>',
-        severity_chart([finding.severity for finding in findings]),
-        _finding_cards(findings, run_id, names),
-        _fixed_section(baseline_id, fixed),
-        '<h2 id="remediation">Remediation summary</h2>',
-        _remediation_table(findings),
-        '<h2 id="targets">Targets</h2>',
-        _targets_table(findings, controls, targets),
-        '<h2 id="coverage">Coverage by target</h2>',
-        _coverage_by_target(controls, skips),
-        '<h2 id="frameworks">Framework coverage</h2>',
-        '<p class="note">Counts below are mapped framework items, not individual checks. '
-        "An item can contain multiple checks. This is coverage, not a security rating.</p>",
-        framework_chart(scores),
-        '<table class="framework-scores">',
+
+
+def _report_overview(report: _ReportData) -> str:
+    counts = check_counts(report.controls)
+    status = "pass" if report.passed else "fail"
+    summary = _executive_summary(
+        run_id=report.run_id,
+        policy=report.policy,
+        findings=report.findings,
+        controls=report.controls,
+        targets=report.targets,
+        execution_status=report.execution_status,
+        verdict=report.verdict,
+        baseline_id=report.baseline_id,
+        new_count=report.new_count,
+        still_open_count=report.still_open_count,
+        fixed_count=report.fixed_count,
+    )
+    return "\n".join(
         (
+            '<h2 id="summary">Executive summary</h2>',
+            verdict_strip(report.execution_status, report.policy, report.verdict, counts),
+            summary_metrics(counts, len(report.findings)),
+            '<div class="charts-grid">',
+            tested_chart(counts),
+            outcomes_chart(counts),
+            "</div>",
+            '<details class="summary-detail"><summary>Scan summary and limitations</summary>',
+            f'<p class="status {status}">{_escape(summary)}</p></details>',
+        )
+    )
+
+
+def _report_findings(report: _ReportData, names: list[str]) -> str:
+    return "\n".join(
+        (
+            '<h2 id="findings">Findings by severity</h2>',
+            severity_chart([finding.severity for finding in report.findings]),
+            _finding_cards(report.findings, report.run_id, names),
+            _fixed_section(report.baseline_id, report.fixed),
+            '<h2 id="remediation">Remediation summary</h2>',
+            _remediation_table(report.findings),
+        )
+    )
+
+
+def _report_frameworks(controls: list[dict[str, str | int]], scores: tuple[Score, ...]) -> str:
+    counts = CheckCounts(
+        sum(s.passed for s in scores),
+        sum(s.failed for s in scores),
+        0,
+        sum(s.not_tested for s in scores),
+    )
+    return "\n".join(
+        (
+            '<h2 id="frameworks">Framework coverage</h2>',
+            '<p class="note">Counts below are mapped framework items, not individual checks. '
+            "An item can contain multiple checks. This is coverage, not a security rating.</p>",
+            framework_chart(scores),
+            '<table class="framework-scores">',
             "<thead><tr><th>Framework</th><th>Failed</th>"
-            "<th>Passed</th><th>Not tested</th></tr></thead>"
-        ),
-        f"<tbody>\n{_score_rows(scores)}\n</tbody>",
-        "</table>",
-        "<details>",
-        "<summary>OWASP item list</summary>",
-        '<p class="note">Not tested means no passing or failing check mapped to this item. '
-        "See Coverage by target for recorded check limitations.</p>",
-        coverage_filter(
-            framework_groups(controls, scores),
-            CheckCounts(
-                sum(s.passed for s in scores),
-                sum(s.failed for s in scores),
-                0,
-                sum(s.not_tested for s in scores),
+            "<th>Passed</th><th>Not tested</th></tr></thead>",
+            f"<tbody>\n{_score_rows(scores)}\n</tbody></table>",
+            "<details><summary>OWASP item list</summary>",
+            '<p class="note">Not tested means no passing or failing check mapped to this item. '
+            "See Coverage by target for recorded check limitations.</p>",
+            coverage_filter(
+                framework_groups(controls, scores),
+                counts,
+                prefix="framework-filter",
+                unit="framework items",
             ),
-            prefix="framework-filter",
-            unit="framework items",
-        ),
-        "</details>",
-        '<h2 id="scaninfo">Scan information</h2>',
-        _scan_table(
-            run_id,
-            started_at,
-            finished_at,
-            duration_s,
-            version,
-            policy,
-            coverage_name,
-            execution_status,
-            verdict,
-            scope_hosts,
-            skips,
-            config_digest,
-            judge,
-            rate_limits,
-            engines,
-            artefacts,
-        ),
-        "<footer>",
-        (
-            "<p>Artefacts: findings.json, "
-            '<a href="findings.csv">findings.csv</a>, '
-            "results.sarif, benchmark.json, manifest.json, report.html</p>"
-        ),
-        f"<p><code>insidia rerun {_escape(run_id)}</code></p>",
-        "</footer>",
-        "</main>",
-        "</body>",
-        "</html>",
-    ]
-    return "\n".join(part for part in parts if part) + "\n"
+            "</details>",
+        )
+    )
+
+
+def _report_scan_information(report: _ReportData) -> str:
+    return '<h2 id="scaninfo">Scan information</h2>\n' + _scan_table(
+        report.run_id,
+        report.started_at,
+        report.finished_at,
+        report.duration_s,
+        report.version,
+        report.policy,
+        report.coverage_name,
+        report.execution_status,
+        report.verdict,
+        report.scope_hosts,
+        report.skips,
+        report.config_digest,
+        report.judge,
+        report.rate_limits,
+        report.engines,
+        report.artefacts,
+    )
+
+
+def _report_footer(run_id: str) -> str:
+    return (
+        '<footer><p>Artefacts: findings.json, <a href="findings.csv">findings.csv</a>, '
+        "results.sarif, benchmark.json, manifest.json, report.html</p>"
+        f"<p><code>insidia rerun {_escape(run_id)}</code></p></footer>"
+    )
 
 
 def _target_names(
@@ -848,69 +867,71 @@ def _executive_summary(
     """Fail, pass, and incomplete summaries share one shape and one ending."""
 
     names = _target_names(findings, controls, targets)
-    total = len(controls)
-    untested = not_tested(controls)
-    tested = total - untested
-    weak = sum(1 for control in controls if control.get("assurance") == "low")
-    target_count = len(names)
-    target_word = "target" if target_count == 1 else "targets"
-    if names:
-        target_clause = f"{target_count} {target_word} ({', '.join(names)})"
-    else:
-        target_clause = f"{target_count} {target_word}"
+    counts = check_counts(controls)
+    noun = "target" if len(names) == 1 else "targets"
+    target_clause = f"{len(names)} {noun}" + (f" ({', '.join(names)})" if names else "")
+    sentences = [
+        f"Insidia ran {counts.tested} of {counts.total} checks against {target_clause}.",
+        _summary_outcome(policy, verdict, execution_status, findings),
+        _summary_serious_finding(findings),
+        _summary_assurance(counts),
+    ]
+    if execution_status != "complete":
+        sentences.extend(
+            (
+                f"Results below cover {counts.tested} checks only.",
+                f"Re-run with `insidia rerun {run_id}`.",
+            )
+        )
+    if baseline_id:
+        sentences.append(
+            f"{new_count} new, {still_open_count} still open, and {fixed_count} fixed "
+            f"since {mask(baseline_id)}."
+        )
+    sentences.append("This report is test evidence, not a certification.")
+    return " ".join(sentences)
+
+
+def _summary_outcome(policy: str, verdict: str, execution: str, findings: list[Finding]) -> str:
     counts = {bucket: 0 for bucket in _BUCKETS}
     for finding in findings:
         counts[_bucket(finding.severity)] += 1
     severity_counts = ", ".join(
         f"{counts[bucket]} {_BUCKET_LABEL[bucket].lower()}" for bucket in _BUCKETS
     )
-    finding_word = "finding" if len(findings) == 1 else "findings"
-    if verdict == "pass":
-        outcome = f"Policy {policy} passed"
-    elif verdict == "fail":
-        outcome = f"Policy {policy} did not pass"
-    else:
-        outcome = f"Policy {policy} is inconclusive"
-    outcome_sentence = f"{outcome}: {len(findings)} {finding_word} ({severity_counts})."
-    if execution_status != "complete":
-        outcome_sentence = f"The scan did not finish: {execution_status}. {outcome_sentence}"
-    if findings:
-        top = findings[0]
-        title = top.title or top.attack
-        serious = (
-            f"The most serious finding is {title}, severity {top.severity}, "
-            f"score {top.risk_score:.1f}, target {top.target}."
-        )
-    else:
-        serious = "The most serious finding is none."
-    if weak == 1:
-        weak_clause = "1 passed check has low assurance"
-    else:
-        weak_clause = f"{weak} passed checks have low assurance"
-    if untested == 1:
-        untested_clause = "1 check was not tested"
-    else:
-        untested_clause = f"{untested} checks were not tested"
-    sentences = [
-        f"Insidia ran {tested} of {total} checks against {target_clause}.",
-        outcome_sentence,
-        serious,
-        (
-            f"{weak_clause} and {untested_clause}. "
-            "Checks that were not tested are not evidence that those risks are absent."
-        ),
-    ]
-    if execution_status != "complete":
-        sentences.append(f"Results below cover {tested} checks only.")
-        sentences.append(f"Re-run with `insidia rerun {run_id}`.")
-    if baseline_id:
-        shown = mask(baseline_id)
-        sentences.append(
-            f"{new_count} new, {still_open_count} still open, and {fixed_count} fixed "
-            f"since {shown}."
-        )
-    sentences.append("This report is test evidence, not a certification.")
-    return " ".join(sentences)
+    outcome = {"pass": "passed", "fail": "did not pass"}.get(verdict, "is inconclusive")
+    noun = "finding" if len(findings) == 1 else "findings"
+    sentence = f"Policy {policy} {outcome}: {len(findings)} {noun} ({severity_counts})."
+    return (
+        sentence if execution == "complete" else f"The scan did not finish: {execution}. {sentence}"
+    )
+
+
+def _summary_serious_finding(findings: list[Finding]) -> str:
+    if not findings:
+        return "The most serious finding is none."
+    top = findings[0]
+    return (
+        f"The most serious finding is {top.title or top.attack}, severity {top.severity}, "
+        f"score {top.risk_score:.1f}, target {top.target}."
+    )
+
+
+def _summary_assurance(counts: CheckCounts) -> str:
+    weak = (
+        "1 passed check has low assurance"
+        if counts.low_assurance == 1
+        else f"{counts.low_assurance} passed checks have low assurance"
+    )
+    untested = (
+        "1 check was not tested"
+        if counts.untested == 1
+        else f"{counts.untested} checks were not tested"
+    )
+    return (
+        f"{weak} and {untested}. "
+        "Checks that were not tested are not evidence that those risks are absent."
+    )
 
 
 def _fixed_section(baseline_id: str, fixed: tuple[_FixedFinding, ...]) -> str:
@@ -995,9 +1016,9 @@ def _finding_cards(findings: list[Finding], run_id: str, target_names: list[str]
     if not findings:
         return (
             '<div class="empty-findings"><strong>No findings detected '
-            'in the checks performed.</strong>'
-            '<p>Review untested checks and coverage limitations '
-            'before interpreting this result.</p>'
+            "in the checks performed.</strong>"
+            "<p>Review untested checks and coverage limitations "
+            "before interpreting this result.</p>"
             '<a href="#coverage">Review check coverage →</a></div>'
         )
     names = list(target_names)
@@ -1334,40 +1355,33 @@ def _coverage_by_target(controls: list[dict[str, str | int]], skips: list[str]) 
     by_target: dict[str, list[dict[str, str | int]]] = {}
     for control in controls:
         by_target.setdefault(str(control.get("target", "")), []).append(control)
-    blocks = []
-    for name, rows in by_target.items():
-        passed = sum(1 for control in rows if control.get("result") == "pass")
-        low = sum(
-            1
-            for control in rows
-            if control.get("result") == "pass" and control.get("assurance") == "low"
-        )
-        body = []
-        for control in rows:
-            result = _control_text(control, "result")
-            if result == "pass" and _control_text(control, "assurance") == "low":
-                result = "pass (low assurance)"
-            badge = status_badge(result, uppercase=True)
-            why = _coverage_why(control, skips)
-            explanation = (
-                untested_reason(why) if _control_outcome(control) == "not tested" else _escape(why)
-            )
-            body.append(
-                f'<tr class="coverage-row" data-result="{_escape(_control_outcome(control))}">'
-                f'<td data-l="Check"><code>{_escape(str(control.get("id", "")))}</code></td>'
-                f'<td data-l="Result">{badge}</td>'
-                f'<td data-l="Why">{explanation}</td>'
-                "</tr>"
-            )
-        blocks.append(
-            f"<h3>{_escape(name)}</h3>"
-            f'<p class="note">{_escape(_passed_text(passed, low))}</p>'
-            '<table class="coverage"><thead><tr>'
-            "<th>Check</th><th>Result</th><th>Why</th></tr></thead>"
-            f"<tbody>{''.join(body)}</tbody></table>"
-        )
-    return coverage_filter(
-        "\n".join(blocks), check_counts(controls), prefix="check-filter", unit="checks"
+    content = "\n".join(_coverage_target(name, rows, skips) for name, rows in by_target.items())
+    return coverage_filter(content, check_counts(controls), prefix="check-filter", unit="checks")
+
+
+def _coverage_target(name: str, controls: list[dict[str, str | int]], skips: list[str]) -> str:
+    counts = check_counts(controls)
+    body = "".join(_coverage_check_row(control, skips) for control in controls)
+    return (
+        f"<h3>{_escape(name or 'Unspecified target')}</h3>"
+        f'<p class="note">{_passed_text(counts.passed, counts.low_assurance)}</p>'
+        '<table class="coverage"><thead><tr><th>Check</th><th>Result</th><th>Why</th>'
+        f"</tr></thead><tbody>{body}</tbody></table>"
+    )
+
+
+def _coverage_check_row(control: dict[str, str | int], skips: list[str]) -> str:
+    result = _control_text(control, "result")
+    if result == "pass" and _control_text(control, "assurance") == "low":
+        result = "pass (low assurance)"
+    badge = status_badge(result, uppercase=True)
+    why = _coverage_why(control, skips)
+    outcome = _control_outcome(control)
+    explanation = untested_reason(why) if outcome == "not tested" else _escape(why)
+    return (
+        f'<tr class="coverage-row" data-result="{outcome}">'
+        f'<td data-l="Check"><code>{_escape(str(control.get("id", "")))}</code></td>'
+        f'<td data-l="Result">{badge}</td><td data-l="Why">{explanation}</td></tr>'
     )
 
 

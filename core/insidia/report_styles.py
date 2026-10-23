@@ -80,6 +80,8 @@ h2 {
 .verdict-strip { display: flex; flex-wrap: wrap; gap: 1rem 2rem; margin: 1rem 0; }
 .verdict-strip dt { font-size: 0.8rem; color: var(--muted); }
 .verdict-strip dd { margin: 0.3rem 0 0; }
+.summary-detail { margin: 1rem 0; }
+.summary-detail > summary { cursor: pointer; color: var(--muted); }
 .note, .muted { color: var(--muted); }
 .coverage-reason summary { cursor: pointer; color: #765300; font-weight: 600; }
 .coverage-reason p { margin: 0.5rem 0; }
@@ -98,7 +100,8 @@ h2 {
 .framework-group > summary { cursor: pointer; font-weight: 650; }
 .framework-items td:first-child { white-space: nowrap; font-family: ui-monospace, monospace;
   font-size: 0.85rem; }
-.charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+.charts-grid { display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
   gap: 1rem; margin: 1rem 0; }
 .chart { margin: 0; background: var(--card); padding: 1.25rem;
   border: 1px solid var(--line); border-radius: 10px; min-width: 0; }
@@ -116,6 +119,7 @@ h2 {
 .donut-wrap svg { width: 100%; height: auto; display: block; }
 .donut-wrap circle { fill: none; stroke-width: 13; }
 .donut-track { stroke: #D9A21B; }
+.chart-empty .donut-track { stroke: var(--line); }
 .donut-tested { stroke: var(--info); }
 .donut-label { position: absolute; inset: 0; display: flex; flex-direction: column;
   align-items: center; justify-content: center; }
@@ -139,7 +143,7 @@ h2 {
 .framework-chart-row { display: grid; grid-template-columns: minmax(180px, 1fr) 2fr;
   gap: 0.4rem 1.5rem; margin: 1rem 0; align-items: center; }
 .framework-chart-row strong { font-size: 0.9rem; }
-.framework-chart-row p { grid-column: 2; margin: 0; font-size: 0.8rem; }
+.framework-chart-row small, .framework-chart-row p { grid-column: 2; margin: 0; font-size: 0.8rem; }
 .framework-chart-row small { display: block; margin-top: 0.25rem; }
 .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 0.75rem; margin: 1.25rem 0 0.5rem; }
@@ -151,15 +155,6 @@ h2 {
 .metric-passed { border-top-color: var(--pass); }
 .metric-failed { border-top-color: var(--high); }
 .metric-untested { border-top-color: var(--low); }
-.tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.6rem; margin: 1rem 0; }
-.tile { color: #fff; border-radius: 8px; padding: 0.7rem; text-align: center; }
-.tile b { display: block; font-size: 2rem; line-height: 1.1; }
-.tile span { font-size: 0.75rem; letter-spacing: 0.06em; }
-.t-critical { background: var(--crit); }
-.t-high { background: var(--high); }
-.t-medium { background: var(--med); }
-.t-low { background: var(--low); color: #222; }
-.t-info { background: var(--info); }
 table { border-collapse: collapse; width: 100%; background: var(--card); margin: 0.4rem 0; }
 th, td {
   text-align: left;
@@ -304,19 +299,17 @@ footer {
   .res-nt { background: #594512; color: #FFE5A0; }
 }
 @media (max-width:700px) {
+  html { scroll-padding-top: 1rem; }
+  nav { position: static; }
   header, nav, main { padding-left: 1rem; padding-right: 1rem; }
   .framework-chart-row { grid-template-columns: 1fr; gap: 0.4rem; }
-  .framework-chart-row p { grid-column: 1; }
+  .framework-chart-row small, .framework-chart-row p { grid-column: 1; }
   .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .verdict-strip { flex-direction: column; gap: 0.6rem; }
   .framework-items td:first-child { white-space: normal; }
   .framework-scores td:last-child { min-width: 0; }
   .framework-scores td:last-child .stacked-bar { flex: 1; min-width: 0; }
   .number { text-align: left; }
-  .tiles { gap: 0.3rem; }
-  .tile { padding: 0.35rem 0.15rem; }
-  .tile b { font-size: 1.3rem; }
-  .tile span { font-size: 0.6rem; letter-spacing: 0; }
   table thead { display: none; }
   table tr {
     display: block;
@@ -375,7 +368,7 @@ footer {
   table td, table th, table.scan th { display: table-cell; }
   table td::before { display: none; }
   details::details-content { content-visibility: visible !important; display: block !important; }
-  .segment, .tile, .sev, .res { print-color-adjust: exact; }
+  .segment, .sev, .res { print-color-adjust: exact; }
   .framework-group, .finding { background: #fff !important; color: #101028; }
   .finding dt, .coverage-reason summary { color: #454573; }
   .by-target input, .by-target label { display: none; }

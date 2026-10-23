@@ -81,9 +81,9 @@ def summary_metrics(counts: CheckCounts, findings: int) -> str:
         f'<div class="metric metric-{css}"><dt>{label}</dt><dd>{value}</dd></div>'
         for label, value, css in cells
     )
-    note = f"{counts.low_assurance} passed checks have low assurance."
+    note = f"Passed checks with low assurance: {counts.low_assurance}."
     if counts.info:
-        note += f" {counts.info} tested checks are informational."
+        note += f" Informational checks: {counts.info}."
     return f'<dl class="metrics">{body}</dl><p class="note">{note}</p>'
 
 
@@ -209,15 +209,16 @@ def report_identity(
 
 def tested_chart(counts: CheckCounts) -> str:
     percentage = counts.tested / counts.total * 100 if counts.total else 0.0
-    headline = f"{percentage:.0f}%" if counts.total else "—"
+    headline = _coverage_percentage(counts)
     description = f"Checks tested: {counts.tested} of {counts.total}; not tested: {counts.untested}"
     return (
-        '<figure class="chart chart-tested"><figcaption>Test coverage</figcaption>'
+        f'<figure class="chart chart-tested{" chart-empty" if not counts.total else ""}">'
+        "<figcaption>Test coverage</figcaption>"
         f'<div class="donut-wrap"><svg viewBox="0 0 120 120" role="img" '
         f'aria-label="{description}"><circle class="donut-track" cx="60" cy="60" r="48"/>'
         f'<circle class="donut-tested" cx="60" cy="60" r="48" pathLength="100" '
         f'stroke-dasharray="{percentage:.4f} 100" transform="rotate(-90 60 60)"/></svg>'
-        f'<div class="donut-label" aria-hidden="true"><strong>{headline}</strong>'
+        f'<div class="donut-label" aria-hidden="true"><strong>{escape(headline)}</strong>'
         "<span>tested</span></div></div>"
         f'<p class="chart-total">{counts.tested} / {counts.total} checks tested</p>'
         + chart_legend((("Tested", counts.tested, "tested"), ("Not tested", counts.untested, "nt")))
@@ -248,7 +249,7 @@ def outcomes_chart(counts: CheckCounts) -> str:
         f'<p class="outcome-total"><strong>{counts.total}</strong> recorded checks</p>'
         + stacked_bar(segments, unit="Checks")
         + chart_legend(segments)
-        + f'<p class="note">{counts.low_assurance} of the passed checks have low assurance. '
+        + f'<p class="note">Passed checks with low assurance: {counts.low_assurance}. '
         "A passed check means its probes did not trigger.</p>"
         + ('<p class="note">No checks were recorded.</p>' if not counts.total else "")
         + "</figure>"
@@ -295,5 +296,20 @@ def severity_chart(severities: Sequence[str]) -> str:
     body = "".join(rows) if severities else '<p class="note">No findings to chart for this run.</p>'
     return (
         '<figure class="chart chart-severity"><figcaption>Findings by severity</figcaption>'
-        f'{body}<p class="note">{len(severities)} findings total.</p></figure>'
+        f'{body}<p class="note">Total findings: {len(severities)}.</p></figure>'
     )
+
+
+def _coverage_percentage(counts: CheckCounts) -> str:
+    if not counts.total:
+        return "—"
+    if not counts.tested:
+        return "0%"
+    if not counts.untested:
+        return "100%"
+    percentage = counts.tested / counts.total * 100
+    if percentage < 0.1:
+        return "<0.1%"
+    if percentage > 99.9:
+        return ">99.9%"
+    return f"{percentage:.1f}".removesuffix(".0") + "%"
