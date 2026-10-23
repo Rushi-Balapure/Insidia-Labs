@@ -66,3 +66,21 @@ def verdict_strip(execution: str, policy: str, verdict: str, counts: CheckCounts
         f"{escape(value)}</span></dd></div>" for label, value, css in cells
     )
     return f'<dl class="verdict-strip">{body}</dl>'
+
+
+def summary_metrics(counts: CheckCounts, findings: int) -> str:
+    cells = (
+        ("Findings", findings, "failed" if findings else "neutral"),
+        ("Checks tested", f"{counts.tested} / {counts.total}", "neutral"),
+        ("Passed checks", counts.passed, "passed"),
+        ("Failed checks", counts.failed, "failed"),
+        ("Not tested", counts.untested, "untested"),
+    )
+    body = "".join(
+        f'<div class="metric metric-{css}"><dt>{label}</dt><dd>{value}</dd></div>'
+        for label, value, css in cells
+    )
+    note = f"{counts.low_assurance} passed checks have low assurance."
+    if counts.info:
+        note += f" {counts.info} tested checks are informational."
+    return f'<dl class="metrics">{body}</dl><p class="note">{note}</p>'
