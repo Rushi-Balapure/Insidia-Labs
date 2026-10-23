@@ -843,7 +843,7 @@ def test_not_tested_rows_say_why_and_passes_are_counted_honestly(tmp_path: Path)
     html = (directory / "report.html").read_text(encoding="utf-8")
     assert "not evidence that those risks are absent" in html
     reasons = []
-    for row in re.findall(r"<tr>(.*?)</tr>", html, re.S):
+    for row in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S):
         if "NOT TESTED" not in row:
             continue
         why = re.search(r'data-l="Why">(.*?)</td>', row)

@@ -4,7 +4,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from html import escape
 
-from insidia.score import Score
+from insidia.score import Score, coverage
 
 
 def status_badge(result: str, *, uppercase: bool = False) -> str:
@@ -113,4 +113,37 @@ def framework_bar(score: Score) -> str:
     return (
         stacked_bar(segments, unit="Framework items")
         + f'<small class="muted">{tested} / {total} items tested</small>'
+    )
+
+
+
+def framework_groups(controls: Sequence[Mapping[str, str | int]], scores: Sequence[Score]) -> str:
+    rows = coverage(controls)
+    groups = []
+    for score in scores:
+        items = [row for row in rows if row[0].startswith(f"{score.framework}:")]
+        summary = (
+            f"{escape(score.title)} · {score.passed} passed · {score.failed} failed · "
+            f"{score.not_tested} not tested"
+        )
+        groups.append(
+            f'<details class="framework-group" open><summary>{summary}</summary>'
+            f"{framework_item_table(items)}</details>"
+        )
+    return "\n".join(groups)
+
+
+def framework_item_table(rows: Sequence[tuple[str, str, str]]) -> str:
+    body = []
+    for control_id, title, result in rows:
+        outcome = "pass" if result.startswith("pass") else result
+        body.append(
+            f'<tr class="coverage-row" data-result="{escape(outcome)}">'
+            f'<td data-l="Control">{escape(control_id)}</td>'
+            f'<td data-l="Title">{escape(title)}</td>'
+            f'<td data-l="Result">{status_badge(result)}</td></tr>'
+        )
+    return (
+        '<table class="framework-items"><thead><tr><th>Control</th><th>Title</th>'
+        f'<th>Result</th></tr></thead><tbody>\n{"\n".join(body)}\n</tbody></table>'
     )

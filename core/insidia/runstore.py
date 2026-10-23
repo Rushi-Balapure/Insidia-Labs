@@ -25,6 +25,7 @@ from insidia.report_styles import REPORT_CSS as _CSS
 from insidia.report_ui import (
     check_counts,
     framework_bar,
+    framework_groups,
     status_badge,
     summary_metrics,
     verdict_strip,
@@ -759,10 +760,7 @@ def _render(
         "</table>",
         "<details>",
         "<summary>OWASP item list</summary>",
-        "<table>",
-        "<thead><tr><th>Control</th><th>Title</th><th>Result</th></tr></thead>",
-        f"<tbody>\n{_coverage_rows(controls)}\n</tbody>",
-        "</table>",
+        framework_groups(controls, scores),
         "</details>",
         '<h2 id="scaninfo">Scan information</h2>',
         _scan_table(

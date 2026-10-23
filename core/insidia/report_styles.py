@@ -64,6 +64,11 @@ h2 {
 .verdict-strip dt { font-size: 0.8rem; color: var(--muted); }
 .verdict-strip dd { margin: 0.3rem 0 0; }
 .note, .muted { color: var(--muted); }
+.framework-group { margin: 0.75rem 0; border: 1px solid var(--line);
+  border-radius: 8px; padding: 0.7rem; }
+.framework-group > summary { cursor: pointer; font-weight: 650; }
+.framework-items td:first-child { white-space: nowrap; font-family: ui-monospace, monospace;
+  font-size: 0.85rem; }
 .bar-track { display: flex; width: 100%; height: 0.8rem; overflow: hidden;
   border-radius: 999px; background: var(--line); }
 .segment { display: block; height: 100%; flex-shrink: 0; }
