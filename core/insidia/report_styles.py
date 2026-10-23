@@ -15,6 +15,18 @@ REPORT_CSS = """
   --muted: #5A5A80;
 }
 * { box-sizing: border-box; }
+html { scroll-padding-top: 7rem; }
+a { color: var(--info); }
+:focus-visible { outline: 3px solid var(--info); outline-offset: 3px; }
+.skip-link { position: absolute; top: -100px; left: 1rem; padding: 0.6rem 1rem;
+  background: var(--card); color: var(--ink); z-index: 10; }
+.skip-link:focus { top: 0.5rem; }
+header > div { min-width: 0; }
+header svg { flex-shrink: 0; }
+nav { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; z-index: 5; }
+nav a { padding: 0.35rem 0; }
+summary { min-height: 2rem; }
+h3 { font-size: 1rem; margin: 1.4rem 0 0.4rem; }
 body {
   font: 16px/1.5 system-ui, sans-serif;
   margin: 0;
@@ -49,11 +61,12 @@ nav a {
   text-decoration: none;
   font-weight: 600;
 }
-main { padding: 1rem 2rem 3rem; max-width: 1100px; margin: auto; }
+nav a:hover { text-decoration: underline; }
+main { padding: 1rem 2rem 3rem; max-width: 1200px; margin: auto; }
 h2 {
   margin: 2rem 0 0.6rem;
-  font-size: 1.15rem;
-  border-bottom: 2px solid #101028;
+  font-size: 1.35rem;
+  border-bottom: 1px solid var(--line);
   padding-bottom: 0.2rem;
 }
 .status {

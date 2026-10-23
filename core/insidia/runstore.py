@@ -704,9 +704,10 @@ def _render(
     )
     tiles = _tiles(findings)
     nav = (
-        '<nav><a href="#summary">Summary</a><a href="#targets">Targets</a>'
+        '<nav aria-label="Report sections"><a href="#summary">Overview</a>'
         f'<a href="#findings">Findings ({len(findings)})</a>'
-        '<a href="#remediation">Remediation</a><a href="#coverage">Coverage</a>'
+        '<a href="#remediation">Remediation</a><a href="#targets">Targets</a>'
+        '<a href="#coverage">Coverage</a>'
         '<a href="#frameworks">Frameworks</a>'
         '<a href="#scaninfo">Scan info</a></nav>'
     )
@@ -720,6 +721,7 @@ def _render(
         f"<style>{_CSS}</style>",
         "</head>",
         "<body>",
+        '<a class="skip-link" href="#main">Skip to report</a>',
         "<header>",
         _mark(),
         "<div>",
@@ -729,7 +731,7 @@ def _render(
         "</div>",
         "</header>",
         nav,
-        "<main>",
+        '<main id="main" tabindex="-1">',
         '<h2 id="summary">Executive summary</h2>',
         f'<p class="status {status}">{_escape(summary)}</p>',
         verdict_strip(execution_status, policy, verdict, check_counts(controls)),
