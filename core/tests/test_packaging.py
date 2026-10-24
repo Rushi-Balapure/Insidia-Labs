@@ -21,3 +21,14 @@ def test_shipped_framework_maps_match_the_benchmark_copies() -> None:
         packaged_bytes = (packaged / name).read_bytes()
         repo_bytes = (root / "benchmark" / "mappings" / name).read_bytes()
         assert packaged_bytes == repo_bytes
+
+
+def test_shipped_report_logos_match_the_approved_brand_lockups() -> None:
+    root = Path(__file__).resolve().parents[2]
+    packaged = root / "core" / "insidia" / "brand"
+    lockups = root / "brand" / "lockups"
+    for variant, master in (
+        ("dark", "insidia-labs-horizontal-dark-transparent.svg"),
+        ("light", "insidia-labs-horizontal-light.svg"),
+    ):
+        assert (packaged / f"lockup-{variant}.svg").read_bytes() == (lockups / master).read_bytes()

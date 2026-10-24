@@ -19,13 +19,30 @@ insidia report <run-id> --open
 
 For a run that did not complete, start with [Troubleshooting](/docs/guides/troubleshooting/).
 
+## Coverage charts and filters
+
+The overview separates execution status, the policy verdict, and coverage. It shows a donut chart for **tested versus not tested checks** and a stacked bar for **passed, failed, not tested, and informational checks**. Passed checks with low assurance remain passes and are labeled separately.
+
+The framework chart and table count **mapped framework items**, not individual checks. Multiple checks can map to one item, so these totals can differ from the overview. A coverage percentage is not a security score.
+
+Use the result filters to isolate failed, untested, passed, or informational checks. Expand an untested check's explanation to read the recorded limitation. The OWASP item list groups items by framework and has its own filters. A separate severity chart summarizes findings; a run without findings shows an explicit empty state.
+
+Each navigation item opens its own report view using a `?page=` URL. The overview, findings, remediation, targets, coverage, frameworks, and scan information remain embedded in one portable HTML file. The selected view survives refresh and browser history navigation. If JavaScript is disabled, all sections are shown together.
+
+Check details expand in full-width accordions below their summary rows. Hover, focus, or tap a chart segment to see its count and percentage; press Escape to dismiss the tooltip. The footer on every view provides downloads for all six run artifacts and the command to repeat the scan.
+
+Reports embed their charts, styles, logos, and a small navigation and tooltip script. They work offline without external libraries and adapt to narrow screens, dark mode, and printing. Printing includes every report view and all coverage rows, even when an on-screen filter is selected.
+
+Reports already saved by older versions retain their original layout. Generate a new scan with the updated CLI to get the new report layout.
+
+
 ## Run files
 
 Each run directory `.insidia/runs/<run-id>/` contains:
 
 | File | What it is |
 | --- | --- |
-| `report.html` | Execution and policy status, framework scores, control coverage, and findings with engine, severity, masked evidence, fix guidance, and rerun commands. |
+| `report.html` | Execution and policy status, coverage charts, framework coverage, and findings with engine, severity, masked evidence, fix guidance, and rerun commands. |
 | `findings.json` | The same findings as JSON, for an agent or a script. |
 | `results.sarif` | SARIF results. A high severity is an error. Anything else in the file is a warning. |
 | `benchmark.json` | Policy name, execution status, policy verdict, control results, skips, and framework scores. |

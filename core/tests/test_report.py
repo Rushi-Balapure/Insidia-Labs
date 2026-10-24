@@ -54,11 +54,16 @@ def test_report_scores_frameworks_and_names_the_engine(tmp_path: Path) -> None:
     assert "OWASP Web" in html
     assert _score_line(html, "OWASP LLM Top 10") == ("1", "0 passed (0 low assurance)", "9")
     assert _score_line(html, "OWASP Web Top 10") == ("0", "1 passed (0 low assurance)", "9")
-    assert "<script" not in html
+    from insidia.report_script import REPORT_SCRIPT
+
+    assert html.count("<script") == 1
+    assert f"<script data-report-ui>{REPORT_SCRIPT}</script>" in html
     assert "prefers-color-scheme: dark" in html
     assert "#101028" in html
-    assert html.split('<p class="status', 1)[1].split("</p>", 1)[0].endswith(
-        "This report is test evidence, not a certification."
+    assert (
+        html.split('<p class="status', 1)[1]
+        .split("</p>", 1)[0]
+        .endswith("This report is test evidence, not a certification.")
     )
     assert "<svg" in html
     assert "owasp-llm:LLM01" in html
@@ -109,7 +114,7 @@ def test_report_scores_frameworks_and_names_the_engine(tmp_path: Path) -> None:
     assert run["results"][0]["properties"]["engine"] == "insidia"
 
 
-def test_report_sections_follow_the_nessus_order(tmp_path: Path) -> None:
+def test_report_sections_prioritize_findings(tmp_path: Path) -> None:
     import re
 
     chat = _bare(
@@ -153,25 +158,25 @@ def test_report_sections_follow_the_nessus_order(tmp_path: Path) -> None:
         scope_hosts=("127.0.0.1",),
     )
     html = (directory / "report.html").read_text(encoding="utf-8")
-    headings = re.findall(r"<h2[^>]*>([^<]+)</h2>", html)
+    headings = re.findall(r"<h2[^>]*>([^<]+)</h2>", html.split("<footer>", 1)[0])
     assert headings == [
         "Executive summary",
-        "Targets",
         "Findings by severity",
         "Remediation summary",
+        "Targets",
         "Coverage by target",
-        "Framework mapping",
+        "Framework coverage",
         "Scan information",
     ]
     assert html.index("Executive summary") < html.index("Findings by severity")
     assert html.index("Findings by severity") < html.index("Coverage by target")
     assert "OWASP item list" in html
-    assert html.index("Framework mapping") < html.index("OWASP item list")
+    assert html.index("Framework coverage") < html.index("OWASP item list")
     for label in ("Critical", "High", "Medium", "Low", "Info"):
         assert label in html
     payload = json.loads((directory / "findings.json").read_text())
     sarif = json.loads((directory / "results.sarif").read_text())["runs"][0]["results"]
-    shown = [int(item) for item in re.findall(r'class="tile t-[a-z]+"><b>(\d+)</b>', html)]
+    shown = [int(item) for item in re.findall(r'class="severity-row" data-count="(\d+)"', html)]
     assert sum(shown) == len(payload) == len(sarif) == 2
     manifest = json.loads((directory / "manifest.json").read_text())
     assert manifest["finished_at"]
@@ -496,7 +501,7 @@ def test_finding_cards_list_fields_in_order_and_escape_evidence(tmp_path: Path) 
 
     leaked = "ghp_" + ("b" * 36)
     stripe = "sk_live_" + ("c" * 20)
-    response = f"see <img src=\"https://evil.example/a.png\"> {leaked} {stripe} {_SECRET}"
+    response = f'see <img src="https://evil.example/a.png"> {leaked} {stripe} {_SECRET}'
     finding = _bare(
         track="ai",
         probe="insidia.ai.data_leakage",
@@ -664,7 +669,7 @@ def test_four_hits_of_one_check_group_and_two_targets_filter(tmp_path: Path) -> 
     html = (directory / "report.html").read_text(encoding="utf-8")
     assert html.count('<details class="finding"') == 2
     assert html.count('<span class="pid">INS-DEP-001</span>') == 1
-    assert 'href="#findings">Findings (5)</a>' in html
+    assert 'href="?page=findings" data-page-link="findings">Findings (5)</a>' in html
     payload = json.loads((directory / "findings.json").read_text())
     sarif = json.loads((directory / "results.sarif").read_text())["runs"][0]["results"]
     assert len(payload) == len(sarif) == 5
@@ -843,10 +848,12 @@ def test_not_tested_rows_say_why_and_passes_are_counted_honestly(tmp_path: Path)
     html = (directory / "report.html").read_text(encoding="utf-8")
     assert "not evidence that those risks are absent" in html
     reasons = []
-    for row in re.findall(r"<tr>(.*?)</tr>", html, re.S):
+    for row in re.findall(
+        r'<details class="check-accordion coverage-row"[^>]*>(.*?)</details>', html, re.S
+    ):
         if "NOT TESTED" not in row:
             continue
-        why = re.search(r'data-l="Why">(.*?)</td>', row)
+        why = re.search(r'data-l="Why">(.*?)</div>', row)
         assert why is not None
         text = why.group(1).strip()
         assert text
@@ -883,8 +890,7 @@ _NOT_A_CERTIFICATION = "This report is test evidence, not a certification."
 
 
 def _summary_paragraph(html: str) -> str:
-    block = html.split('<h2 id="summary">Executive summary</h2>', 1)[1]
-    paragraph = block.split("<p", 1)[1]
+    paragraph = html.split('<p class="status ', 1)[1]
     return paragraph.split(">", 1)[1].split("</p>", 1)[0]
 
 
@@ -1078,18 +1084,26 @@ def test_an_owasp_row_with_a_strong_pass_stays_plain() -> None:
 
 
 def _coverage_badge(html: str, check_id: str) -> str:
-    row = html.split(f"<code>{check_id}</code>", 1)[1].split("</tr>", 1)[0]
-    return row.split('data-l="Result">', 1)[1].split("</td>", 1)[0]
+    import re
+
+    row = html.split(f"<code>{check_id}</code>", 1)[1].split("</summary>", 1)[0]
+    badge = re.search(r'data-l="Result">(<span[^>]*>.*?</span>)', row)
+    assert badge is not None
+    return badge.group(1)
 
 
 def _owasp_result(html: str, control_id: str) -> str:
     row = next(line for line in html.splitlines() if f">{control_id}<" in line)
     cells = row.split("<td")
-    return cells[-1].split(">", 1)[1].split("<", 1)[0]
+    import re
+
+    cell = cells[-1].split(">", 1)[1].split("</td>", 1)[0]
+    return re.sub(r"<[^>]+>", "", cell)
 
 
 def _score_line(html: str, title: str) -> tuple[str, str, str]:
-    row = next(line for line in html.splitlines() if title in line)
+    table = html.split('<table class="framework-scores">', 1)[1].split("</table>", 1)[0]
+    row = next(line for line in table.splitlines() if title in line)
     cells = row.split("<td")
     values = [cell.split(">", 1)[1].split("<", 1)[0] for cell in cells[1:]]
     assert values[0] == title
@@ -1239,9 +1253,7 @@ def test_rerun_records_provenance_and_finding_state(tmp_path: Path) -> None:
         title="Dropped finding",
         evidence_hash="hash-dropped",
         response=masked,
-        observations=(
-            Observation("insidia", "insidia.web.ssti", "high", "/ping", masked),
-        ),
+        observations=(Observation("insidia", "insidia.web.ssti", "high", "/ping", masked),),
     )
     fresh = _bare(title="New finding", evidence_hash="hash-new", response="new reply")
     run_a = "20261018T000000Z-aaaaaa"
@@ -1293,9 +1305,7 @@ def test_rerun_records_provenance_and_finding_state(tmp_path: Path) -> None:
     assert "state" not in result["properties"]
 
     run_c = "20261018T000002Z-cccccc"
-    directory_c = write_run(
-        tmp_path, run_c, "L1", False, [kept], [], [], rerun_of=run_b
-    )
+    directory_c = write_run(tmp_path, run_c, "L1", False, [kept], [], [], rerun_of=run_b)
     later = json.loads((directory_c / "findings.json").read_text())
     assert later[0]["evidence_hash"] == "hash-kept"
     assert later[0]["state"] == "still_open"

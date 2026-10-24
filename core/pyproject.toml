@@ -27,6 +27,8 @@ packages = ["insidia"]
 "insidia/mappings/owasp-web.yaml" = "insidia/mappings/owasp-web.yaml"
 "insidia/mappings/owasp-api.yaml" = "insidia/mappings/owasp-api.yaml"
 "insidia/brand/mark.svg" = "insidia/brand/mark.svg"
+"insidia/brand/lockup-dark.svg" = "insidia/brand/lockup-dark.svg"
+"insidia/brand/lockup-light.svg" = "insidia/brand/lockup-light.svg"
 
 [dependency-groups]
 dev = [
