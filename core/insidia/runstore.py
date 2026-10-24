@@ -734,7 +734,7 @@ def _report_pages(report: _ReportData, names: list[str]) -> str:
     fallback = (
         "<noscript><style>.report-page[hidden] { display: block; }</style>"
         '<p class="note">JavaScript is disabled. '
-        'All report sections are shown below.</p></noscript>'
+        "All report sections are shown below.</p></noscript>"
     )
     return fallback + "\n".join(sections)
 
@@ -746,7 +746,7 @@ def _report_head(report: _ReportData, title: str) -> str:
             '<meta name="viewport" content="width=device-width, initial-scale=1">',
             f"<title>{_escape(title)}</title><style>{_CSS}</style></head><body>",
             '<a class="skip-link" href="#main">Skip to report</a>',
-            "<header>",
+            '<header><div class="header-inner">',
             _brand_lockup("dark"),
             _brand_lockup("light"),
             '<div class="report-heading">',
@@ -754,7 +754,7 @@ def _report_head(report: _ReportData, title: str) -> str:
             report_identity(
                 report.run_id, report.started_at, report.policy, report.version, report.engines
             ),
-            "</div></header>",
+            "</div></div></header>",
         )
     )
 
@@ -773,7 +773,11 @@ def _report_navigation(findings: int) -> str:
     for page, label in pages:
         current = ' aria-current="page"' if page == "summary" else ""
         links.append(f'<a href="?page={page}" data-page-link="{page}"{current}>{label}</a>')
-    return '<nav aria-label="Report sections">' + "".join(links) + "</nav>"
+    return (
+        '<nav aria-label="Report sections"><div class="report-nav-inner">'
+        + "".join(links)
+        + "</div></nav>"
+    )
 
 
 def _report_overview(report: _ReportData) -> str:
