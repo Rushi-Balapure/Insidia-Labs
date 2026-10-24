@@ -3,6 +3,8 @@ title: Report
 description: Read Insidia scan findings, evidence, remediation guidance, and skipped checks. Open the HTML report or use JSON, SARIF, and benchmark output in automation.
 ---
 
+import FindingCard from "../../../components/FindingCard.astro";
+
 ```bash
 insidia report --open
 insidia report <run-id> --open
@@ -16,6 +18,10 @@ insidia report <run-id> --open
 2. Read the **policy verdict** and control coverage. Inspect skips and errors to understand which checks did not complete.
 3. Review findings by severity, then read the engine name, masked evidence, and fix guidance. A finding is a starting point for investigation; check that the evidence applies to your app.
 4. Fix the issue and scan again. Compare the affected control and finding across runs, along with execution status.
+
+<FindingCard severity="high" title="Secret-like value exposed in a response" engine="insidia" target="localhost" evidence="[AWS_ACCESS_KEY len=20 fp=3f9a1c07]" />
+
+The card shows where to look for severity, target, engine, and masked evidence. Your actual report also includes check status and remediation guidance. Treat the example as a reading aid, not a recorded finding.
 
 For a run that did not complete, start with [Troubleshooting](/docs/guides/troubleshooting/).
 
