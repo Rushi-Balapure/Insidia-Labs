@@ -158,7 +158,7 @@ def test_report_sections_prioritize_findings(tmp_path: Path) -> None:
         scope_hosts=("127.0.0.1",),
     )
     html = (directory / "report.html").read_text(encoding="utf-8")
-    headings = re.findall(r"<h2[^>]*>([^<]+)</h2>", html)
+    headings = re.findall(r"<h2[^>]*>([^<]+)</h2>", html.split("<footer>", 1)[0])
     assert headings == [
         "Executive summary",
         "Findings by severity",

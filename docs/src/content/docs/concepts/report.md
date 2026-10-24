@@ -27,7 +27,11 @@ The framework chart and table count **mapped framework items**, not individual c
 
 Use the result filters to isolate failed, untested, passed, or informational checks. Expand an untested check's explanation to read the recorded limitation. The OWASP item list groups items by framework and has its own filters. A separate severity chart summarizes findings; a run without findings shows an explicit empty state.
 
-Reports embed their charts and styles, work offline without JavaScript, and adapt to narrow screens, dark mode, and printing. Printing includes all coverage rows, even when an on-screen filter is selected.
+Each navigation item opens its own report view using a `?page=` URL. The overview, findings, remediation, targets, coverage, frameworks, and scan information remain embedded in one portable HTML file. The selected view survives refresh and browser history navigation. If JavaScript is disabled, all sections are shown together.
+
+Check details expand in full-width accordions below their summary rows. Hover, focus, or tap a chart segment to see its count and percentage; press Escape to dismiss the tooltip. The footer on every view provides downloads for all six run artifacts and the command to repeat the scan.
+
+Reports embed their charts, styles, logos, and a small navigation and tooltip script. They work offline without external libraries and adapt to narrow screens, dark mode, and printing. Printing includes every report view and all coverage rows, even when an on-screen filter is selected.
 
 Reports already saved by older versions retain their original layout. Generate a new scan with the updated CLI to get the new report layout.
 

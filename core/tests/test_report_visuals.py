@@ -186,3 +186,26 @@ def test_donut_segments_offer_exact_values_for_hover_and_keyboard_focus() -> Non
     empty = render_tested_chart(CheckCounts(0, 0, 0, 0))
     assert "data-tooltip=" not in empty
     assert 'tabindex="0"' not in empty
+
+
+def test_footer_links_every_run_artifact_and_exposes_the_rerun_command(tmp_path: Path) -> None:
+    import re
+
+    from insidia.runstore import write_run
+
+    directory = write_run(tmp_path, "footer-example", "L1", True, [], [], [])
+    html = (directory / "report.html").read_text()
+    assert html.index("</main>") < html.index("<footer>")
+    footer = html.split("<footer>", 1)[1].split("</footer>", 1)[0]
+    links = re.findall(r'class="artifact-link" href="([^"]+)" download', footer)
+    assert set(links) == {
+        "findings.json",
+        "findings.csv",
+        "results.sarif",
+        "benchmark.json",
+        "manifest.json",
+        "report.html",
+    }
+    assert all((directory / name).is_file() for name in links)
+    assert "Repeat this scan" in footer
+    assert "insidia rerun footer-example" in footer

@@ -877,9 +877,32 @@ def _report_scan_information(report: _ReportData) -> str:
 
 def _report_footer(run_id: str) -> str:
     return (
-        '<footer><p>Artefacts: findings.json, <a href="findings.csv">findings.csv</a>, '
-        "results.sarif, benchmark.json, manifest.json, report.html</p>"
-        f"<p><code>insidia rerun {_escape(run_id)}</code></p></footer>"
+        '<footer><div class="footer-inner"><section aria-labelledby="downloads">'
+        '<h2 id="downloads">Report files</h2>'
+        '<p class="note">Download the evidence and results from this run.</p>'
+        f'<div class="artifact-links">{_artifact_links()}</div></section>'
+        '<section class="rerun-panel" aria-labelledby="repeat-scan">'
+        '<h2 id="repeat-scan">Repeat this scan</h2>'
+        '<p class="note">Run this command from your project directory.</p>'
+        f'<pre class="rerun-command"><code>insidia rerun {_escape(run_id)}</code></pre>'
+        '<p class="footer-note">Insidia Labs · Test evidence, not a certification.</p>'
+        "</section></div></footer>"
+    )
+
+
+def _artifact_links() -> str:
+    files = (
+        ("findings.json", "Structured findings"),
+        ("findings.csv", "Spreadsheet export"),
+        ("results.sarif", "Code scanning results"),
+        ("benchmark.json", "Coverage and check results"),
+        ("manifest.json", "Run metadata and checksums"),
+        ("report.html", "Offline HTML report"),
+    )
+    return "".join(
+        f'<a class="artifact-link" href="{name}" download><strong>{name}</strong>'
+        f'<span>{description}</span><span class="download-label">Download ↓</span></a>'
+        for name, description in files
     )
 
 
