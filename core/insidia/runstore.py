@@ -21,6 +21,7 @@ from insidia import __version__, version_text
 from insidia.errors import CliError
 from insidia.findings import Finding, prepare_findings
 from insidia.mask import SECRET_PATTERNS, mask
+from insidia.report_script import REPORT_SCRIPT
 from insidia.report_styles import REPORT_CSS as _CSS
 from insidia.report_ui import (
     CheckCounts,
@@ -693,18 +694,49 @@ def _render(report: _ReportData) -> str:
         _report_head(report, title),
         _report_navigation(len(report.findings)),
         '<main id="main" tabindex="-1">',
-        _report_overview(report),
-        _report_findings(report, names),
-        '<h2 id="targets">Targets</h2>',
-        _targets_table(report.findings, report.controls, report.targets),
-        '<h2 id="coverage">Coverage by target</h2>',
-        _coverage_by_target(report.controls, report.skips),
-        _report_frameworks(report.controls, report.scores),
-        _report_scan_information(report),
+        _report_pages(report, names),
+        "</main>",
         _report_footer(report.run_id),
-        "</main></body></html>",
+        f"<script data-report-ui>{REPORT_SCRIPT}</script>",
+        "</body></html>",
     )
     return "\n".join(part for part in parts if part) + "\n"
+
+
+def _report_pages(report: _ReportData, names: list[str]) -> str:
+    pages = (
+        ("summary", _report_overview(report)),
+        ("findings", _report_findings(report, names)),
+        (
+            "remediation",
+            '<h2 id="remediation">Remediation summary</h2>' + _remediation_table(report.findings),
+        ),
+        (
+            "targets",
+            '<h2 id="targets">Targets</h2>'
+            + _targets_table(report.findings, report.controls, report.targets),
+        ),
+        (
+            "coverage",
+            '<h2 id="coverage">Coverage by target</h2>'
+            + _coverage_by_target(report.controls, report.skips),
+        ),
+        ("frameworks", _report_frameworks(report.controls, report.scores)),
+        ("scaninfo", _report_scan_information(report)),
+    )
+    sections = []
+    for page, content in pages:
+        hidden = "" if page == "summary" else " hidden"
+        sections.append(
+            f'<section class="report-page" data-page="{page}" '
+            f'aria-labelledby="{page}"{hidden}>{content}</section>'
+        )
+    fallback = (
+        "<noscript><style>.report-page[hidden] { display: block; }</style>"
+        '<p class="note">JavaScript is disabled. '
+        'All report sections are shown below.</p></noscript>'
+    )
+    return fallback + "\n".join(sections)
 
 
 def _report_head(report: _ReportData, title: str) -> str:
@@ -728,13 +760,20 @@ def _report_head(report: _ReportData, title: str) -> str:
 
 
 def _report_navigation(findings: int) -> str:
-    return (
-        '<nav aria-label="Report sections"><a href="#summary">Overview</a>'
-        f'<a href="#findings">Findings ({findings})</a>'
-        '<a href="#remediation">Remediation</a><a href="#targets">Targets</a>'
-        '<a href="#coverage">Coverage</a><a href="#frameworks">Frameworks</a>'
-        '<a href="#scaninfo">Scan info</a></nav>'
+    pages = (
+        ("summary", "Overview"),
+        ("findings", f"Findings ({findings})"),
+        ("remediation", "Remediation"),
+        ("targets", "Targets"),
+        ("coverage", "Coverage"),
+        ("frameworks", "Frameworks"),
+        ("scaninfo", "Scan info"),
     )
+    links = []
+    for page, label in pages:
+        current = ' aria-current="page"' if page == "summary" else ""
+        links.append(f'<a href="?page={page}" data-page-link="{page}"{current}>{label}</a>')
+    return '<nav aria-label="Report sections">' + "".join(links) + "</nav>"
 
 
 def _report_overview(report: _ReportData) -> str:
@@ -775,8 +814,6 @@ def _report_findings(report: _ReportData, names: list[str]) -> str:
             severity_chart([finding.severity for finding in report.findings]),
             _finding_cards(report.findings, report.run_id, names),
             _fixed_section(report.baseline_id, report.fixed),
-            '<h2 id="remediation">Remediation summary</h2>',
-            _remediation_table(report.findings),
         )
     )
 
@@ -1029,7 +1066,7 @@ def _finding_cards(findings: list[Finding], run_id: str, target_names: list[str]
             "in the checks performed.</strong>"
             "<p>Review untested checks and coverage limitations "
             "before interpreting this result.</p>"
-            '<a href="#coverage">Review check coverage →</a></div>'
+            '<a href="?page=coverage">Review check coverage →</a></div>'
         )
     names = list(target_names)
     for finding in findings:

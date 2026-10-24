@@ -37,6 +37,8 @@ header > div { min-width: 0; }
 nav { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; z-index: 5; }
 nav a { padding: 0.35rem 0; }
 summary { min-height: 2rem; }
+.report-page[hidden] { display: none; }
+nav a[aria-current="page"] { color: var(--info); border-bottom: 3px solid var(--info); }
 h3 { font-size: 1rem; margin: 1.4rem 0 0.4rem; }
 body {
   font: 16px/1.5 system-ui, sans-serif;
@@ -365,6 +367,7 @@ footer {
   table td[data-l]::before { flex: none; }
 }
 @media print {
+  .report-page[hidden] { display: block !important; }
   header { background: #fff; color: #101028; padding: 0 0 1rem; }
   .report-logo-dark { display: none; }
   .report-logo-light { display: block; }

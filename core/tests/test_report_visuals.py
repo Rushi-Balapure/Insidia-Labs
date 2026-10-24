@@ -106,7 +106,11 @@ def test_generated_report_separates_check_totals_from_framework_items(tmp_path: 
     assert "Insidia ran 2 of 3 checks" in html
     assert 'id="check-filter-nt"' in html
     assert 'id="framework-filter-nt"' in html
-    assert "<script" not in html and "<link" not in html and "<img" not in html
+    from insidia.report_script import REPORT_SCRIPT
+
+    assert html.count("<script") == 1
+    assert f"<script data-report-ui>{REPORT_SCRIPT}</script>" in html
+    assert "<link" not in html and "<img" not in html
 
 
 def test_full_brand_lockups_are_embedded_with_unique_svg_references(tmp_path: Path) -> None:
@@ -130,3 +134,28 @@ def test_full_brand_lockups_are_embedded_with_unique_svg_references(tmp_path: Pa
         assert root.attrib["viewBox"] == "0 0 8718 2445"
         assert not list(root.iter("{http://www.w3.org/2000/svg}image"))
         assert not list(root.iter("{http://www.w3.org/2000/svg}text"))
+
+
+def test_navigation_opens_separate_report_views_in_the_offline_document(tmp_path: Path) -> None:
+    import re
+
+    from insidia.runstore import write_run
+
+    directory = write_run(tmp_path, "page-example", "L1", True, [], [], [])
+    html = (directory / "report.html").read_text()
+    pages = re.findall(r'<section class="report-page" data-page="([^"]+)"[^>]*>', html)
+    assert pages == [
+        "summary",
+        "findings",
+        "remediation",
+        "targets",
+        "coverage",
+        "frameworks",
+        "scaninfo",
+    ]
+    nav = html.split('<nav aria-label="Report sections">', 1)[1].split("</nav>", 1)[0]
+    assert re.findall(r'href="\?page=([^"]+)"', nav) == pages
+    assert 'href="#' not in nav
+    assert html.count('aria-labelledby="summary"') == 1
+    assert html.count('aria-labelledby="findings" hidden') == 1
+    assert ".report-page[hidden] { display: block !important; }" in html
