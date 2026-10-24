@@ -1,0 +1,40 @@
+---
+interface Props {
+  heading: string;
+  description: string;
+  primaryLabel: string;
+  primaryHref: string;
+  secondaryLabel: string;
+  secondaryHref: string;
+}
+
+const { heading, description, primaryLabel, primaryHref, secondaryLabel, secondaryHref } = Astro.props;
+---
+<section class="gradient-cta" aria-labelledby="closing-heading">
+  <div class="wrap gradient-cta-layout">
+    <div>
+      <p class="gradient-eyebrow">Start with localhost</p>
+      <h2 id="closing-heading">{heading}</h2>
+      <p>{description}</p>
+    </div>
+    <div class="gradient-actions">
+      <a class="gradient-primary" href={primaryHref}>{primaryLabel} <span aria-hidden="true">↗</span></a>
+      <a class="gradient-secondary" href={secondaryHref}>{secondaryLabel} <span aria-hidden="true">↑</span></a>
+    </div>
+  </div>
+</section>
+<style>
+  .gradient-cta { padding: 4.5rem 0; background: var(--insidia-gradient-short); color: #101028; }
+  .gradient-cta-layout { display: flex; justify-content: space-between; align-items: center; gap: 3rem; }
+  .gradient-eyebrow { text-transform: uppercase; letter-spacing: 0.08em; font: 600 0.7rem var(--mono); }
+  h2 { margin: 0 0 0.8rem; max-width: 18ch; }
+  .gradient-cta-layout p:last-child { margin: 0; }
+  .gradient-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; flex-shrink: 0; }
+  .gradient-actions a { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 2.75rem; padding: 0.7rem 1rem; border-radius: var(--radius-sm); font: 600 0.9rem var(--font); text-decoration: none; }
+  .gradient-primary { background: #101028; color: #fff; }
+  .gradient-primary:hover { background: #25254a; color: #fff; }
+  .gradient-secondary { color: #101028; border: 1px solid #101028; }
+  .gradient-secondary:hover { background: #101028; color: #fff; }
+  @media (max-width: 950px) { .gradient-cta-layout { display: block; } .gradient-actions { margin-top: 1.6rem; } }
+  @media (max-width: 640px) { .gradient-cta { padding: 3.5rem 0; } }
+</style>

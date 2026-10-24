@@ -1,0 +1,50 @@
+---
+interface Entry {
+  date: string;
+  title: string;
+  pill?: string;
+  body: string;
+}
+
+interface Props { entries: Entry[] }
+
+const { entries } = Astro.props;
+---
+<ol class="release-timeline" aria-label="Release timeline">
+  {entries.map((entry, index) => (
+    <li>
+      <time datetime={entry.date}>{entry.date}</time>
+      <span class="timeline-rail" aria-hidden="true"><span class="timeline-dot"></span></span>
+      <article>
+        <div class="timeline-heading">
+          <h2>{entry.title}</h2>
+          {index === 0 && <span class="latest">Latest note</span>}
+        </div>
+        {entry.pill && <p class="timeline-pill">{entry.pill}</p>}
+        <p>{entry.body}</p>
+      </article>
+    </li>
+  ))}
+</ol>
+<style>
+  .release-timeline { list-style: none; padding: 0; margin: 2.5rem 0 0; }
+  .release-timeline li { display: grid; grid-template-columns: 8rem 1.25rem minmax(0, 1fr); gap: 1rem; }
+  .release-timeline time { color: var(--muted); font: 0.8rem var(--mono); padding-top: 0.2rem; }
+  .timeline-rail { display: flex; justify-content: center; position: relative; }
+  .timeline-rail::before { content: ""; position: absolute; top: 0.8rem; bottom: 0; width: 1px; background: var(--line); }
+  li:last-child .timeline-rail::before { display: none; }
+  .timeline-dot { position: relative; width: 0.75rem; height: 0.75rem; margin-top: 0.25rem; border-radius: 50%; background: var(--insidia-gradient-short); box-shadow: 0 0 0 4px var(--bg); }
+  article { padding: 0 0 2rem; margin-bottom: 1rem; border-bottom: 1px solid var(--line); }
+  li:last-child article { border-bottom: 0; }
+  .timeline-heading { display: flex; flex-wrap: wrap; gap: 0.7rem; align-items: baseline; }
+  h2 { font-size: 1.3rem; }
+  .latest { border-radius: 99px; padding: 0.15rem 0.55rem; background: var(--accent); color: var(--insidia-navy-900); font: 600 0.7rem var(--font); }
+  .timeline-pill { color: var(--link); font-size: 0.8rem; }
+  article > p:last-child { color: var(--muted); max-width: 72ch; }
+  @media (max-width: 640px) {
+    .release-timeline li { grid-template-columns: 1.25rem minmax(0, 1fr); }
+    .release-timeline time { grid-column: 2; grid-row: 1; }
+    .timeline-rail { grid-column: 1; grid-row: 1 / 3; }
+    .release-timeline article { grid-column: 2; grid-row: 2; }
+  }
+</style>

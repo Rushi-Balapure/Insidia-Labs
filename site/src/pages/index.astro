@@ -15,6 +15,7 @@ import { engineBrands, stackBrands } from "../content/brands";
 import { GITHUB_REPO } from "../content/install";
 import { howtoVideo } from "../lib/video";
 import PageAnalytics from "../components/PageAnalytics.astro";
+import GradientCTABanner from "../components/GradientCTABanner.astro";
 import { TRACKED_PATHS } from "../lib/analytics";
 import { docsAgent, docsQuickstart, docsTests } from "../lib/paths";
 import { serializeJsonLd } from "../../../shared/seo";
@@ -205,9 +206,7 @@ const jsonLd = {
       </div>
     </section>
 
-    <section class="closing-section" aria-labelledby="closing-heading">
-      <div class="wrap closing-layout"><div><p class="eyebrow">Start with localhost</p><h2 id="closing-heading">Find out what your app trusts.</h2><p>Run a scan. Review the evidence. Make the next change.</p></div><div class="cta-row"><a class="btn" href="#agent-skill">Set up the agent skill <span aria-hidden="true">↗</span></a><a class="btn ghost" href="#install">Install the CLI <span aria-hidden="true">↑</span></a></div></div>
-    </section>
+    <GradientCTABanner heading="Find out what your app trusts." description="Run a scan. Review the evidence. Make the next change." primaryLabel="Set up the agent skill" primaryHref="#agent-skill" secondaryLabel="Install the CLI" secondaryHref="#install" />
   </main>
   <Footer />
   <PageAnalytics path={TRACKED_PATHS.site} />
