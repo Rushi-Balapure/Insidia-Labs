@@ -180,9 +180,7 @@ def test_accept_banner_only_records_low_assurance(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     with _serve("nginx/1.25.3") as (port, _seen):
-        code, latest = _scan(
-            tmp_path, monkeypatch, port, "--accept-banner-only", quiet=False
-        )
+        code, latest = _scan(tmp_path, monkeypatch, port, "--accept-banner-only", quiet=False)
     err = capsys.readouterr().err
     cli = next(line for line in err.splitlines() if "infra.cve" in line and "pass" in line)
     assert "pass (low assurance)" in cli
@@ -207,8 +205,10 @@ def test_accept_banner_only_records_low_assurance(
     assert scored["owasp-web:A06"] == "pass (low assurance)"
     html = (latest / "report.html").read_text(encoding="utf-8")
     assert "pass (low assurance)" in html
-    cell = html.split("infra.cve", 1)[1].split("</tr>", 1)[0]
-    badge = cell.split('data-l="Result">', 1)[1].split("</td>", 1)[0]
+    cell = html.split("infra.cve", 1)[1].split("</details>", 1)[0]
+    match = re.search(r'data-l="Result">(<span[^>]*>.*?</span>)', cell)
+    assert match is not None
+    badge = match.group(1)
     assert "PASS (low assurance)" in badge
     assert "res-low" in badge
     assert "res-pass" not in badge

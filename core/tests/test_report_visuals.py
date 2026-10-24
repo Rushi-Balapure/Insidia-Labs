@@ -159,3 +159,22 @@ def test_navigation_opens_separate_report_views_in_the_offline_document(tmp_path
     assert html.count('aria-labelledby="summary"') == 1
     assert html.count('aria-labelledby="findings" hidden') == 1
     assert ".report-page[hidden] { display: block !important; }" in html
+
+
+def test_check_details_expand_outside_tables_and_keep_complete_reasons(tmp_path: Path) -> None:
+    from insidia.runstore import write_run
+
+    reason = "Long recorded limitation " * 80 + "<script>alert(1)</script>"
+    controls: list[dict[str, str | int]] = [
+        {"id": "demo.check", "target": "demo", "result": "not tested", "detail": reason}
+    ]
+    directory = write_run(tmp_path, "accordion-example", "L1", True, [], controls, [])
+    html = (directory / "report.html").read_text()
+    checks = html.split('<div class="coverage-checks">', 1)[1].split("</details>", 1)[0]
+    assert '<details class="check-accordion coverage-row"' in checks
+    assert "</summary>" in checks and '<div class="accordion-body">' in checks
+    assert "<table" not in checks
+    assert "Long recorded limitation " * 80 in checks
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in checks
+
+

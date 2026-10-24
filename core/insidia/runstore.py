@@ -839,7 +839,7 @@ def _report_frameworks(controls: list[dict[str, str | int]], scores: tuple[Score
             "<thead><tr><th>Framework</th><th>Failed</th>"
             "<th>Passed</th><th>Not tested</th></tr></thead>",
             f"<tbody>\n{_score_rows(scores)}\n</tbody></table>",
-            "<details><summary>OWASP item list</summary>",
+            '<details class="framework-list"><summary>OWASP item list</summary>',
             '<p class="note">Not tested means no passing or failing check mapped to this item. '
             "See Coverage by target for recorded check limitations.</p>",
             coverage_filter(
@@ -1416,8 +1416,7 @@ def _coverage_target(name: str, controls: list[dict[str, str | int]], skips: lis
     return (
         f"<h3>{_escape(name or 'Unspecified target')}</h3>"
         f'<p class="note">{_passed_text(counts.passed, counts.low_assurance)}</p>'
-        '<table class="coverage"><thead><tr><th>Check</th><th>Result</th><th>Why</th>'
-        f"</tr></thead><tbody>{body}</tbody></table>"
+        f'<div class="coverage-checks">{body}</div>'
     )
 
 
@@ -1428,11 +1427,19 @@ def _coverage_check_row(control: dict[str, str | int], skips: list[str]) -> str:
     badge = status_badge(result, uppercase=True)
     why = _coverage_why(control, skips)
     outcome = _control_outcome(control)
-    explanation = untested_reason(why) if outcome == "not tested" else _escape(why)
+    explanation = untested_reason(why) if outcome == "not tested" else f"<p>{_escape(why)}</p>"
+    counts = "".join(
+        f"<div><dt>{label}</dt><dd>{_escape(str(control[key]))}</dd></div>"
+        for key, label in (("probes", "Probes sent"), ("requests", "Requests sent"))
+        if key in control
+    )
     return (
-        f'<tr class="coverage-row" data-result="{outcome}">'
-        f'<td data-l="Check"><code>{_escape(str(control.get("id", "")))}</code></td>'
-        f'<td data-l="Result">{badge}</td><td data-l="Why">{explanation}</td></tr>'
+        f'<details class="check-accordion coverage-row" data-result="{outcome}">'
+        '<summary><span class="check-name">'
+        f"<code>{_escape(str(control.get('id', '')))}</code></span>"
+        f'<span data-l="Result">{badge}</span><span class="accordion-cue">Details</span></summary>'
+        f'<div class="accordion-body"><div data-l="Why">{explanation}</div>'
+        f'<dl class="check-metadata">{counts}</dl></div></details>'
     )
 
 

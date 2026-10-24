@@ -848,10 +848,12 @@ def test_not_tested_rows_say_why_and_passes_are_counted_honestly(tmp_path: Path)
     html = (directory / "report.html").read_text(encoding="utf-8")
     assert "not evidence that those risks are absent" in html
     reasons = []
-    for row in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S):
+    for row in re.findall(
+        r'<details class="check-accordion coverage-row"[^>]*>(.*?)</details>', html, re.S
+    ):
         if "NOT TESTED" not in row:
             continue
-        why = re.search(r'data-l="Why">(.*?)</td>', row)
+        why = re.search(r'data-l="Why">(.*?)</div>', row)
         assert why is not None
         text = why.group(1).strip()
         assert text
@@ -1082,8 +1084,12 @@ def test_an_owasp_row_with_a_strong_pass_stays_plain() -> None:
 
 
 def _coverage_badge(html: str, check_id: str) -> str:
-    row = html.split(f"<code>{check_id}</code>", 1)[1].split("</tr>", 1)[0]
-    return row.split('data-l="Result">', 1)[1].split("</td>", 1)[0]
+    import re
+
+    row = html.split(f"<code>{check_id}</code>", 1)[1].split("</summary>", 1)[0]
+    badge = re.search(r'data-l="Result">(<span[^>]*>.*?</span>)', row)
+    assert badge is not None
+    return badge.group(1)
 
 
 def _owasp_result(html: str, control_id: str) -> str:

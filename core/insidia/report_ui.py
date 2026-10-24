@@ -102,6 +102,8 @@ def stacked_bar(segments: Sequence[tuple[str, int, str]], *, unit: str) -> str:
     )
 
 
+
+
 def framework_bar(score: Score) -> str:
     segments = (
         ("Passed", score.passed, "pass"),
@@ -185,9 +187,9 @@ def coverage_filter(content: str, counts: CheckCounts, *, prefix: str, unit: str
 
 def untested_reason(reason: str) -> str:
     return (
-        '<details class="coverage-reason"><summary>Why this was not tested</summary>'
+        "<p><strong>Why this was not tested</strong></p>"
         f'<p>{escape(reason)}</p><p class="muted">Review the recorded limitation, '
-        "scan configuration, and engine availability before scanning again.</p></details>"
+        "scan configuration, and engine availability before scanning again.</p>"
     )
 
 
@@ -225,6 +227,8 @@ def tested_chart(counts: CheckCounts) -> str:
         + ('<p class="note">No checks were recorded.</p>' if not counts.total else "")
         + "</figure>"
     )
+
+
 
 
 def chart_legend(segments: Sequence[tuple[str, int, str]]) -> str:
