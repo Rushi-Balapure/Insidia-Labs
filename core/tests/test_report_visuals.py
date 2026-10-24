@@ -178,3 +178,11 @@ def test_check_details_expand_outside_tables_and_keep_complete_reasons(tmp_path:
     assert "&lt;script&gt;alert(1)&lt;/script&gt;" in checks
 
 
+def test_donut_segments_offer_exact_values_for_hover_and_keyboard_focus() -> None:
+    html = render_tested_chart(CheckCounts(8, 0, 0, 32))
+    assert 'data-tooltip="Tested: 8 of 40 checks (20%)"' in html
+    assert 'data-tooltip="Not tested: 32 of 40 checks (80%)"' in html
+    assert html.count('tabindex="0"') == 2
+    empty = render_tested_chart(CheckCounts(0, 0, 0, 0))
+    assert "data-tooltip=" not in empty
+    assert 'tabindex="0"' not in empty

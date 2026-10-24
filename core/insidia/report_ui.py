@@ -88,20 +88,25 @@ def summary_metrics(counts: CheckCounts, findings: int) -> str:
 
 
 def stacked_bar(segments: Sequence[tuple[str, int, str]], *, unit: str) -> str:
-    """A proportional bar with a complete textual alternative, including zero counts."""
+    """A proportional bar with focusable segments and complete textual values."""
     total = sum(count for _label, count, _css in segments)
     description = "; ".join(f"{label}: {count}" for label, count, _css in segments)
     bars = "".join(
-        f'<span class="segment segment-{css}" style="width:{count / total * 100:.4f}%"></span>'
-        for _label, count, css in segments
+        f'<span class="segment segment-{css}" style="width:{count / total * 100:.4f}%" '
+        f"{_tooltip_attrs(label, count, total, unit)}></span>"
+        for label, count, css in segments
         if count and total
     )
     return (
-        f'<div class="stacked-bar" role="img" aria-label="{escape(unit)}: '
-        f'{escape(description)}"><div class="bar-track" aria-hidden="true">{bars}</div></div>'
+        f'<div class="stacked-bar" role="group" aria-label="{escape(unit)}: '
+        f'{escape(description)}"><div class="bar-track">{bars}</div></div>'
     )
 
 
+def _tooltip_attrs(label: str, count: int, total: int, unit: str) -> str:
+    percentage = _coverage_percentage(CheckCounts(count, 0, 0, total - count))
+    value = escape(f"{label}: {count} of {total} {unit} ({percentage})", quote=True)
+    return f'tabindex="0" role="img" aria-label="{value}" data-tooltip="{value}"'
 
 
 def framework_bar(score: Score) -> str:
@@ -210,18 +215,16 @@ def report_identity(
 
 
 def tested_chart(counts: CheckCounts) -> str:
-    percentage = counts.tested / counts.total * 100 if counts.total else 0.0
     headline = _coverage_percentage(counts)
     description = f"Checks tested: {counts.tested} of {counts.total}; not tested: {counts.untested}"
     return (
         f'<figure class="chart chart-tested{" chart-empty" if not counts.total else ""}">'
         "<figcaption>Test coverage</figcaption>"
-        f'<div class="donut-wrap"><svg viewBox="0 0 120 120" role="img" '
+        f'<div class="donut-wrap"><svg viewBox="0 0 120 120" role="group" '
         f'aria-label="{description}"><circle class="donut-track" cx="60" cy="60" r="48"/>'
-        f'<circle class="donut-tested" cx="60" cy="60" r="48" pathLength="100" '
-        f'stroke-dasharray="{percentage:.4f} 100" transform="rotate(-90 60 60)"/></svg>'
-        f'<div class="donut-label" aria-hidden="true"><strong>{escape(headline)}</strong>'
-        "<span>tested</span></div></div>"
+        + _donut_segments(counts)
+        + '</svg><div class="donut-label" aria-hidden="true">'
+        f"<strong>{escape(headline)}</strong><span>tested</span></div></div>"
         f'<p class="chart-total">{counts.tested} / {counts.total} checks tested</p>'
         + chart_legend((("Tested", counts.tested, "tested"), ("Not tested", counts.untested, "nt")))
         + ('<p class="note">No checks were recorded.</p>' if not counts.total else "")
@@ -229,6 +232,25 @@ def tested_chart(counts: CheckCounts) -> str:
     )
 
 
+def _donut_segments(counts: CheckCounts) -> str:
+    percentage = counts.tested / counts.total * 100 if counts.total else 0.0
+    tested = (
+        _tooltip_attrs("Tested", counts.tested, counts.total, "checks")
+        if counts.tested
+        else 'aria-hidden="true"'
+    )
+    arcs = [
+        f'<circle class="donut-tested" cx="60" cy="60" r="48" pathLength="100" '
+        f'stroke-dasharray="{percentage:.4f} 100" transform="rotate(-90 60 60)" {tested}/>'
+    ]
+    if counts.untested:
+        arcs.append(
+            '<circle class="donut-untested" cx="60" cy="60" r="48" pathLength="100" '
+            f'stroke-dasharray="{100 - percentage:.4f} 100" '
+            f'stroke-dashoffset="{-percentage:.4f}" transform="rotate(-90 60 60)" '
+            f"{_tooltip_attrs('Not tested', counts.untested, counts.total, 'checks')}/>"
+        )
+    return "".join(arcs)
 
 
 def chart_legend(segments: Sequence[tuple[str, int, str]]) -> str:

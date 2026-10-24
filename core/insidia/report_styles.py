@@ -145,10 +145,19 @@ h2 {
 .donut-wrap { position: relative; width: 170px; margin: auto; }
 .donut-wrap svg { width: 100%; height: auto; display: block; }
 .donut-wrap circle { fill: none; stroke-width: 13; }
-.donut-track { stroke: var(--plot-nt); }
+[data-tooltip] { cursor: help; }
+#report-tooltip { position: fixed; z-index: 30; padding: 0.6rem 0.8rem;
+  max-width: calc(100vw - 16px);
+  background: var(--ink); color: var(--card); border: 1px solid var(--line); border-radius: 6px;
+  box-shadow: 0 4px 16px #0003; pointer-events: none; font-size: 0.85rem; }
+.segment:focus-visible { outline-offset: -2px; }
+.donut-wrap circle:focus-visible { outline: none; stroke-width: 17; }
+.donut-track { stroke: var(--line); }
+.donut-untested { stroke: var(--plot-nt); }
 .chart-empty .donut-track { stroke: var(--line); }
 .donut-tested { stroke: var(--plot-info); }
-.donut-label { position: absolute; inset: 0; display: flex; flex-direction: column;
+.donut-label { pointer-events: none; position: absolute; inset: 0; display: flex;
+  flex-direction: column;
   align-items: center; justify-content: center; }
 .donut-label strong { font-size: 2rem; font-variant-numeric: tabular-nums; }
 .donut-label span { font-size: 0.8rem; color: var(--muted); }
@@ -382,6 +391,7 @@ footer {
   table td[data-l]::before { flex: none; }
 }
 @media print {
+  #report-tooltip { display: none !important; }
   .report-page[hidden] { display: block !important; }
   header { background: #fff; color: #101028; }
   .header-inner { padding: 0 0 1rem; }

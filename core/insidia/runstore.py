@@ -697,6 +697,7 @@ def _render(report: _ReportData) -> str:
         _report_pages(report, names),
         "</main>",
         _report_footer(report.run_id),
+        '<div id="report-tooltip" role="tooltip" hidden></div>',
         f"<script data-report-ui>{REPORT_SCRIPT}</script>",
         "</body></html>",
     )
