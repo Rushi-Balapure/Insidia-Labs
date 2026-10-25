@@ -12,7 +12,7 @@ import Marquee from "../components/Marquee.astro";
 import InstallLine from "../components/InstallLine.tsx";
 import VideoModal from "../components/VideoModal.tsx";
 import { engineBrands, stackBrands } from "../content/brands";
-import { GITHUB_REPO } from "../content/install";
+import { CLI_VERSION, GITHUB_REPO, RELEASE_URL } from "../content/install";
 import { howtoVideo } from "../lib/video";
 import PageAnalytics from "../components/PageAnalytics.astro";
 import GradientCTABanner from "../components/GradientCTABanner.astro";
@@ -82,7 +82,7 @@ const jsonLd = {
             <a class="btn ghost" href={docsQuickstart}>CLI quickstart <span aria-hidden="true">→</span></a>
           </div>
           <div id="install" class="hero-install"><InstallLine client:load /></div>
-          <p class="hero-requirements">Free CLI · Python 3.12+ · No account required</p>
+          <p class="hero-requirements"><a href={RELEASE_URL}>v{CLI_VERSION}</a> · Free CLI · Python 3.12+ · No account required</p>
         </div>
         <ScanTerminal />
       </div>

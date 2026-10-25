@@ -27,6 +27,8 @@
 .hero-install .install-swap .install-box.is-shown { opacity: 1; transform: none; pointer-events: auto; }
 .hero-install .install-note { display: none; }
 .hero-requirements { font-size: 0.69rem; color: var(--muted); margin: 0.7rem 0 0; }
+.hero-requirements a { color: var(--link); font-family: var(--mono); text-decoration: none; }
+.hero-requirements a:hover { text-decoration: underline; }
 
 .scan-terminal { display: block; min-width: 0; border-radius: 0.8rem; box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent), 0 20px 65px #0003; background: var(--terminal-bg); color: var(--terminal-text); }
 .scan-terminal figure { margin: 0; }

@@ -1,5 +1,11 @@
 export const changelog = [
   {
+    date: "2026-10-25",
+    title: "Insidia 1.0.0",
+    pill: "insidia upgrade installs the latest release",
+    body: "The CLI now has versioned GitHub releases, starting with v1.0.0. insidia --version prints the release you have, and insidia upgrade installs the latest one with uv, pipx, or pip. Each release attaches a signed wheel and publishes a signed container image.",
+  },
+  {
     date: "2026-10-08",
     title: "Local scans and agent setup",
     pill: "the CLI installs from git; no release is published yet",
