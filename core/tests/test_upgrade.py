@@ -105,6 +105,7 @@ def test_upgrade_reinstalls_with_the_detected_installer(monkeypatch: pytest.Monk
         latest=lambda: _release(newer),
         installer=lambda: "uv",
         run=runner,
+        platform="linux",
     )
     assert document["upgraded"] is True
     assert document["installer"] == "uv"
@@ -123,6 +124,7 @@ def test_force_reinstalls_the_current_release(monkeypatch: pytest.MonkeyPatch) -
         latest=lambda: _release(__version__),
         installer=lambda: "pipx",
         run=runner,
+        platform="linux",
     )
     assert document["upgraded"] is True
     assert runner.commands[0][:3] == ["/bin/pipx", "install", "--force"]
@@ -138,7 +140,34 @@ def test_a_failed_install_names_the_command_to_retry(monkeypatch: pytest.MonkeyP
             latest=lambda: _release(_bump(__version__)),
             installer=lambda: "uv",
             run=_Runner(code=1),
+            platform="linux",
         )
+
+
+def test_windows_prints_the_command_instead_of_replacing_itself(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(upgrade.shutil, "which", lambda name: f"/bin/{name}")
+    runner = _Runner()
+    newer = _bump(__version__)
+    document, text = upgrade.upgrade(
+        check=False,
+        force=False,
+        latest=lambda: _release(newer),
+        installer=lambda: "uv",
+        run=runner,
+        platform="win32",
+    )
+    assert runner.commands == []
+    assert document["upgraded"] is False
+    assert str(document["command"]).startswith("/bin/uv tool install --force ")
+    assert str(document["command"]) in text
+
+
+def test_pip_force_reinstalls(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(upgrade.importlib.util, "find_spec", lambda name: object())
+    assert "--force-reinstall" in install_command("pip", "v2.0.0", force=True)
+    assert "--force-reinstall" not in install_command("pip", "v2.0.0")
 
 
 def test_cli_upgrade_check_prints_json(

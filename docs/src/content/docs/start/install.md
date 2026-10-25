@@ -34,7 +34,7 @@ insidia upgrade
 
 `--check` asks GitHub for the latest release and reports whether it is newer than your copy. `insidia upgrade` reinstalls from that release's tag with the tool that installed Insidia: uv, pipx, or pip. Engines in Insidia's managed directory are kept. `--json` prints the result as one object.
 
-A copy installed before 1.0.0 has no `upgrade` command. Rerun the install command above with `--force` once. On Windows, if the installer cannot replace `insidia.exe` while it runs, run the command that `insidia upgrade` prints.
+A copy installed before 1.0.0 has no `upgrade` command. Rerun the install command above with `--force` once. Windows cannot replace Insidia while it runs, so there `insidia upgrade` prints the install command for you to run after it exits.
 
 Run `insidia init` in your project before `insidia doctor`; doctor needs a configuration file. Install specific engine toolchains into Insidia's managed directory by naming them, for example `insidia engines install garak zap`. With no names, `insidia engines install` only reports that built-in probes are available.
 

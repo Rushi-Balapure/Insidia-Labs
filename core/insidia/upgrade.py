@@ -85,7 +85,7 @@ def detect_installer(prefix: Path | None = None, package: Path | None = None) ->
     return "pip"
 
 
-def install_command(installer: str, tag: str) -> list[str]:
+def install_command(installer: str, tag: str, force: bool = False) -> list[str]:
     spec = source(tag)
     if installer == "uv":
         return [_tool("uv"), "tool", "install", "--force", spec]
@@ -97,7 +97,8 @@ def install_command(installer: str, tag: str) -> list[str]:
                 "this copy was not installed with uv or pipx, and pip is not available. "
                 f'Reinstall with: uv tool install --force "{spec}"'
             )
-        return [sys.executable, "-m", "pip", "install", "--upgrade", spec]
+        reinstall = ["--force-reinstall"] if force else []
+        return [sys.executable, "-m", "pip", "install", "--upgrade", *reinstall, spec]
     raise CliError(
         "this copy runs from a git checkout. Update it with git pull, "
         f'or install the release with: uv tool install --force "{spec}"'
@@ -119,6 +120,7 @@ def upgrade(
     latest: Callable[[], Release] = fetch_latest,
     installer: Callable[[], str] = detect_installer,
     run: Callable[..., subprocess.CompletedProcess[bytes]] = subprocess.run,
+    platform: str = sys.platform,
 ) -> tuple[dict[str, object], str]:
     """Return the JSON document and the text line for `insidia upgrade`."""
     release = latest()
@@ -142,8 +144,18 @@ def upgrade(
         document["upgraded"] = False
         return document, text
     how = installer()
-    command = install_command(how, release.tag)
+    command = install_command(how, release.tag, force=force)
+    shown = f'{" ".join(command[:-1])} "{command[-1]}"'
     document["installer"] = how
+    if platform == "win32":
+        # Windows locks the running python.exe and insidia.exe, so the installer
+        # cannot rebuild this environment until the process exits.
+        document["upgraded"] = False
+        document["command"] = shown
+        return document, (
+            f"Insidia {release.version} is ready to install. Windows cannot replace "
+            f"Insidia while it runs, so run this after it exits:\n{shown}"
+        )
     target = sys.stderr if output is None else output
     print(f"Installing Insidia {release.version} with {how}.", file=target, flush=True)
     try:
@@ -151,9 +163,6 @@ def upgrade(
     except OSError as exc:
         raise CliError(f"could not run {command[0]}: {exc}") from exc
     if finished.returncode != 0:
-        raise CliError(
-            f"{how} exited with code {finished.returncode}. "
-            f'Retry by hand with: {" ".join(command[:-1])} "{command[-1]}"'
-        )
+        raise CliError(f"{how} exited with code {finished.returncode}. Retry by hand with: {shown}")
     document["upgraded"] = True
     return document, f"Upgraded Insidia {__version__} to {release.version}. {release.url}"

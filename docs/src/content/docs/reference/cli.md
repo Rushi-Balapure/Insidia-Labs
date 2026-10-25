@@ -95,7 +95,7 @@ insidia upgrade
 insidia upgrade --force
 ```
 
-Asks GitHub for the latest release. `--check` only reports whether it is newer than your copy. Without `--check`, a newer release is installed from its tag with the tool that installed Insidia: `uv tool install --force`, `pipx install --force`, or `pip install --upgrade` in the same environment. `--force` reinstalls even when you already have the latest release. Engines are kept. A copy run from a git checkout is not changed; the command tells you to `git pull`. Exits **2** when GitHub cannot be reached or the installer fails, and prints the install command to run by hand.
+Asks GitHub for the latest release. `--check` only reports whether it is newer than your copy. Without `--check`, a newer release is installed from its tag with the tool that installed Insidia: `uv tool install --force`, `pipx install --force`, or `pip install --upgrade` in the same environment. `--force` reinstalls even when you already have the latest release. Engines are kept. On Windows the command is printed instead of run, because a running `insidia.exe` cannot be replaced; the JSON object carries it as `command`. A copy run from a git checkout is not changed; the command tells you to `git pull`. Exits **2** when GitHub cannot be reached or the installer fails, and prints the install command to run by hand.
 
 ## mcp
 
