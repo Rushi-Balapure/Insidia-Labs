@@ -1,4 +1,15 @@
+import re
+import tomllib
 from pathlib import Path
+
+from insidia import __version__
+
+
+def test_package_version_matches_pyproject() -> None:
+    pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    declared = tomllib.loads(pyproject.read_text(encoding="utf-8"))["project"]["version"]
+    assert declared == __version__
+    assert re.fullmatch(r"\d+\.\d+\.\d+", __version__)
 
 
 def test_wheel_notices_match_the_repo_copies() -> None:

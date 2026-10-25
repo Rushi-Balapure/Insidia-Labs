@@ -1,6 +1,6 @@
 [project]
 name = "insidia"
-version = "0.1.0"
+version = "1.0.0"
 description = "Insidia Labs CLI for scanning AI apps and web targets on your machine."
 requires-python = ">=3.12"
 dependencies = [
