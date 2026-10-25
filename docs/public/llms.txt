@@ -6,7 +6,7 @@ The CLI is the contract. An agent installs it from GitHub, keeps the scan inside
 
 ## Availability and limits
 
-Python 3.12+ is required. Install from GitHub with uv or pipx; Insidia is not published on PyPI. The agent skill installer needs Node.js 22+.
+Python 3.12+ is required. Install from GitHub with uv or pipx; Insidia is not published on PyPI. The current release is v1.0.0; `insidia --version` prints the installed version and `insidia upgrade` installs the latest release. The agent skill installer needs Node.js 22+.
 
 L1 is the available baseline policy and needs no model or model API key. L2 and L3 are not available. Checks requiring a model are skipped unless one is configured. Coverage depends on the target and installed engines; some checks work only on project test apps and external engine integrations are experimental. A skip is not a pass, and no findings does not establish that an app is secure.
 

@@ -12,18 +12,18 @@ Insidia scans an app on the user's machine and writes one HTML report. The CLI i
 From the public GitHub repo. Do not use PyPI.
 
 ```bash
-uv tool install "git+https://github.com/Rushi-Balapure/Insidia-Labs#subdirectory=core"
+uv tool install "git+https://github.com/Rushi-Balapure/Insidia-Labs@v1.0.0#subdirectory=core"
 ```
 
 If `uv` is missing:
 
 ```bash
-pipx install "git+https://github.com/Rushi-Balapure/Insidia-Labs#subdirectory=core"
+pipx install "git+https://github.com/Rushi-Balapure/Insidia-Labs@v1.0.0#subdirectory=core"
 ```
 
-To pin a version, add `@<commit>` before `#subdirectory=core`. `insidia --version` prints the version and the commit it was built from.
+The `@v1.0.0` in the URL pins the release. `insidia --version` prints the version and the commit it was built from.
 
-No release has been published yet, so there is no signed wheel and no container image to pull. Install from git as above.
+When Insidia is already installed, run `insidia upgrade --check`. If it reports a newer release, tell the user and run `insidia upgrade` only when they agree. A copy too old to have `upgrade` is updated by rerunning the install command with `--force`.
 
 This skill installs with `npx skills add Rushi-Balapure/Insidia-Labs`, which needs Node.js 22 or later.
 
