@@ -17,6 +17,27 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       - run: uv python install 3.12
+      - name: Check the tag matches the package version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="$(python3 -c 'import tomllib; print(tomllib.load(open("core/pyproject.toml", "rb"))["project"]["version"])')"
+          if [ "$TAG" != "v${version}" ]; then
+            echo "error: tag $TAG does not match core/pyproject.toml version ${version}" >&2
+            exit 1
+          fi
+          echo "VERSION=${version}" >> "$GITHUB_ENV"
+      - name: Extract the release notes
+        run: |
+          awk -v want="## ${VERSION}" '
+            $0 == want { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          if ! grep -q '[^[:space:]]' "$RUNNER_TEMP/notes.md"; then
+            echo "error: CHANGELOG.md has no section for ${VERSION}" >&2
+            exit 1
+          fi
       - name: Build the wheel and checksums
         working-directory: core
         run: |
@@ -35,8 +56,10 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           gh release create "$TAG" \
+            --verify-tag \
+            --latest \
             --title "Insidia $TAG" \
-            --notes-file site/src/content/launch.md \
+            --notes-file "$RUNNER_TEMP/notes.md" \
             core/dist/*
 
   image:
