@@ -37,19 +37,19 @@ permissions:
 
 - uses: ./actions/scan
   with:
-    version: "0.1.0"
+    version: "1.0.0"
     policy: L1
     fail-on-inconclusive: "true"
 ```
 
-`github.sha` is the full commit for that workflow run. For a release, run the workflow on the tag or SHA you named and pass the `core/pyproject.toml` version shipped with the action. `0.1.0` above is the current package version; use the version in the action checkout you are testing.
+`github.sha` is the full commit for that workflow run. For a release, run the workflow on the tag or SHA you named and pass the `core/pyproject.toml` version shipped with the action. `1.0.0` above is the current package version; use the version in the action checkout you are testing.
 
 From another repository, pin a full commit SHA. Do not pin a branch or a tag.
 
 ```yaml
 - uses: Rushi-Balapure/Insidia-Labs/actions/scan@<full-commit-sha>
   with:
-    version: "0.1.0"
+    version: "1.0.0"
     policy: L1
 ```
 
