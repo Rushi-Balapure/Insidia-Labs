@@ -2,9 +2,10 @@
 import Base from "../layouts/Base.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
+import { CLI_VERSION, RELEASE_URL, installCommands } from "../content/install";
 
 const description = "Install the free Insidia CLI from GitHub with uv or pipx. Set up a local AI security scan, use the coding agent skill, or run checks in CI. Python 3.12+ required.";
-const install = 'uv tool install "git+https://github.com/Rushi-Balapure/Insidia-Labs#subdirectory=core"';
+const install = installCommands.uv;
 ---
 <Base title="Install the Insidia CLI & Agent Skill | Insidia Labs" description={description} path="/launch">
   <Header />
@@ -14,10 +15,16 @@ const install = 'uv tool install "git+https://github.com/Rushi-Balapure/Insidia-
 
     <section class="block">
       <h2>Install</h2>
-      <p>Python 3.12 or newer. Insidia is not on PyPI.</p>
+      <p>The current release is <a href={RELEASE_URL}>v{CLI_VERSION}</a>. Python 3.12 or newer. Insidia is not on PyPI.</p>
       <pre class="install-box"><code>{install}</code></pre>
-      <p class="muted" style="margin-top:0.8rem"><code>pipx install</code> accepts the same URL. To pin a version, add <code>@&lt;commit&gt;</code> before <code>#subdirectory=core</code>. <code>insidia --version</code> prints the commit you have.</p>
-      <p>No release has been published yet, so there is no signed wheel or container image. Install from git as above.</p>
+      <p class="muted" style="margin-top:0.8rem"><code>pipx install</code> accepts the same URL. <code>insidia --version</code> prints the version and the commit you have.</p>
+    </section>
+
+    <section class="block">
+      <h2>Upgrade</h2>
+      <pre class="install-box"><code>insidia upgrade --check
+insidia upgrade</code></pre>
+      <p class="muted" style="margin-top:0.8rem"><code>--check</code> reports whether a newer release exists. <code>insidia upgrade</code> installs it with uv, pipx, or pip, whichever installed your copy, and keeps your engines. A copy from before 1.0.0 has no <code>upgrade</code> command: rerun the install command with <code>--force</code> once.</p>
     </section>
 
     <section class="block">
@@ -38,7 +45,7 @@ insidia report --open</code></pre>
 
     <section class="block">
       <h2>CI</h2>
-      <p>Install the CLI from a tested commit, start your target app, then run <code>insidia scan --policy L1 --json</code>. Preserve <code>.insidia/runs/</code> even when the scan fails. Follow the <a href="/docs/guides/ci/">CI guide</a> for runner setup and artifact steps.</p>
+      <p>Install the CLI from a release tag, start your target app, then run <code>insidia scan --policy L1 --json</code>. Preserve <code>.insidia/runs/</code> even when the scan fails. Follow the <a href="/docs/guides/ci/">CI guide</a> for runner setup and artifact steps.</p>
     </section>
   </main>
   <Footer />

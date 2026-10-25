@@ -90,7 +90,7 @@ jobs:
       - name: Scan with Insidia
         uses: ./actions/scan
         with:
-          version: "0.1.0"
+          version: "1.0.0"
           policy: L1
           # A toy fixture can leave checks incomplete. Exit 1 still fails the job.
           fail-on-inconclusive: "false"

@@ -13,7 +13,7 @@ Global flags, accepted on every command, before or after it (`insidia --json doc
 | `--quiet`, `-q` | Print only the result. |
 | `--no-color` | Plain text, no color. |
 
-What goes in the config file is [insidia.yaml](/docs/start/config/). `insidia -h` prints the same command list, with one line on what each command does.
+What goes in the config file is [insidia.yaml](/docs/start/config/). `insidia -h` prints the same command list, with one line on what each command does. `insidia --version` prints the release and the commit it was built from.
 
 ## init
 
@@ -86,6 +86,16 @@ insidia rerun 20261008T120000Z-abc123
 ```
 
 Scans again with the policy and coverage recorded for that run. If `insidia.yaml` changed, the command stops until you pass `--yes`.
+
+## upgrade
+
+```bash
+insidia upgrade --check
+insidia upgrade
+insidia upgrade --force
+```
+
+Asks GitHub for the latest release. `--check` only reports whether it is newer than your copy. Without `--check`, a newer release is installed from its tag with the tool that installed Insidia: `uv tool install --force`, `pipx install --force`, or `pip install --upgrade` in the same environment. `--force` reinstalls even when you already have the latest release. Engines are kept. On Windows the command is printed instead of run, because a running `insidia.exe` cannot be replaced; the JSON object carries it as `command`. A copy run from a git checkout is not changed; the command tells you to `git pull`. Exits **2** when GitHub cannot be reached or the installer fails, and prints the install command to run by hand.
 
 ## mcp
 

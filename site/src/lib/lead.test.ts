@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { mailtoHref, acknowledged, validateLead } from "./lead";
-import { installCommands } from "../content/install";
+import { CLI_VERSION, installCommands } from "../content/install";
 import recording from "../content/terminal-run.json";
 
 const valid = {
@@ -94,7 +94,12 @@ describe("marketing copy", () => {
     const component = readFileSync(path.resolve("src/components/InstallLine.tsx"), "utf8");
     expect(component).toContain("<code>{installCommands[name]}</code>");
     expect(installCommands.uv).not.toContain("…");
-    expect(installCommands.uv).toContain("Rushi-Balapure/Insidia-Labs#subdirectory=core");
+    expect(installCommands.uv).toContain(`Rushi-Balapure/Insidia-Labs@v${CLI_VERSION}#subdirectory=core`);
     expect(installCommands.pipx.startsWith("pipx install ")).toBe(true);
+  });
+
+  it("pins the install to the CLI version in core/pyproject.toml", () => {
+    const pyproject = readFileSync(path.resolve("../core/pyproject.toml"), "utf8");
+    expect(pyproject).toMatch(new RegExp(`^version = "${CLI_VERSION.replaceAll(".", "\\.")}"$`, "m"));
   });
 });

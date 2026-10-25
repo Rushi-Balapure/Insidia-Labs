@@ -62,13 +62,23 @@ Prefer the terminal? Install the CLI with Python 3.12 or newer and either `uv` o
 
 ```bash
 # uv (recommended)
-uv tool install "git+https://github.com/Rushi-Balapure/Insidia-Labs#subdirectory=core"
+uv tool install "git+https://github.com/Rushi-Balapure/Insidia-Labs@v1.0.0#subdirectory=core"
 
 # pipx
-pipx install "git+https://github.com/Rushi-Balapure/Insidia-Labs#subdirectory=core"
+pipx install "git+https://github.com/Rushi-Balapure/Insidia-Labs@v1.0.0#subdirectory=core"
 ```
 
-Install from GitHub using the commands above; Insidia is not published on PyPI yet. [Full installation guide](https://insidialabs.com/docs/start/install/).
+The current release is **v1.0.0**. Install from GitHub using the commands above; Insidia is not published on PyPI yet. [Full installation guide](https://insidialabs.com/docs/start/install/).
+
+Check your version and update to the latest release without reinstalling by hand:
+
+```bash
+insidia --version
+insidia upgrade --check   # only report whether a newer release exists
+insidia upgrade           # install the latest release
+```
+
+Release notes are in [CHANGELOG.md](CHANGELOG.md) and on the [releases page](https://github.com/Rushi-Balapure/Insidia-Labs/releases).
 
 ## Quickstart
 

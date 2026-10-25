@@ -7,12 +7,19 @@ Insidia scans an AI app and the application around it on your machine and writes
 Python 3.12 or newer. Insidia is not on PyPI.
 
 ```bash
-uv tool install "git+https://github.com/Rushi-Balapure/Insidia-Labs#subdirectory=core"
+uv tool install "git+https://github.com/Rushi-Balapure/Insidia-Labs@v1.0.0#subdirectory=core"
 ```
 
-`pipx install` accepts the same URL. To pin a version, add `@<commit>` before `#subdirectory=core`. `insidia --version` prints the commit you have.
+`pipx install` accepts the same URL. `insidia --version` prints the version and the commit you have.
 
-No release has been published yet, so there is no signed wheel or container image. Install from git as above.
+## Upgrade
+
+```bash
+insidia upgrade --check
+insidia upgrade
+```
+
+`insidia upgrade` installs the latest release with uv, pipx, or pip, whichever installed your copy, and keeps your engines.
 
 ## Scan
 
@@ -40,8 +47,8 @@ You confirm the hosts. The skill tells the agent not to add a host you did not n
 ## CI
 
 ```bash
-uv tool install "git+https://github.com/Rushi-Balapure/Insidia-Labs#subdirectory=core"
+uv tool install "git+https://github.com/Rushi-Balapure/Insidia-Labs@v1.0.0#subdirectory=core"
 insidia scan --policy L1 --json
 ```
 
-Run these commands after checking out your repository and starting its target app. Pin the install URL to a tested commit and preserve `.insidia/runs/` even when the scan fails. The [CI guide](/docs/guides/ci/) includes runner setup and artifact steps.
+Run these commands after checking out your repository and starting its target app. Pin the install URL to a release tag and preserve `.insidia/runs/` even when the scan fails. The [CI guide](/docs/guides/ci/) includes runner setup and artifact steps.

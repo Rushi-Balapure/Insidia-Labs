@@ -25,6 +25,7 @@ from insidia.policy import POLICIES, get_policy
 from insidia.runstore import latest_run, local_time, read_manifest, verdict_text
 from insidia.scan import execute
 from insidia.ui import InstallView, ScanView, Terminal
+from insidia.upgrade import upgrade
 
 _HELP = """\
 global options, before or after the command:
@@ -263,6 +264,26 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="allow a scan whose scope names a host other than localhost",
     )
+    upgrade_parser = subcommands.add_parser(
+        "upgrade",
+        parents=[shared],
+        help="install the latest release with the tool that installed Insidia",
+        description=(
+            "Check GitHub for the latest release and reinstall Insidia from it "
+            "with uv, pipx, or pip, whichever installed this copy. "
+            "Installed engines are kept."
+        ),
+    )
+    upgrade_parser.add_argument(
+        "--check",
+        action="store_true",
+        help="only report whether a newer release exists",
+    )
+    upgrade_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="reinstall the latest release even when it is the version you have",
+    )
 
     args = parser.parse_args(argv)
     try:
@@ -379,6 +400,11 @@ def _run(args: argparse.Namespace) -> int:
         return 0
     if args.command == "mcp":
         return serve(sys.stdin.buffer, sys.stdout.buffer, allow_remote=args.allow_remote)
+    if args.command == "upgrade":
+        _progress(args, "Checking GitHub for the latest release.")
+        document, text = upgrade(check=args.check, force=args.force)
+        _emit(args.json, document, text)
+        return 0
     raise CliError(f"unknown command {args.command}")
 
 
