@@ -3,8 +3,8 @@ import Base from "../layouts/Base.astro";
 import ScanTerminal from "../components/ScanTerminal.astro";
 import ScanWorkflow from "../components/ScanWorkflow.astro";
 import CommandBlock from "../components/CommandBlock.astro";
-import Accordion from "../components/Accordion.astro";
-import AccordionItem from "../components/AccordionItem.astro";
+import FaqThread from "../components/FaqThread.astro";
+import { faqs } from "../content/faqs";
 import "../styles/home.css";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
@@ -24,14 +24,6 @@ const description = "Test AI apps, agents, web apps, and APIs for prompt injecti
 const skillInstall = `npx skills add ${GITHUB_REPO}`;
 const skillPrompt = `Use the Insidia skill to test my app at http://127.0.0.1:8080/chat.
 Only scan localhost. Review the findings and open the report when you're done.`;
-const faqs = [
-  ["What can I test?", "AI apps, agents, web apps, and APIs. Insidia checks areas such as prompt injection, data leakage, and application vulnerabilities. Available checks depend on your target and installed engines. Some checks only work on the project's test apps."],
-  ["Does my scan data leave my machine?", "The CLI runs locally and sends no telemetry. A scan contacts your configured target and any model endpoint you choose. Reports are saved on your machine."],
-  ["Do I need an API key or a model?", "You can run the L1 baseline without a model or model API key. Checks that need a model are skipped unless you configure one. External engines may need additional setup."],
-  ["How do I use the agent skill?", "Run npx skills add Rushi-Balapure/Insidia-Labs in your project and select your agent. Then ask it to use Insidia on your running app. The skill guides setup, scanning, and report review. You confirm which hosts it may test."],
-  ["Can I test a deployed app?", "Yes, if you own it or have permission to test it. Add the host to insidia.yaml with authorized: true and confirm the scan with --yes. Start on localhost or staging while you set up your checks."],
-  ["What does it cost?", "The CLI and agent skill are free. You do not need an Insidia account. Any paid model services you configure have their own costs. Insidia Cloud is in development; pricing has not been announced."],
-];
 const jsonLd = {
   "@context": "https://schema.org",
   "@graph": [
@@ -56,10 +48,10 @@ const jsonLd = {
       "@type": "FAQPage",
       "@id": new URL("/#faq", Astro.site).href,
       isPartOf: { "@id": new URL("/#webpage", Astro.site).href },
-      mainEntity: faqs.map(([name, text]) => ({
+      mainEntity: faqs.map(({ question, answer }) => ({
         "@type": "Question",
-        name,
-        acceptedAnswer: { "@type": "Answer", text },
+        name: question,
+        acceptedAnswer: { "@type": "Answer", text: answer },
       })),
     },
   ],
@@ -196,13 +188,7 @@ const jsonLd = {
     <section class="home-section" id="faq" aria-labelledby="faq-heading">
       <div class="wrap faq-layout">
         <div><p class="eyebrow">Before your first scan</p><h2 id="faq-heading">A few useful answers.</h2><p>Need help with a specific setup?</p><a class="text-link" href="/docs/">Open the documentation <span aria-hidden="true">↗</span></a></div>
-        <Accordion>
-          {faqs.map(([q, a], i) => (
-            <AccordionItem id={`faq-${i}`} question={q}>
-              <p>{a} {i === 0 ? <>See <a href={docsTests}>what it tests</a>.</> : null}{i === 3 ? <>Follow the <a href={docsAgent}>agent setup guide</a>.</> : null}</p>
-            </AccordionItem>
-          ))}
-        </Accordion>
+        <FaqThread items={faqs} name="homepage-faq" />
       </div>
     </section>
 
