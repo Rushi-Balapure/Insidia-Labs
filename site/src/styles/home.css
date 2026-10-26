@@ -150,21 +150,8 @@ insidia-marquee[data-paused="true"] .marquee-track, insidia-marquee:hover .marqu
 .video-preview:hover img { opacity: 0.85; }
 .video-preview-play { position: absolute; inset: 50% auto auto 50%; display: grid; place-items: center; padding-left: 3px; width: 3.5rem; height: 3.5rem; border-radius: 50%; transform: translate(-50%, -50%); background: var(--accent); color: #10131b; font-size: 1rem; }
 .video-preview-label { position: absolute; display: flex; justify-content: space-between; align-items: center; inset: auto 0 0; padding: 2rem 1rem 1rem; background: linear-gradient(transparent, #000b); font-size: 0.72rem; }
-.faq-layout { display: grid; grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.25fr); gap: 5rem; }
+.faq-layout { display: grid; grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.25fr); gap: 5rem; align-items: start; }
 .faq-layout > div > p:not(.eyebrow) { color: var(--muted); font-size: 0.8rem; }
-.accordion { border: 1px solid var(--line); border-radius: 0.55rem; background: var(--panel); overflow: hidden; }
-.accordion-item + .accordion-item { border-top: 1px solid var(--line); }
-.accordion-trigger { display: flex; align-items: center; justify-content: space-between; gap: 1rem; width: 100%; min-height: 3.6rem; padding: 1.05rem 1.2rem; cursor: pointer; list-style: none; color: var(--text); font-size: 0.92rem; font-weight: 400; }
-.accordion-trigger::-webkit-details-marker { display: none; }
-.accordion-trigger:hover { background: color-mix(in srgb, var(--text) 4%, transparent); }
-.accordion-trigger:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; }
-.accordion-chevron { flex: none; width: 0.55rem; height: 0.55rem; border-right: 1.5px solid var(--link); border-bottom: 1.5px solid var(--link); transform: rotate(45deg) translateY(-2px); transition: transform 200ms ease; }
-.accordion-item[open] .accordion-chevron { transform: rotate(225deg) translateY(-1px); }
-.accordion-panel { overflow: hidden; }
-insidia-accordion[data-ready] .accordion-panel { height: 0; transition: height 240ms ease; }
-.accordion-panel-inner { padding: 0.15rem 1.2rem 1.15rem; color: var(--muted); font-size: 0.88rem; line-height: 1.75; }
-.accordion-panel-inner p { margin: 0; }
-.accordion-panel-inner a { color: var(--link); }
 
 @media (max-width: 1100px) {
   .hero-layout { gap: 2rem; }
@@ -214,5 +201,5 @@ insidia-accordion[data-ready] .accordion-panel { height: 0; transition: height 2
   .home .marquee-track { width: auto; }
   .home .marquee-group { flex-wrap: wrap; gap: 1.5rem; }
   .home .marquee-group[aria-hidden="true"] { display: none; }
-  .accordion-chevron, .accordion-panel, .video-preview img, .bento-cell, .hero-install .seg-slider, .hero-install .seg button, .hero-install .install-swap .install-box { transition: none; }
+  .video-preview img, .bento-cell, .hero-install .seg-slider, .hero-install .seg button, .hero-install .install-swap .install-box { transition: none; }
 }

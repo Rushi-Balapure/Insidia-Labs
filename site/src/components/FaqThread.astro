@@ -1,0 +1,168 @@
+---
+import type { Faq } from "../content/faqs";
+
+interface Props {
+  items: Faq[];
+  name?: string;
+}
+
+const { items, name = "insidia-faq" } = Astro.props;
+---
+<insidia-faq class="faq-thread">
+  {items.map((item, index) => (
+    <details class="faq-turn" open={index === 0}>
+      <summary class="faq-q" id={`${name}-${item.id}-q`}>{item.question}</summary>
+      <div class="faq-panel">
+        <div class="faq-reply" id={`${name}-${item.id}-a`} role="region" aria-labelledby={`${name}-${item.id}-q`}>
+          <p class="faq-bubble">{item.answer}{item.link && <>{" "}{item.link.before}{" "}<a href={item.link.href}>{item.link.label}</a>.</>}</p>
+          <img class="faq-avatar" src="/apple-touch-icon.png" alt="" width="32" height="32" />
+        </div>
+      </div>
+    </details>
+  ))}
+</insidia-faq>
+<script>
+  class InsidiaFaq extends HTMLElement {
+    private observer = new ResizeObserver(() => this.reserve(false));
+    private lastWidth = -1;
+    private controller = new AbortController();
+
+    connectedCallback() {
+      if (this.dataset.ready) return;
+      this.reserve(true);
+      this.observer.observe(this);
+      document.fonts?.ready?.then(() => this.reserve(true));
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      this.dataset.ready = "true";
+      this.controller = new AbortController();
+      const { signal } = this.controller;
+      const turns = [...this.querySelectorAll<HTMLDetailsElement>(".faq-turn")];
+      const generation = new WeakMap<HTMLElement, number>();
+      const bump = (turn: HTMLElement) => {
+        const next = (generation.get(turn) ?? 0) + 1;
+        generation.set(turn, next);
+        return next;
+      };
+      const panelOf = (turn: HTMLDetailsElement) => turn.querySelector<HTMLElement>(".faq-panel");
+      for (const turn of turns) if (turn.open) turn.classList.add("is-shown");
+
+      const open = (turn: HTMLDetailsElement) => {
+        const panel = panelOf(turn);
+        if (!panel) return;
+        const token = bump(turn);
+        turn.classList.remove("is-shown");
+        panel.style.height = "0px";
+        turn.open = true;
+        requestAnimationFrame(() => {
+          if (generation.get(turn) !== token) return;
+          const reply = panel.querySelector<HTMLElement>(".faq-reply");
+          panel.style.height = `${reply?.offsetHeight ?? panel.scrollHeight}px`;
+          turn.classList.add("is-shown");
+        });
+        panel.addEventListener("transitionend", function done(event) {
+          if (event.propertyName !== "height" || generation.get(turn) !== token) return;
+          panel.style.height = "auto";
+          panel.removeEventListener("transitionend", done);
+        });
+      };
+
+      const close = (turn: HTMLDetailsElement) => {
+        const panel = panelOf(turn);
+        if (!panel || !turn.open) return;
+        const token = bump(turn);
+        turn.classList.remove("is-shown");
+        panel.style.height = `${panel.scrollHeight}px`;
+        void panel.offsetHeight;
+        panel.style.height = "0px";
+        panel.addEventListener("transitionend", function done(event) {
+          if (event.propertyName !== "height" || generation.get(turn) !== token) return;
+          turn.open = false;
+          panel.style.height = "";
+          panel.removeEventListener("transitionend", done);
+        });
+      };
+
+      turns.forEach((turn, index) => {
+        const summary = turn.querySelector("summary");
+        if (!summary) return;
+        summary.addEventListener("click", (event) => {
+          event.preventDefault();
+          const opening = !turn.open;
+          for (const other of turns) if (other !== turn) close(other);
+          if (opening) open(turn);
+          else close(turn);
+        }, { signal });
+        summary.addEventListener("keydown", (event) => {
+          const keys: Record<string, number | undefined> = {
+            ArrowDown: (index + 1) % turns.length,
+            ArrowUp: (index + turns.length - 1) % turns.length,
+            Home: 0,
+            End: turns.length - 1,
+          };
+          const next = keys[event.key];
+          if (next === undefined) return;
+          event.preventDefault();
+          turns[next].querySelector("summary")?.focus();
+        }, { signal });
+      });
+    }
+
+    disconnectedCallback() {
+      this.observer.disconnect();
+      this.controller.abort();
+      delete this.dataset.ready;
+    }
+
+    private reserve(force: boolean) {
+      const width = Math.round(this.clientWidth);
+      if (!width || (!force && width === this.lastWidth)) return;
+      this.lastWidth = width;
+      const turns = [...this.querySelectorAll<HTMLElement>(".faq-turn")];
+      let summaries = 0;
+      let tallest = 0;
+      for (const turn of turns) {
+        const summary = turn.querySelector("summary");
+        if (summary) summaries += summary.offsetHeight;
+        const reply = turn.querySelector(".faq-reply");
+        if (!reply) continue;
+        const probe = reply.cloneNode(true) as HTMLElement;
+        probe.style.cssText = `position:fixed;visibility:hidden;pointer-events:none;display:flex;width:${width}px;left:0;top:0;`;
+        document.body.appendChild(probe);
+        tallest = Math.max(tallest, probe.offsetHeight);
+        probe.remove();
+      }
+      const box = getComputedStyle(this);
+      const gap = Number.parseFloat(box.rowGap) || 0;
+      const pad = (Number.parseFloat(box.paddingTop) || 0) + (Number.parseFloat(box.paddingBottom) || 0);
+      const next = Math.ceil(pad + summaries + gap * Math.max(0, turns.length - 1) + tallest);
+      if (this.style.minHeight !== `${next}px`) this.style.minHeight = `${next}px`;
+    }
+  }
+  if (!customElements.get("insidia-faq")) customElements.define("insidia-faq", InsidiaFaq);
+</script>
+<style>
+  insidia-faq { display: block; }
+  .faq-thread { display: flex; flex-direction: column; gap: 0.75rem; }
+  .faq-turn { min-width: 0; }
+  .faq-q { display: block; width: fit-content; max-width: 85%; border: 0; background: color-mix(in srgb, var(--text) 7%, var(--panel)); color: var(--text); border-radius: 18px 18px 18px 6px; padding: 0.7rem 1rem; text-align: left; font: inherit; font-size: 0.95rem; line-height: 1.4; letter-spacing: -0.01em; cursor: pointer; list-style: none; }
+  .faq-q::-webkit-details-marker { display: none; }
+  .faq-q:hover { background: color-mix(in srgb, var(--text) 12%, var(--panel)); }
+  .faq-q:focus-visible { outline: 2px solid var(--link); outline-offset: 3px; }
+  .faq-turn[open] .faq-q { background: var(--panel); box-shadow: 0 1px 2px rgb(0 0 0 / 0.2); }
+  .faq-panel { overflow: hidden; }
+  insidia-faq[data-ready] .faq-panel { transition: height 280ms ease; }
+  insidia-faq[data-ready] .faq-turn:not([open]) .faq-panel { height: 0; }
+  .faq-reply { display: flex; justify-content: flex-end; align-items: flex-end; gap: 0.5rem; width: 100%; padding-top: 0.75rem; }
+  insidia-faq[data-ready] .faq-reply { opacity: 0; transform: translateY(6px); transition: opacity 220ms ease, transform 220ms ease; }
+  insidia-faq[data-ready] .faq-turn.is-shown .faq-reply { opacity: 1; transform: none; }
+  .faq-bubble { max-width: min(85%, calc(100% - 2.75rem)); margin: 0; background: var(--accent); color: var(--insidia-navy-900); border-radius: 18px 18px 6px 18px; padding: 0.7rem 1rem; font-size: 0.95rem; line-height: 1.45; letter-spacing: -0.01em; }
+  .faq-bubble a { color: inherit; font-weight: 600; }
+  .faq-avatar { flex: none; width: 2rem; height: 2rem; border-radius: 50%; object-fit: cover; box-shadow: 0 12px 32px -12px rgb(0 0 0 / 0.45); }
+  [data-theme="light"] .faq-q { background: #f4f4f9; }
+  [data-theme="light"] .faq-q:hover { background: #ececf3; }
+  [data-theme="light"] .faq-turn[open] .faq-q { background: #fff; box-shadow: 0 1px 2px rgb(0 0 0 / 0.06); }
+  @media (prefers-reduced-motion: reduce) {
+    insidia-faq[data-ready] .faq-panel,
+    insidia-faq[data-ready] .faq-reply { transition: none; }
+  }
+</style>

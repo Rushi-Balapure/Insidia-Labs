@@ -141,7 +141,7 @@ Analytics and redeploy; see [Vercel's troubleshooting guide](https://vercel.com/
 ## Homepage components
 
 The homepage uses local Astro components for the terminal, the three scan
-steps, copy controls, and the FAQ accordion. Its visual patterns draw on
+steps, copy controls, and the FAQ thread. Its visual patterns draw on
 [Magic UI Terminal](https://magicui.design/docs/components/terminal) and
 [React Bits Logo Loop](https://reactbits.dev/animations/logo-loop), adapted to
 the existing site without adding component-library dependencies.
