@@ -1,4 +1,4 @@
-import { useId, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 
 type Sources = {
   mp4: string;
@@ -15,9 +15,32 @@ export default function VideoModal({ sources, thumbnail = false, label = "Watch 
   title?: string;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const stage = useRef<HTMLDivElement>(null);
+  const inlineVideo = useRef<HTMLVideoElement>(null);
   const titleId = useId();
   const dialogId = useId();
   const transcript = sources.transcript ?? "/film";
+
+  useEffect(() => {
+    const node = stage.current;
+    const video = inlineVideo.current;
+    if (!node || !video) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry?.isIntersecting) {
+        video.pause();
+        return;
+      }
+      video.muted = false;
+      void video.play().catch(() => {
+        video.muted = true;
+        void video.play().catch(() => undefined);
+      });
+    }, { threshold: 0.55 });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   function open() {
     const node = dialog.current;
@@ -26,8 +49,12 @@ export default function VideoModal({ sources, thumbnail = false, label = "Watch 
     const video = node.querySelector("video");
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (video && !reduce) {
-      video.muted = true;
-      void video.play().catch(() => undefined);
+      video.muted = false;
+      void video.play().catch(() => {
+        if (!video) return;
+        video.muted = true;
+        void video.play().catch(() => undefined);
+      });
     }
   }
 
@@ -37,14 +64,30 @@ export default function VideoModal({ sources, thumbnail = false, label = "Watch 
     node?.close();
   }
 
+  if (thumbnail) {
+    return (
+      <div className="video-stage" ref={stage}>
+        <video
+          ref={inlineVideo}
+          className="video-inline"
+          controls
+          playsInline
+          poster={sources.poster}
+          preload="metadata"
+          aria-label={label}
+        >
+          <source src={sources.mp4} type="video/mp4" />
+          <source src={sources.webm} type="video/webm" />
+          <p>Your browser cannot play this video. <a href={transcript}>Read the transcript</a>.</p>
+        </video>
+      </div>
+    );
+  }
+
   return (
     <>
-      <button className={thumbnail ? "video-preview" : "btn ghost"} type="button" onClick={open} aria-label={label} aria-haspopup="dialog" aria-controls={dialogId}>
-        {thumbnail ? <>
-          <img src={sources.poster} alt="" width="960" height="540" loading="lazy" />
-          <span className="video-preview-play" aria-hidden="true">▶</span>
-          <span className="video-preview-label">{label} <span aria-hidden="true">↗</span></span>
-        </> : label}
+      <button className="btn ghost" type="button" onClick={open} aria-label={label} aria-haspopup="dialog" aria-controls={dialogId}>
+        {label}
       </button>
       <dialog
         ref={dialog}
@@ -66,9 +109,8 @@ export default function VideoModal({ sources, thumbnail = false, label = "Watch 
           </button>
         </div>
         <video controls playsInline poster={sources.poster} preload="metadata">
-          <source src={sources.webm} type="video/webm" />
           <source src={sources.mp4} type="video/mp4" />
-          <track kind="captions" src={sources.vtt} srcLang="en" label="English" default />
+          <source src={sources.webm} type="video/webm" />
           <p>Your browser cannot play this video. <a href={transcript}>Read the transcript</a>.</p>
         </video>
         <p className="film-transcript"><a href={transcript}>Read the transcript</a></p>

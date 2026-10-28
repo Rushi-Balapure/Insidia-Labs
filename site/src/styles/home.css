@@ -145,11 +145,8 @@ insidia-marquee[data-paused="true"] .marquee-track, insidia-marquee:hover .marqu
 .report-formats span { display: block; color: var(--text); font: 0.95rem/1.8 var(--mono); }
 
 .video-layout { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 5rem; align-items: center; }
-.video-preview { position: relative; display: block; width: 100%; padding: 0; overflow: hidden; border: 1px solid var(--line); background: var(--terminal-bg); color: #fff; border-radius: 0.6rem; cursor: pointer; text-align: left; }
-.video-preview img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; opacity: 0.65; transition: opacity 180ms ease; }
-.video-preview:hover img { opacity: 0.85; }
-.video-preview-play { position: absolute; inset: 50% auto auto 50%; display: grid; place-items: center; padding-left: 3px; width: 3.5rem; height: 3.5rem; border-radius: 50%; transform: translate(-50%, -50%); background: var(--accent); color: #10131b; font-size: 1rem; }
-.video-preview-label { position: absolute; display: flex; justify-content: space-between; align-items: center; inset: auto 0 0; padding: 2rem 1rem 1rem; background: linear-gradient(transparent, #000b); font-size: 0.72rem; }
+.video-stage { overflow: hidden; border: 1px solid var(--line); background: var(--terminal-bg); border-radius: 0.6rem; }
+.video-inline { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; background: #10131b; }
 .faq-layout { display: grid; grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.25fr); gap: 5rem; align-items: start; }
 .faq-layout > div > p:not(.eyebrow) { color: var(--muted); font-size: 0.8rem; }
 
@@ -201,5 +198,5 @@ insidia-marquee[data-paused="true"] .marquee-track, insidia-marquee:hover .marqu
   .home .marquee-track { width: auto; }
   .home .marquee-group { flex-wrap: wrap; gap: 1.5rem; }
   .home .marquee-group[aria-hidden="true"] { display: none; }
-  .video-preview img, .bento-cell, .hero-install .seg-slider, .hero-install .seg button, .hero-install .install-swap .install-box { transition: none; }
+  .bento-cell, .hero-install .seg-slider, .hero-install .seg button, .hero-install .install-swap .install-box { transition: none; }
 }
