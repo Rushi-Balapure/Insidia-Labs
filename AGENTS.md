@@ -4,7 +4,6 @@ This file is for coding agents changing Insidia. The skill that runs a scan for 
 
 ## Read first
 
-- [plans/00-master-plan.md](plans/00-master-plan.md) is the current plan.
 - [README.md](README.md) is what users see.
 - [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md) are the contribution and disclosure rules.
 
@@ -12,7 +11,7 @@ This file is for coding agents changing Insidia. The skill that runs a scan for 
 
 - `benchmark/` is the scanner benchmark and the framework mappings.
 - `core/` is the `insidia` CLI package (Python 3.12+).
-- `site/` is the marketing site.
+- The marketing site and documentation live in [Insidia-Labs-Site](https://github.com/Rushi-Balapure/Insidia-Labs-Site).
 
 ## Rules
 

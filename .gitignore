@@ -15,10 +15,6 @@ downloads/
 eggs/
 .eggs/
 lib/
-!site/src/lib/
-!site/src/lib/**
-!docs/src/lib/
-!docs/src/lib/**
 lib64/
 parts/
 sdist/
@@ -169,7 +165,6 @@ venv.bak/
 # Rope project settings
 .ropeproject
 
-# The marketing site lives at /site and is tracked.
 
 # mypy
 .mypy_cache/

@@ -18,7 +18,7 @@ from typing import IO
 from insidia import __version__
 from insidia.errors import CliError
 
-REPO = "Rushi-Balapure/Insidia-Labs"
+REPO = "Rushi-Balapure/Insidia-Labs-Argus"
 LATEST_URL = f"https://api.github.com/repos/{REPO}/releases/latest"
 RELEASES_URL = f"https://github.com/{REPO}/releases"
 

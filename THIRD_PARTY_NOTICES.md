@@ -22,6 +22,5 @@ GPL, AGPL, SSPL, Elastic, and BUSL are denied.
 | docstring-parser | MIT | Imported when the AgentDojo tool modules load. |
 
 The runner and the hub use only the Go standard library in Phase 0.
-The docs site uses Astro and Starlight (MIT).
 
 Engines added in later phases are recorded here before their image is built.

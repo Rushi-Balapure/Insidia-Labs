@@ -1,5 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://www.insidialabs.com/sitemap-index.xml
-Sitemap: https://www.insidialabs.com/docs/sitemap-index.xml
