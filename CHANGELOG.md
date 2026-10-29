@@ -15,7 +15,7 @@ The first versioned release of the Insidia CLI.
 ### Install
 
 ```bash
-uv tool install "git+https://github.com/Rushi-Balapure/Insidia-Labs@v1.0.0#subdirectory=core"
+uv tool install "git+https://github.com/Rushi-Balapure/Insidia-Labs-Argus@v1.0.0#subdirectory=core"
 ```
 
 `pipx install` accepts the same URL. A copy installed before 1.0.0 has no `upgrade` command; run the install command above with `--force` once, then use `insidia upgrade` from then on.

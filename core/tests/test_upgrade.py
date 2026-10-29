@@ -58,7 +58,7 @@ def test_detect_installer_recognises_a_source_checkout(tmp_path: Path) -> None:
 
 def test_install_command_pins_the_release_tag(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(upgrade.shutil, "which", lambda name: f"/bin/{name}")
-    spec = "git+https://github.com/Rushi-Balapure/Insidia-Labs@v2.0.0#subdirectory=core"
+    spec = "git+https://github.com/Rushi-Balapure/Insidia-Labs-Argus@v2.0.0#subdirectory=core"
     assert install_command("uv", "v2.0.0") == ["/bin/uv", "tool", "install", "--force", spec]
     assert install_command("pipx", "v2.0.0") == ["/bin/pipx", "install", "--force", spec]
     with pytest.raises(CliError, match="git pull"):

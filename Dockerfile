@@ -41,7 +41,7 @@ RUN pip install --no-cache-dir /opt/insidia/core \
 
 ENV INSIDIA_TOOLCHAIN=/opt/insidia/engines
 WORKDIR /work
-LABEL org.opencontainers.image.source="https://github.com/Rushi-Balapure/Insidia-Labs" \
+LABEL org.opencontainers.image.source="https://github.com/Rushi-Balapure/Insidia-Labs-Argus" \
       org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.title="Insidia"
 ENTRYPOINT ["insidia"]

@@ -40,7 +40,7 @@ Some checks currently work only on the project's test apps, and external engine 
 Install the **Insidia skill** to give your coding agent the steps for setting up a scan, reviewing findings, and opening your report. Run this from the project you want to test, then select your agent when prompted:
 
 ```bash
-npx skills add Rushi-Balapure/Insidia-Labs
+npx skills add Rushi-Balapure/Insidia-Labs-Argus
 ```
 
 The skill installer needs Node.js 22 or newer. Scans need Python 3.12 or newer and the Insidia CLI; the skill guides your agent through installing it with `uv` or `pipx`.
@@ -62,10 +62,10 @@ Prefer the terminal? Install the CLI with Python 3.12 or newer and either `uv` o
 
 ```bash
 # uv (recommended)
-uv tool install "git+https://github.com/Rushi-Balapure/Insidia-Labs@v1.0.0#subdirectory=core"
+uv tool install "git+https://github.com/Rushi-Balapure/Insidia-Labs-Argus@v1.0.0#subdirectory=core"
 
 # pipx
-pipx install "git+https://github.com/Rushi-Balapure/Insidia-Labs@v1.0.0#subdirectory=core"
+pipx install "git+https://github.com/Rushi-Balapure/Insidia-Labs-Argus@v1.0.0#subdirectory=core"
 ```
 
 The current release is **v1.0.0**. Install from GitHub using the commands above; Insidia is not published on PyPI yet. [Full installation guide](https://insidialabs.com/docs/start/install/).
@@ -78,7 +78,7 @@ insidia upgrade --check   # only report whether a newer release exists
 insidia upgrade           # install the latest release
 ```
 
-Release notes are in [CHANGELOG.md](CHANGELOG.md) and on the [releases page](https://github.com/Rushi-Balapure/Insidia-Labs/releases).
+Release notes are in [CHANGELOG.md](CHANGELOG.md) and on the [releases page](https://github.com/Rushi-Balapure/Insidia-Labs-Argus/releases).
 
 ## Quickstart
 
@@ -165,7 +165,7 @@ Also [katana](https://github.com/projectdiscovery/katana) and [httpx](https://gi
 
 ## License
 
-[Apache-2.0](LICENSE). The Sora font in `brand/fonts/` is under the SIL Open Font License. The Insidia Labs name and logo are trademarks and are not part of the Apache license. See [NOTICE](NOTICE).
+[Apache-2.0](LICENSE). The Insidia Labs name and logo are trademarks and are not part of the Apache license. See [NOTICE](NOTICE).
 
 Contributing and disclosure: [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md).
 
