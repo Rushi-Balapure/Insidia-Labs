@@ -1,0 +1,26 @@
+version: 1
+policy: L1
+coverage: standard
+scope:
+  - host: 127.0.0.1
+targets:
+  ssti:
+    kind: web
+    method: GET
+    url: http://127.0.0.1:8090/hello
+    query: {name: "{{payload}}"}
+  ping:
+    kind: web
+    method: GET
+    url: http://127.0.0.1:8090/ping
+    query: {host: "{{payload}}"}
+  file:
+    kind: web
+    method: GET
+    url: http://127.0.0.1:8090/file
+    query: {name: "{{payload}}"}
+  users:
+    kind: api
+    method: GET
+    url: http://127.0.0.1:8090/api/users/1
+models: {}

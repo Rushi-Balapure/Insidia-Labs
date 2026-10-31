@@ -1,0 +1,13 @@
+version: 1
+policy: L1
+coverage: standard
+scope:
+  - host: 127.0.0.1
+targets:
+  nova:
+    kind: chat
+    url: http://127.0.0.1:8100/api/v1/assistant
+    request_template: '{"input": {{prompt_json}}, "session_id": "qa-v5"}'
+    response_selector: "$.output.text"
+    rate_limit: {rps: 5, concurrency: 1}
+models: {}
